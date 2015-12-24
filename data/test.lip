@@ -1,0 +1,14 @@
+
+(let ((fn (lambda (x y) (+ x y))))
+  ; whatever
+  (fn 2 3))
+
+
+; ignore ( nothing )
+
+	; ignore
+(let ((fn print))
+  (fn "adfasdfasdf yo"))
+
+""
+12a

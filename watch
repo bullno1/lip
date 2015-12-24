@@ -1,0 +1,16 @@
+#!/bin/sh
+
+NUMAKE=$(readlink -f numake)
+
+${NUMAKE} $@
+while :
+do
+	inotifywait \
+		-e close_write \
+		`${NUMAKE} --sources` `find . -name '*.nu'`
+	${NUMAKE} $@ && {
+		echo "-------------------------------------"
+		bin/lip
+		echo "-------------------------------------"
+	}
+done

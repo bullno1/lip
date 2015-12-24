@@ -1,0 +1,1239 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import shutil
+import subprocess
+from threading import Thread
+import sqlite3
+import re
+import json
+import hashlib
+import socket
+import pickle
+
+ROOT_FILE_NAME="Makefile.nu"
+
+def main(*args):
+    env, args = parse_args(args[1:], os.environ)
+    return dispatch_cmd("numake", args, env)
+
+def parse_args(args, env):
+    env = env.copy()
+    parsed_args = []
+    for arg in args:
+        if "=" in arg:
+            var_tokens = arg.split("=")
+            env[var_tokens[0]] = var_tokens[1]
+        else:
+            parsed_args.append(arg)
+
+    return (env, parsed_args)
+
+def dispatch_cmd(cmd_name, args, env):
+    cmd_func = getattr(Commands, cmd_name, None)
+    if cmd_func:
+        return cmd_func(args, env)
+    else:
+        return fail("Invalid command: {0}", cmd_name)
+
+class Commands(object):
+    @staticmethod
+    def numake(args, env):
+        if len(args) >= 1 and args[0][:2] == "--":
+            return dispatch_cmd(args[0][2:].replace("-", "_"), args[1:], env)
+
+        files = args if len(args) >= 1 else ["all"]
+        Commands.__build(DependencyType.REGULAR, files, env)
+
+    @staticmethod
+    def depend(args, env):
+        Commands.__build(DependencyType.REGULAR, args, env)
+
+    @staticmethod
+    def order_only(args, env):
+        Commands.__build(DependencyType.ORDER_ONLY, args, env)
+
+    @staticmethod
+    def rules(args, env):
+        with Context.create(env = env) as context:
+            for rule in context.rules:
+                print(rule.pattern.get_friendly(context))
+
+    @staticmethod
+    def graph(args, env):
+        with Context.create(env = env) as context:
+            print("digraph numake {")
+
+            nodes, edges = context.db.get_build_graph()
+
+            for node_name, node_type in nodes:
+                if node_type == FileTypes.SOURCE:
+                    attrs = "[ shape = box ]"
+                elif node_type == FileTypes.REGULAR_TARGET:
+                    attrs = "[ shape = ellipse ]"
+                elif node_type == FileTypes.LIVE_TARGET:
+                    attrs = "[ shape = diamond ]"
+
+                print("\t\"{0}\" {1};".format(node_name, attrs))
+
+            for src, dst, edge_type in edges:
+                if edge_type == DependencyType.REGULAR:
+                    attrs = "[ arrowhead=normal ]"
+                elif edge_type == DependencyType.ORDER_ONLY:
+                    attrs = "[ arrowhead=box ]"
+
+                print("\t\"{0}\" -> \"{1}\" {2}".format(src, dst, attrs))
+
+            print("}")
+
+    @staticmethod
+    def gc(args, env):
+        with Context.create(env = env) as context:
+            nodes, edges = context.db.get_build_graph()
+
+            garbage_nodes = []
+            for node_name, node_type in nodes:
+                node = Path(os.path.join(context.root_dir, node_name))
+                if node_type == FileTypes.SOURCE:
+                    if not os.path.exists(node.absolute):
+                        context.logger.info(
+                            "Removing non-existent source file: {0}",
+                            node.get_friendly(context)
+                        )
+                        garbage_nodes.append(node_name)
+                elif not context.find_rule(node):
+                    context.logger.info(
+                        "Removing target with no rules: {0}",
+                        node.get_friendly(context)
+                    )
+                    garbage_nodes.append(node_name)
+            context.db.delete_nodes(garbage_nodes)
+
+    @staticmethod
+    def targets(args, env):
+        with Context.create(env = env) as context:
+            nodes, edges = context.db.get_build_graph()
+
+            for node_name, node_type in nodes:
+                if node_type == FileTypes.LIVE_TARGET or node_type == FileTypes.REGULAR_TARGET:
+                    node = Path(os.path.join(context.root_dir, node_name))
+                    print(node.get_friendly(context))
+
+    @staticmethod
+    def sources(args, env):
+        with Context.create(env = env) as context:
+            nodes, edges = context.db.get_build_graph()
+
+            for node_name, node_type in nodes:
+                if node_type == FileTypes.SOURCE:
+                    node = Path(os.path.join(context.root_dir, node_name))
+                    print(node.get_friendly(context))
+
+    @staticmethod
+    def clean(args, env):
+        with Context.create(env = env) as context:
+            nodes, edges = context.db.get_build_graph()
+
+            for node_name, node_type in nodes:
+                node = Path(os.path.join(context.root_dir, node_name))
+                is_target = node_type == FileTypes.LIVE_TARGET or node_type == FileTypes.REGULAR_TARGET
+                exists = os.path.exists(node.absolute)
+                if is_target and exists:
+                    print("rm {0}".format(node.get_friendly(context)))
+                    rm(node.absolute)
+
+    @staticmethod
+    def init(args, env):
+        ensure_dir(os.path.join(os.path.abspath(os.path.curdir), ".numake"))
+
+    @staticmethod
+    def enable_trace(args, env):
+        with Context.create(env = env) as context:
+            if (context.env.get("NUMAKE_TRACE_CMD", "") or "0") != "0":
+                print("set -x")
+            else:
+                print(":")
+
+    @staticmethod
+    def __build(dependency_type, targets, env):
+        targets = [Path(target) for target in targets]
+
+        with Context.create(env = env) as context:
+            for target in targets:
+                context.numake(target)
+
+            parent = os.environ.get("NUMAKE_TARGET", None)
+            parent = Path(parent) if parent else None
+            if parent:
+                context.db.register_dependencies(
+                    parent, targets, dependency_type
+                )
+
+class Context(object):
+    @staticmethod
+    def create(start_dir = None, root_dir = None, env = os.environ):
+        ctx = Context()
+
+        ctx._db = None
+        ctx._rules = None
+        ctx._logger = None
+        ctx._rpc_sock = None
+        ctx.agent = None
+        ctx.parent = None
+
+        agent_port = env.get("NUMAKE_AGENT_PORT", None)
+        if agent_port:
+            ctx.is_root = False
+            ctx._agent_port = int(agent_port)
+            parent_id = int(env.get("NUMAKE_PARENT_ID"))
+            ctx.env = ctx._query_agent("get_env", parent_id)
+            ctx.env.update(env)
+        else:
+            ctx.is_root = True
+            ctx._agent_port = None
+            ctx.env = env.copy()
+            start_dir = start_dir or os.path.abspath(os.path.curdir)
+            ctx.env.update({
+                "NUMAKE_START_DIR": start_dir,
+                "NUMAKE_ROOT": root_dir or Context._find_root(start_dir),
+                "NUMAKE_LOG_LEVEL": ctx.env.get("NUMAKE_LOG_LEVEL", "INFO")
+            })
+
+        ctx.start_dir = ctx.env.get("NUMAKE_START_DIR")
+        ctx.root_dir = ctx.env.get("NUMAKE_ROOT")
+        ctx.indent = ""
+        log_level = ctx.env.get("NUMAKE_LOG_LEVEL")
+        ctx.logger = Logger(
+            indent = ctx.indent, level = LogLevel.parse(log_level)
+        )
+        timestamp = ctx.env.get("NUMAKE_TIMESTAMP", None)
+        ctx._timestamp = int(timestamp) if timestamp else None
+
+        return ctx
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, stacktrace):
+        self.close()
+
+    def close(self):
+        if self.agent:
+            self._query_agent("stop")
+        if self._rpc_sock:
+            self._rpc_sock.close()
+
+    def numake(self, file):
+        self.logger.info("numake {0}", file.get_friendly(self))
+        db = self.db
+
+        if db.visited(file):
+            self.logger.debug(
+                " {0} was visited before",
+                file.get_friendly(self)
+            )
+            return db.get_checksum(file)
+
+        file_type = db.get_type(file)
+
+        # If an existing file is mentioned for the first time, it is a source
+        if file_type == None and os.path.exists(file.absolute):
+            file_type = FileTypes.SOURCE
+
+        if file_type == FileTypes.SOURCE:
+            return self._handle_source(file)
+        else:
+            return self._handle_target(file)
+
+    def rebuild(self, target, rule, match):
+        self.logger.info("rebuild {0}", target.get_friendly(self))
+        self.logger.debug(" Begin rebuild {0}", target.get_friendly(self))
+
+        # It is necessary to record that we are trying to build this target.
+        # This is because the build may fail and the target may be erroneously
+        # recognized as a source next time we rebuild.
+        build_vars = {}
+        for var in Rule.IMPLICIT_BUILD_VARS:
+            build_vars[var] = self.env.get(var)
+        for var, value in rule.build_vars.items():
+            build_vars[var] = value or self.env.get(var, "")
+        db = self.db
+        db.reset_target(target, rule, build_vars)
+
+        # Build environment variables
+        out = os.path.relpath(target.absolute, rule.working_directory.absolute)
+        env = {
+            "NUMAKE": os.path.realpath(sys.argv[0]),
+            "NUMAKE_AGENT_PORT": str(self.agent_port),
+            "NUMAKE_PARENT_ID": str(self.instance_id),
+            "NUMAKE_TARGET": target.absolute,
+            "m": match
+        }
+        env.update(build_vars)
+
+        rm(target.absolute)
+        cascaded_env = self.env.copy()
+        cascaded_env.update(build_vars)
+        self._query_agent("put_env", self.instance_id, cascaded_env)
+
+        self.logger.debug(" Begin subprocess")
+        # -s: Read commands from stdin
+        # -e: Stop execution on first error
+        # -x: Trace commands
+        # Passing in "out" will make $@ point to output like in Makefile
+        log_level_is_trace = self.logger.level == LogLevel.TRACE
+        trace_command_on = (self.env.get("NUMAKE_TRACE_CMD", "") or "0") != "0"
+        if log_level_is_trace or trace_command_on:
+            cmd = ["sh", "-s", "-e", "-x", out]
+        else:
+            cmd = ["sh", "-s", "-e", out]
+        build_process = subprocess.Popen(
+            cmd,
+            stdin = subprocess.PIPE,
+            stdout = subprocess.PIPE,
+            stderr = subprocess.STDOUT,
+            cwd = rule.working_directory.absolute,
+            env = env
+        )
+
+        # Use a thread to push build script to avoid dead lock
+        write_thread = WriteThread(rule, build_process.stdin)
+        write_thread.start()
+
+        for line in build_process.stdout:
+            self.logger.info("  {0}", line.decode("utf-8").rstrip("\r\n"))
+
+        write_thread.join()
+        build_process.wait()
+        self.logger.debug(" End subprocess")
+
+        if build_process.returncode == 0:
+            if not rule.is_live and not os.path.exists(target.absolute):
+                return fail(
+                    "Target not generated: {0}",
+                    target.get_friendly(self)
+                )
+            target_checksum = checksum(target)
+            db.update_target(target, target_checksum)
+            self.logger.debug(" End rebuild {0}", target.get_friendly(self))
+            return target_checksum
+        else:
+            return fail(
+                "Failed to build target: {0}",
+                target.get_friendly(self)
+            )
+
+    def find_rule(self, target):
+        # Find all matching rules
+        candidates = []
+        for rule in self.rules:
+            match_result = rule.match(target)
+            if match_result is not None:
+                candidates.append((rule, match_result))
+
+        # Pick the most specific (shortest match)
+        best_match = None
+        shortest_match_length = sys.maxsize
+        for rule, match in candidates:
+            match_length = len(match)
+            if match_length < shortest_match_length:
+                best_match = (rule, match)
+                shortest_match_length = match_length
+
+        return best_match
+
+    def create_child(self, target):
+        child = Context()
+
+        child.parent = self
+        child.agent = None
+        child._rpc_sock = None
+        child._db = self._db
+        child._rules = self._rules
+        child.is_root = self.is_root
+        child._agent_port = self._agent_port
+        child.env = self.env
+        child.start_dir = self.start_dir
+        child.root_dir = self.root_dir
+        child.indent = self.indent + "  "
+        child._timestamp = self._timestamp
+        child.logger = Logger(indent = child.indent, level = self.logger.level)
+
+        return child
+
+    @property
+    def timestamp(self):
+        if not self._timestamp:
+            if self.parent:
+                self._timestamp = self.parent.timestamp
+            else:
+                self._timestamp = self.db.inc_timestamp()
+
+        return self._timestamp
+
+    @property
+    def rules(self):
+        if not self._rules:
+            if self.parent:
+                self._rules = self.parent.rules
+            elif self.is_root:
+                rule_path = Path(os.path.join(self.root_dir, ROOT_FILE_NAME))
+                self._rules = Rule.parse(
+                    self,
+                    rule_path,
+                    Path(os.path.dirname(rule_path.absolute)),
+                    self.env.copy()
+                )
+            else:
+                self._rules = self._query_agent("rules")
+        return self._rules
+
+    @property
+    def meta_dir(self):
+        return os.path.join(self.root_dir, ".numake")
+
+    @property
+    def db(self):
+        if not self._db:
+            self._db = Db(self)
+
+        return self._db
+
+    @property
+    def agent_port(self):
+        if not self._agent_port:
+            if self.parent:
+                self._agent_port = self.parent.agent_port
+            else:
+                self.agent = Agent(self)
+                self.agent.start()
+                self._agent_port = self.agent.port
+
+        return self._agent_port
+
+    @property
+    def rpc_sock(self):
+        if not self._rpc_sock:
+            self._rpc_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self._rpc_sock.bind(('127.0.0.1', 0))
+
+        return self._rpc_sock
+
+    @property
+    def instance_id(self):
+        ip, port = self.rpc_sock.getsockname()
+        return port
+
+    @staticmethod
+    def _find_root(start_dir):
+        search_dir = start_dir
+        while True:
+            meta_dir = os.path.join(search_dir, ".numake")
+            if os.path.isdir(meta_dir):
+                return search_dir
+
+            if search_dir == "/":
+                return start_dir
+
+            search_dir = os.path.dirname(search_dir)
+
+    def _handle_source(self, source):
+        source_checksum = checksum(source)
+        self.db.register_source(source, source_checksum)
+        return source_checksum
+
+    def _handle_target(self, target):
+        rule_match = self.find_rule(target)
+        if not rule_match:
+            return fail(
+                "No rule found for target: {0}",
+                target.get_friendly(self)
+            )
+
+        rule, match = rule_match
+        self.logger.debug(
+            " Using rule {0}({1})",
+            rule.pattern.get_friendly(self),
+            match
+        )
+        db = self.db
+        db.register_target(target, rule)
+
+        # A live target must always be rebuilt
+        if rule.is_live:
+            self.logger.debug(" Target is live")
+            return self.rebuild(target, rule, match)
+
+        # Build if it was not built before
+        if not (db.built(target) and os.path.exists(target.absolute)):
+            self.logger.debug(" Output is not present")
+            return self.rebuild(target, rule, match)
+
+        # A change in rule triggers a rebuild
+        if rule.get_checksum(self) != db.get_rule_checksum(target):
+            self.logger.debug(" Target's rule changed")
+            return self.rebuild(target, rule, match)
+
+        # A change in build vars triggers a rebuild
+        old_build_vars = db.get_build_vars(target)
+        for var, value in rule.build_vars.items():
+            old_value = old_build_vars.get(var, "")
+            new_value = value or self.env.get(var, "")
+            if new_value != old_value:
+                self.logger.debug(
+                    " Target's build var \"{0}\" changed",
+                    var, new_value, old_value
+                )
+                return self.rebuild(target, rule, match)
+        for var in Rule.IMPLICIT_BUILD_VARS:
+            old_value = old_build_vars.get(var, None)
+            new_value = self.env.get(var)
+            if new_value != old_value:
+                self.logger.debug(
+                    " Target's build var \"{0}\" changed",
+                    var, new_value, old_value
+                )
+                return self.rebuild(target, rule, match)
+
+        # Check all dependencies
+        need_rebuild = False
+        self.logger.debug(" Begin check dependencies")
+        with self.create_child(target) as dep_context:
+            for dependency, dep_type, checksum in db.get_dependencies(target):
+                # If a dependency is not present, rebuild
+                if not os.path.exists(dependency.absolute):
+                    dep_context.logger.debug(
+                        "{0} is not present",
+                        dependency.get_friendly(self)
+                    )
+                    need_rebuild = True
+                    break
+                # If a regular dependency is changed, rebuild
+                dep_changed = dep_context.numake(dependency) != checksum
+                if dep_changed and dep_type == DependencyType.REGULAR:
+                    dep_context.logger.debug(
+                        "{0} changed",
+                        dependency.get_friendly(self)
+                    )
+                    need_rebuild = True
+                    break
+        self.logger.debug(" End check dependencies")
+
+        if need_rebuild:
+            return self.rebuild(target, rule, match)
+        else:
+            db.set_visited(target)
+            return db.get_checksum(target)
+
+    def _query_agent(self, *cmd):
+        self.rpc_sock.sendto(
+            pickle.dumps(cmd, pickle.HIGHEST_PROTOCOL),
+            ("127.0.0.1", self.agent_port)
+        )
+        return pickle.loads(self.rpc_sock.recv(65535))
+
+class Db(object):
+    def __init__(self, context):
+        ensure_dir(context.meta_dir)
+        db_path = os.path.join(context.meta_dir, "db")
+        self.conn = sqlite3.connect(db_path)
+        self.ctx = context
+        with self.conn:
+            self.conn.executescript(
+                """
+                PRAGMA foreign_keys = ON;
+
+                CREATE TABLE IF NOT EXISTS config(
+                    key TEXT PRIMARY KEY,
+                    value
+                ) WITHOUT ROWID;
+                INSERT OR IGNORE INTO config(key, value) VALUES("clock", 0);
+
+                CREATE TABLE IF NOT EXISTS file(
+                    name TEXT PRIMARY KEY,
+                    type TEXT,
+                    timestamp INTEGER,
+                    checksum TEXT,
+                    rule TEXT
+                ) WITHOUT ROWID;
+
+                CREATE TABLE IF NOT EXISTS build_var(
+                    file TEXT REFERENCES file(name) ON DELETE CASCADE,
+                    name TEXT,
+                    value TEXT,
+                    PRIMARY KEY(file, name)
+                ) WITHOUT ROWID;
+                CREATE INDEX IF NOT EXISTS build_var_index ON build_var(file);
+
+                CREATE TABLE IF NOT EXISTS dependency(
+                    src TEXT REFERENCES file(name) ON DELETE CASCADE,
+                    dst TEXT REFERENCES file(name) ON DELETE CASCADE,
+                    type INTEGER,
+                    checksum TEXT,
+                    PRIMARY KEY(src, dst)
+                ) WITHOUT ROWID;
+                CREATE INDEX IF NOT EXISTS dependency_src ON dependency(src);
+                CREATE INDEX IF NOT EXISTS dependency_dst ON dependency(dst);
+                """
+            )
+
+    def visited(self, file):
+        timestamp = self._get_file_attr(file, "timestamp") or 0
+        return timestamp >= self.ctx.timestamp
+
+    def set_visited(self, target):
+        with self.conn:
+            self.conn.execute(
+                "UPDATE file SET timestamp = ? WHERE name = ?",
+                (self.ctx.timestamp, target.get_friendly(self.ctx))
+            )
+
+    def get_type(self, file):
+        return self._get_file_attr(file, "type")
+
+    def get_checksum(self, file):
+        return self._get_file_attr(file, "checksum")
+
+    def get_rule_checksum(self, target):
+        return self._get_file_attr(target, "rule")
+
+    def register_source(self, source, checksum):
+        canonical_path = source.get_canonical(self.ctx)
+        with self.conn:
+            self.conn.execute(
+                """
+                INSERT OR IGNORE INTO file(name, type, checksum, timestamp)
+                VALUES(?, ?, ?, ?)
+                """,
+                (
+                    canonical_path,
+                    FileTypes.SOURCE,
+                    checksum,
+                    self.ctx.timestamp
+                )
+            )
+            self.conn.execute(
+                """
+                UPDATE file
+                SET type = ?
+                  , checksum = ?
+                  , timestamp = ?
+                WHERE name =?
+                """,
+                (
+                    FileTypes.SOURCE,
+                    checksum,
+                    self.ctx.timestamp,
+                    canonical_path
+                )
+            )
+
+    def register_target(self, target, rule):
+        if rule.is_live:
+            target_type = FileTypes.LIVE_TARGET
+        else:
+            target_type = FileTypes.REGULAR_TARGET
+        rule_checksum = rule.get_checksum(self.ctx)
+        canonical_path = target.get_canonical(self.ctx)
+        with self.conn:
+            # Why INSERT OR IGNORE?
+            # If this is a new target, it is not a problem.
+            # If the target exists and some value changes, it will get rebuilt
+            # and thus, the values here will be reset anyway.
+            self.conn.execute(
+                "INSERT OR IGNORE INTO file(name, type, rule) VALUES(?, ?, ?)",
+                (canonical_path, target_type, rule_checksum)
+            )
+
+    def built(self, target):
+        with self.conn:
+            row = self.conn.execute(
+                "SELECT checksum FROM file WHERE name = ?",
+                (target.get_canonical(self.ctx),)
+            ).fetchone()
+
+            return bool(row[0]) if row else None
+
+    def reset_target(self, target, rule, build_vars):
+        canonical_path = target.get_canonical(self.ctx)
+        if rule.is_live:
+            file_type = FileTypes.LIVE_TARGET
+        else:
+            file_type = FileTypes.REGULAR_TARGET
+        build_vars_params = [
+            (canonical_path, name, value) for name, value in build_vars.items()
+        ]
+        rule_checksum = rule.get_checksum(self.ctx)
+        with self.conn:
+            self.conn.execute(
+                "DELETE FROM dependency WHERE src = ?",
+                (canonical_path,)
+            )
+            self.conn.execute(
+                "DELETE FROM build_var WHERE file = ?",
+                (canonical_path,)
+            )
+            self.conn.execute(
+                """
+                INSERT OR IGNORE INTO file(name, type, rule, checksum)
+                VALUES(?, ?, ?, NULL)
+                """,
+                (canonical_path, file_type, rule_checksum)
+            )
+            self.conn.execute(
+                """
+                UPDATE file
+                SET type = ?, rule = ?, checksum = NULL
+                WHERE name = ?
+                """,
+                (file_type, rule_checksum, canonical_path)
+            )
+            self.conn.executemany(
+                "INSERT INTO build_var(file, name, value) VALUES(?, ?, ?)",
+                build_vars_params
+            )
+
+    def inc_timestamp(self):
+        with self.conn:
+            self.conn.execute(
+                "UPDATE config SET value = value + 1 WHERE key = 'clock'"
+            )
+            return self.conn.execute(
+                "SELECT value FROM config WHERE key = 'clock'"
+            ).fetchone()[0]
+
+    def update_target(self, target, checksum):
+        canonical_path = target.get_canonical(self.ctx)
+        with self.conn:
+            # Update own checksum
+            self.conn.execute(
+                "UPDATE file SET checksum = ?, timestamp = ? WHERE name = ?",
+                (checksum,
+                 self.ctx.timestamp,
+                 canonical_path)
+            )
+            # Update dependencies' checksums
+            self.conn.execute(
+                """
+                UPDATE dependency
+                SET checksum = (
+                    SELECT checksum
+                    FROM file
+                    WHERE file.name = dependency.dst
+                )
+                WHERE src = ?
+                """,
+                (canonical_path,)
+            )
+
+    def get_build_vars(self, target):
+        build_vars = {}
+        with self.conn:
+            cursor = self.conn.execute(
+                "SELECT name, value FROM build_var WHERE file = ?",
+                (target.get_friendly(self.ctx),)
+            )
+            for row in cursor:
+                build_vars[row[0]] = row[1]
+        return build_vars
+
+    def get_dependencies(self, target):
+        dependencies = []
+
+        with self.conn:
+            cursor = self.conn.execute(
+                "SELECT dst, type, checksum FROM dependency WHERE src = ?",
+                (target.get_canonical(self.ctx),)
+            )
+            for row in cursor:
+                dep_path = Path(os.path.join(self.ctx.root_dir, row[0]))
+                dependencies.append((dep_path, row[1], row[2]))
+
+        return dependencies
+
+    def register_dependencies(self, source, destinations, dependency_type):
+        canonical_src = source.get_canonical(self.ctx)
+        dependencies = [
+            (canonical_src, dst.get_canonical(self.ctx), dependency_type)
+            for dst in destinations
+        ]
+        with self.conn:
+            self.conn.executemany(
+                """
+                INSERT OR IGNORE INTO dependency(src, dst, type)
+                VALUES(?, ?, ?)
+                """,
+                dependencies
+            )
+
+    def get_build_graph(self):
+        with self.conn:
+            nodes = [
+                row for row in self.conn.execute(
+                    "SELECT name, type FROM file"
+                )
+            ]
+            edges = [
+                row for row in self.conn.execute(
+                    "SELECT src, dst, type FROM dependency"
+                )
+            ]
+            return (nodes, edges)
+
+    def delete_nodes(self, nodes):
+        with self.conn:
+            self.conn.executemany(
+                "DELETE FROM file WHERE name = ?",
+                [(node,) for node in nodes]
+            )
+
+    def _get_file_attr(self, file, attr):
+        query = "SELECT {0} FROM file WHERE name = ?".format(attr)
+        name = file.get_canonical(self.ctx)
+        with self.conn:
+            row = self.conn.execute(query, (name,)).fetchone()
+            return row[0] if row else None
+
+class Path(object):
+    def __init__(self, path):
+        self.absolute = os.path.abspath(path)
+
+    def get_friendly(self, context):
+        if self.absolute.startswith(context.root_dir):
+            return os.path.relpath(self.absolute, context.start_dir)
+        else:
+            return self.absolute
+
+    def get_canonical(self, context):
+        if self.absolute.startswith(context.root_dir):
+            return os.path.relpath(self.absolute, context.root_dir)
+        else:
+            return self.absolute
+
+    def __repr__(self):
+        return "Path({0})".format(repr(self.absolute))
+
+class Rule(object):
+    EXTRA_ATTRS = [
+        "live"
+    ]
+
+    IMPLICIT_BUILD_VARS = [
+        "PATH"
+    ]
+
+    def __init__(
+            self,
+            working_directory, pattern, regular_deps, order_deps,
+            body, build_vars, extra_attrs):
+        self.working_directory = working_directory
+        self.pattern = pattern
+        self.body = body
+        self.regular_deps = regular_deps
+        self.order_deps = order_deps
+        self.build_vars = build_vars
+        self.extra_attrs = extra_attrs
+
+    @staticmethod
+    def parse(ctx, path, working_directory, env):
+        friendly_path = path.get_friendly(ctx)
+        ctx.logger.debug(" Parsing rule file: {0}", friendly_path)
+        rule_dir = os.path.dirname(path.absolute)
+        if not os.path.isfile(path.absolute):
+            return fail("File not found: {0}", friendly_path)
+
+        line_no = 0
+        rules = []
+
+        rule_pattern = None
+        rule_lines = []
+        regular_deps = []
+        order_deps = []
+        build_vars = {}
+        extra_attrs = []
+
+        with open(path.absolute) as rule_file:
+            for line in rule_file:
+                line_no = line_no + 1
+                line = line.rstrip("\r\n").split(" #", 1)[0]
+
+                if len(line) == 0:
+                    continue
+
+                if line[0].isspace():
+                    # Rule
+                    if rule_pattern:
+                        rule_lines.append(line)
+                    else:
+                        return fail(
+                            "Syntax error: Unexpected recipe line in {0}, line {1}",
+                            friendly_path, line_no
+                        )
+                elif line.startswith("#"):
+                    # Comment
+                    continue
+                elif line.startswith("-include"):
+                    # Include directive
+                    subrule_file_name = line[len("-include") + 1:].strip()
+                    subrule_file_path = Path(
+                        os.path.join(rule_dir, subrule_file_name)
+                    )
+                    if os.path.isdir(subrule_file_path.absolute):
+                        subrule_file_path = Path(
+                            os.path.join(
+                                subrule_file_path.absolute, ROOT_FILE_NAME
+                            )
+                        )
+                    ctx.logger.trace(
+                        " Parsing include file: {0}",
+                        subrule_file_path.get_friendly(ctx)
+                    )
+                    rules.extend(
+                        Rule.parse(
+                            ctx,
+                            subrule_file_path,
+                            Path(os.path.dirname(subrule_file_path.absolute)),
+                            env.copy()
+                        )
+                    )
+                elif line.startswith("-import"):
+                    # Import directive
+                    imported_file_name = line[len("-import") + 1:].strip()
+                    imported_file_path = Path(
+                        os.path.join(rule_dir, imported_file_name)
+                    )
+                    if os.path.isdir(imported_file_path.absolute):
+                        imported_file_path = Path(
+                            os.path.join(
+                                imported_file_path.absolute, ROOT_FILE_NAME
+                            )
+                        )
+                    ctx.logger.trace(
+                        " Parsing import file: {0}",
+                        imported_file_path.get_friendly(ctx)
+                    )
+                    rules.extend(
+                        Rule.parse(
+                            ctx,
+                            imported_file_path,
+                            working_directory,
+                            env.copy()
+                        )
+                    )
+                elif "?=" in line:
+                    # Default var assignment
+                    var_tokens = line.split("?=", 1)
+                    var_name = var_tokens[0].rstrip(" ")
+                    if not env.get(var_name, None):
+                        env[var_name] = shell_eval(
+                            var_tokens[1].lstrip(" "), env, rule_dir
+                        )
+                elif "=" in line:
+                    # Var assignment
+                    var_tokens = line.split("=", 1)
+                    var_name = var_tokens[0].rstrip(" ")
+                    env[var_name] = shell_eval(
+                        var_tokens[1].lstrip(" "), env, rule_dir
+                    )
+                elif ":" in line:
+                    # Rule header
+                    if rule_pattern:
+                        rule = Rule(
+                            working_directory = working_directory,
+                            pattern = rule_pattern,
+                            body = "\n".join(rule_lines),
+                            regular_deps = regular_deps,
+                            order_deps = order_deps,
+                            build_vars = build_vars,
+                            extra_attrs = extra_attrs
+                        )
+                        ctx.logger.trace(
+                            " Add rule: {0}",
+                            rule_pattern.get_friendly(ctx)
+                        )
+                        rules.append(rule)
+
+                        rule_lines = []
+                        regular_deps = []
+                        order_deps = []
+                        build_vars = {}
+                        extra_attrs = []
+
+                    tokens = line.rsplit(":", 1)
+                    rule_pattern = Path(
+                        os.path.join(
+                            working_directory.absolute,
+                            shell_eval(tokens[0], env, rule_dir),
+                        )
+                    )
+
+                    rhs_type = RuleRhsType.DEPENDENCY
+                    for token in filter(None, tokens[1].split(" ")):
+                        if token == "<<":
+                            rhs_type = RuleRhsType.BUILD_VARS
+                        elif token == "!":
+                            rhs_type = RuleRhsType.EXTRA_ATTRS
+                        elif token == "|":
+                            rhs_type = RuleRhsType.ORDER_ONLY_DEPENDENCY
+                        else:
+                            if rhs_type == RuleRhsType.DEPENDENCY:
+                                regular_deps.append(token.replace("%", "$m"))
+                            elif rhs_type == RuleRhsType.ORDER_ONLY_DEPENDENCY:
+                                order_deps.append(token.replace("%", "$m"))
+                            elif rhs_type == RuleRhsType.BUILD_VARS:
+                                build_vars[token] = env.get(token, "")
+                            elif rhs_type == RuleRhsType.EXTRA_ATTRS:
+                                if token not in Rule.EXTRA_ATTRS:
+                                    return fail(
+                                        "Syntax error, invalid attribute '{0}' in {1}, line {2}",
+                                        token, friendly_path, line_no
+                                    )
+                                extra_attrs.append(token)
+                else:
+                    return fail(
+                        "Syntax error in {0}, line {1}",
+                        friendly_path, line_no
+                    )
+
+            if rule_pattern:
+                rule = Rule(
+                    working_directory = working_directory,
+                    pattern = rule_pattern,
+                    body = "\n".join(rule_lines),
+                    regular_deps = regular_deps,
+                    order_deps = order_deps,
+                    build_vars = build_vars,
+                    extra_attrs = extra_attrs
+                )
+                ctx.logger.trace(
+                    " Add rule: {0}",
+                    rule_pattern.get_friendly(ctx)
+                )
+                rules.append(rule)
+
+            return rules
+
+    def match(self, target):
+        # TODO: cache regex in a lazy property which is excluded from checksum
+        regex = self.pattern.absolute.replace("%", "(.*?)") + "$"
+        match = re.match(regex, target.absolute)
+        if not match:
+            return None
+
+        matched_groups = match.groups()
+        return matched_groups[0] if len(matched_groups) == 1 else ""
+
+    @property
+    def prolog(self):
+        regular_dep_prolog = Rule._build_prolog(
+            self.regular_deps, "deps", "--depend"
+        )
+        order_dep_prolog = Rule._build_prolog(
+            self.order_deps, "order_deps", "--order-only"
+        )
+        return regular_dep_prolog + "\n" + order_dep_prolog + "\n"
+
+    def get_checksum(self, ctx):
+        state = self.__dict__.copy()
+        state["working_directory"] = self.working_directory.get_canonical(ctx)
+        state["pattern"] = self.pattern.get_canonical(ctx)
+        json_str = json.dumps(state, sort_keys = True)
+        return hashlib.sha1(json_str.encode("utf-8")).hexdigest()
+
+    @property
+    def is_live(self):
+        return "live" in self.extra_attrs
+
+    @staticmethod
+    def _build_prolog(deps, var, flags):
+        if len(deps) > 0:
+            return "{1}=\"{0}\";\"$NUMAKE\" {2} {0}".format(
+                " ".join(deps), var, flags
+            )
+        else:
+            return ""
+
+class Exception(Exception):
+    pass
+
+class WriteThread(Thread):
+    def __init__(self, rule, pipe):
+        Thread.__init__(self)
+        self.rule = rule
+        self.pipe = pipe
+
+    def run(self):
+        self.pipe.write(self.rule.prolog.encode("utf-8"))
+        self.pipe.write(self.rule.body.encode("utf-8"))
+        self.pipe.close()
+
+class Agent(Thread):
+    NONE = pickle.dumps(None, pickle.HIGHEST_PROTOCOL)
+
+    def __init__(self, context):
+        Thread.__init__(self)
+
+        self.root_env = context.env.copy()
+        self.root_env["NUMAKE_TIMESTAMP"] = context.timestamp
+        self.envs = {}
+        self.rules = pickle.dumps(context.rules, pickle.HIGHEST_PROTOCOL)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind(("127.0.0.1", 0))
+        self.logger = context.logger
+        addr, port = self.sock.getsockname()
+        self.port = port
+
+    def run(self):
+        self.running = True
+        self.logger.debug(" (agent@{0}) Started", self.port)
+        while self.running:
+            cmd, addr = self.sock.recvfrom(65535)
+            cmd = pickle.loads(cmd)
+            method = getattr(self, "_cmd_" + cmd[0], None)
+            if method:
+                self.logger.trace(
+                    " (agent@{0}) Received command {1} from {2}",
+                    self.port, cmd, addr
+                )
+                self.sock.sendto(method(*cmd[1:]), addr)
+            else:
+                self.logger.warning(
+                    " (agent@{0}) Received invalid command {1} from {2}",
+                    self.port, cmd, addr
+                )
+        self.logger.debug(" (agent@{0}) Stopped", self.port)
+
+    def _cmd_get_env(self, env_id):
+        return self.envs.get(env_id, None)
+
+    def _cmd_put_env(self, env_id, env):
+        new_env = self.root_env.copy()
+        new_env.update(env)
+        self.envs[env_id] = pickle.dumps(new_env, pickle.HIGHEST_PROTOCOL)
+        return Agent.NONE
+
+    def _cmd_stop(self):
+        self.running = False
+        return Agent.NONE
+
+    def _cmd_rules(self):
+        return self.rules
+
+class Logger(object):
+    def __init__(self, indent, level):
+        self.indent = indent
+        self.level = level
+
+    def error(self, *params):
+        self.log(LogLevel.ERROR, *params)
+
+    def warning(self, *params):
+        self.log(LogLevel.WARNING, *params)
+
+    def info(self, *params):
+        self.log(LogLevel.INFO, *params)
+
+    def debug(self, *params):
+        self.log(LogLevel.DEBUG, *params)
+
+    def trace(self, *params):
+        self.log(LogLevel.TRACE,  *params)
+
+    def log(self, level, format, *params):
+        if level <= self.level:
+            msg = format.format(*params)
+            print("{0}{1}".format(self.indent, msg))
+            sys.stdout.flush()
+
+class LogLevel(object):
+    OFF = 0
+    ERROR = 1
+    WARNING = 2
+    INFO = 3
+    DEBUG = 4
+    TRACE = 5
+
+    @staticmethod
+    def parse(level):
+        return getattr(LogLevel, level) if hasattr(LogLevel, level) else int(level)
+
+class FileTypes(object):
+    SOURCE = "s"
+    REGULAR_TARGET = "tr"
+    LIVE_TARGET = "tl"
+
+class RuleRhsType(object):
+    DEPENDENCY = 0
+    ORDER_ONLY_DEPENDENCY = 1
+    BUILD_VARS = 2
+    EXTRA_ATTRS = 3
+
+class DependencyType(object):
+    REGULAR = 0
+    ORDER_ONLY = 1
+
+def fail(msg, *args):
+    raise Exception(msg.format(*args))
+
+def ensure_dir(path):
+    try:
+        os.makedirs(path)
+    except OSError:
+        if not os.path.isdir(path):
+            raise
+
+def rm(path):
+    if os.path.isfile(path):
+        os.remove(path)
+    elif os.path.isdir(path):
+        shutil.rmtree(path)
+
+def shell_eval(exp, env, cwd):
+    shell = subprocess.Popen(
+        ["sh", "-c", "echo " + exp],
+        stdin = None,
+        stdout = subprocess.PIPE,
+        stderr = subprocess.PIPE,
+        cwd = cwd,
+        env = env
+    )
+    out, err = shell.communicate()
+    if shell.returncode == 0:
+        return out.decode("utf-8").rstrip("\r\n")
+    else:
+        return fail(
+            "Error while evaluating {0}: {1}",
+            exp, err.decode("utf-8")
+        )
+
+def checksum(path):
+    if os.path.isfile(path.absolute):
+        sha1 = hashlib.sha1()
+
+        with open(path.absolute, "rb") as f:
+            buff = f.read(65536)
+            while len(buff) > 0:
+                sha1.update(buff)
+                buff = f.read(65536)
+
+        return sha1.hexdigest()
+    elif os.path.isdir(path.absolute):
+        sha1 = hashlib.sha1()
+
+        for dirpath, dirnames, filenames in os.walk(path.absolute):
+            for filename in filenames:
+                sha1.update(
+                    checksum(
+                        Path(os.path.join(dirpath, filename))
+                    ).encode("utf-8")
+                )
+
+        return sha1.hexdigest()
+
+if __name__ == "__main__":
+    try:
+        main(*sys.argv)
+    except Exception as e:
+        print(str(e))
+        sys.exit(1)
