@@ -3,8 +3,18 @@
 
 #include <stdbool.h>
 #include "lip_token.h"
+#include "lip_enum.h"
 
-typedef struct
+#define LIP_LEX(F) \
+	F(LIP_LEX_OK) \
+	F(LIP_LEX_BAD_STRING) \
+	F(LIP_LEX_BAD_NUMBER) \
+	F(LIP_LEX_EOS) \
+	F(LIP_LEX_COUNT)
+
+LIP_ENUM(lip_lex_status_t, LIP_LEX)
+
+typedef struct lip_lexer_t
 {
 	const char* buff;
 	const char* end;
@@ -12,6 +22,7 @@ typedef struct
 } lip_lexer_t;
 
 void lip_lexer_init(lip_lexer_t* lexer, const char* buff, size_t len);
-bool lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token);
+lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token);
+void lip_lexer_print_error(lip_lex_status_t status, lip_token_t* token);
 
 #endif

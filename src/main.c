@@ -28,11 +28,16 @@ int main(int argc, char* argv[])
 	lip_lexer_t lexer;
 	lip_lexer_init(&lexer, (char*)content, len);
 	lip_token_t token;
-	while(lip_lexer_next_token(&lexer, &token))
+	lip_lex_status_t status;
+	while(status = lip_lexer_next_token(&lexer, &token), status == LIP_LEX_OK)
 	{
 		lip_token_print(&token);
 		printf("\n");
 	}
+
+	printf("\n");
+	lip_lexer_print_error(status, &token);
+	printf("\n");
 
 	free(content);
 	return EXIT_SUCCESS;

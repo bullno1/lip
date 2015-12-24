@@ -1,6 +1,7 @@
 #include "lip_lexer.h"
 #include "lip_token.h"
 #include <ctype.h>
+#include <stdio.h>
 
 void lip_lexer_init(lip_lexer_t* lexer, const char* buff, size_t len)
 {
@@ -10,7 +11,7 @@ void lip_lexer_init(lip_lexer_t* lexer, const char* buff, size_t len)
 	lexer->location.column = 1;
 }
 
-static bool lip_lexer_make_token(
+static lip_lex_status_t lip_lexer_make_token(
 	lip_lexer_t* lexer,
 	lip_token_t* token,
 	lip_token_type_t type
@@ -21,7 +22,7 @@ static bool lip_lexer_make_token(
 	token->end = lexer->location;
 	--token->end.column;
 
-	return true;
+	return LIP_LEX_OK;
 }
 
 static bool lip_lexer_peek_char(lip_lexer_t* lexer, char* ch)
@@ -42,9 +43,9 @@ static bool lip_lexer_is_separator(char ch)
 	return isspace(ch) || ch == ')' || ch == '(' || ch == ';';
 }
 
-bool lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
+lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 {
-	if(lexer->buff > lexer->end) { return false; }
+	if(lexer->buff >= lexer->end) { return LIP_LEX_EOS; }
 
 	char ch;
 	while(lip_lexer_peek_char(lexer, &ch))
@@ -97,14 +98,15 @@ bool lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 					{
 						lip_lexer_make_token(lexer, token, LIP_TOKEN_STRING);
 						lip_lexer_consume_char(lexer);
-						return true;
+						return LIP_LEX_OK;
 					}
 					else
 					{
 						lip_lexer_consume_char(lexer);
 					}
 				}
-				return lip_lexer_make_token(lexer, token, LIP_TOKEN_ERROR);
+				lip_lexer_make_token(lexer, token, LIP_TOKEN_STRING);
+				return LIP_LEX_BAD_STRING;
 			default:
 				if(isdigit(ch))
 				{
@@ -118,11 +120,12 @@ bool lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 						else if(!lip_lexer_is_separator(ch))
 						{
 							lip_lexer_consume_char(lexer);
-							return lip_lexer_make_token(
+							lip_lexer_make_token(
 								lexer,
 								token,
-								LIP_TOKEN_ERROR
+								LIP_TOKEN_NUMBER
 							);
+							return LIP_LEX_BAD_NUMBER;
 						}
 						else
 						{
@@ -151,6 +154,28 @@ bool lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 		}
 	}
 
-	lip_lexer_consume_char(lexer);
-	return lip_lexer_make_token(lexer, token, LIP_TOKEN_EOS);
+	return LIP_LEX_EOS;
+}
+
+void lip_lexer_print_error(lip_lex_status_t status, lip_token_t* token)
+{
+	switch(status)
+	{
+		case LIP_LEX_OK:
+		case LIP_LEX_EOS:
+			printf("%s", lip_lex_status_t_to_str(status));
+			break;
+		case LIP_LEX_BAD_NUMBER:
+		case LIP_LEX_BAD_STRING:
+			printf(
+				"%s '%.*s' %u:%u - %u:%u",
+				lip_lex_status_t_to_str(status),
+				(int)token->length, token->lexeme,
+				token->start.line, token->start.column,
+				token->end.line, token->end.column
+			);
+			break;
+		default:
+			break;
+	}
 }
