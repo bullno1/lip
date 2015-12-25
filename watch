@@ -10,7 +10,7 @@ do
 		`${NUMAKE} --sources` `find . -name '*.nu'`
 	${NUMAKE} $@ && {
 		echo "-------------------------------------"
-		bin/lip
+		valgrind --leak-check=full bin/lip
 		echo "-------------------------------------"
 	}
 done

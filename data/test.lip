@@ -1,3 +1,7 @@
+(1 2 3)
+5
+"wat wat?"
+abc-def a ghhh
 
 (let ((fn (lambda (x y) (+ x y))))
   ; whatever
@@ -11,4 +15,3 @@
   (fn "adfasdfasdf yo"))
 
 ""
-12a

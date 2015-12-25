@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include "lip_token.h"
 #include "lip_lexer.h"
+#include "lip_allocator.h"
+#include "lip_parser.h"
 
 bool read_file(const char* filename, void** buff, size_t* size)
 {
@@ -28,15 +30,39 @@ int main(int argc, char* argv[])
 	lip_lexer_t lexer;
 	lip_lexer_init(&lexer, (char*)content, len);
 	lip_token_t token;
-	lip_lex_status_t status;
-	while(status = lip_lexer_next_token(&lexer, &token), status == LIP_LEX_OK)
+	lip_lex_status_t lex_status;
+
+	while(
+		lex_status = lip_lexer_next_token(&lexer, &token),
+		lex_status == LIP_LEX_OK
+	)
 	{
 		lip_token_print(&token);
 		printf("\n");
 	}
 
 	printf("\n");
-	lip_lexer_print_error(status, &token);
+	lip_lexer_print_status(lex_status, &token);
+	printf("\n");
+
+	printf("\n");
+	lip_parser_t parser;
+	lip_lexer_init(&lexer, (char*)content, len);
+	lip_parser_init(&parser, &lexer, &lip_default_allocator);
+	lip_parse_status_t parse_status;
+	lip_parse_result_t parse_result;
+	while(
+		parse_status = lip_parser_next_sexp(&parser, &parse_result),
+		parse_status == LIP_PARSE_OK
+	)
+	{
+		lip_sexp_print(&parse_result.sexp, 0);
+		lip_sexp_free(&parse_result.sexp, &lip_default_allocator);
+		printf("\n");
+	}
+
+	printf("\n");
+	lip_parser_print_status(parse_status, &parse_result);
 	printf("\n");
 
 	free(content);

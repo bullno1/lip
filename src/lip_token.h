@@ -8,15 +8,13 @@
 #define LIP_TOKEN(F) \
 	F(LIP_TOKEN_LPAREN) \
 	F(LIP_TOKEN_RPAREN) \
-	F(LIP_TOKEN_SEMICOLON) \
 	F(LIP_TOKEN_SYMBOL) \
 	F(LIP_TOKEN_STRING) \
-	F(LIP_TOKEN_NUMBER) \
-	F(LIP_TOKEN_COUNT)
+	F(LIP_TOKEN_NUMBER)
 
 LIP_ENUM(lip_token_type_t, LIP_TOKEN)
 
-typedef struct
+typedef struct lip_token_t
 {
 	lip_token_type_t type;
 	const char* lexeme;

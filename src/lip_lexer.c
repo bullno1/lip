@@ -157,25 +157,25 @@ lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 	return LIP_LEX_EOS;
 }
 
-void lip_lexer_print_error(lip_lex_status_t status, lip_token_t* token)
+void lip_lexer_print_status(lip_lex_status_t status, lip_token_t* token)
 {
+	printf("%s", lip_lex_status_t_to_str(status));
+
 	switch(status)
 	{
 		case LIP_LEX_OK:
+			printf(" ");
+			lip_token_print(token);
 		case LIP_LEX_EOS:
-			printf("%s", lip_lex_status_t_to_str(status));
 			break;
 		case LIP_LEX_BAD_NUMBER:
 		case LIP_LEX_BAD_STRING:
 			printf(
-				"%s '%.*s' %u:%u - %u:%u",
-				lip_lex_status_t_to_str(status),
+				" '%.*s' %u:%u - %u:%u",
 				(int)token->length, token->lexeme,
 				token->start.line, token->start.column,
 				token->end.line, token->end.column
 			);
-			break;
-		default:
 			break;
 	}
 }
