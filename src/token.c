@@ -1,4 +1,4 @@
-#include "lip_token.h"
+#include "token.h"
 #include <stdio.h>
 
 void lip_token_print(lip_token_t* token)

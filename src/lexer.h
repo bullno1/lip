@@ -2,8 +2,8 @@
 #define LIP_LEXER_H
 
 #include <stdbool.h>
-#include "lip_token.h"
-#include "lip_enum.h"
+#include "token.h"
+#include "enum.h"
 
 #define LIP_LEX(F) \
 	F(LIP_LEX_OK) \

@@ -1,5 +1,5 @@
-#include "lip_lexer.h"
-#include "lip_token.h"
+#include "lexer.h"
+#include "token.h"
 #include <ctype.h>
 #include <stdio.h>
 

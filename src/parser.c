@@ -1,8 +1,8 @@
-#include "lip_parser.h"
+#include "parser.h"
 #include <stdio.h>
-#include "lip_lexer.h"
-#include "lip_token.h"
-#include "lip_allocator.h"
+#include "lexer.h"
+#include "token.h"
+#include "allocator.h"
 
 static lip_parse_status_t lip_parser_switch_error(
 	lip_parser_t* parser,

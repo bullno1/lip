@@ -1,6 +1,6 @@
-#include "lip_sexp.h"
+#include "sexp.h"
 #include <stdio.h>
-#include "lip_allocator.h"
+#include "allocator.h"
 
 void lip_sexp_print(lip_sexp_t* sexp, int indent)
 {

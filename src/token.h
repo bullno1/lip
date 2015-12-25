@@ -2,8 +2,8 @@
 #define LIP_TOKEN_H
 
 #include <stdlib.h>
-#include "lip_types.h"
-#include "lip_enum.h"
+#include "types.h"
+#include "enum.h"
 
 #define LIP_TOKEN(F) \
 	F(LIP_TOKEN_LPAREN) \

@@ -2,8 +2,8 @@
 #define LIP_SEXP_H
 
 #include <stdlib.h>
-#include "lip_types.h"
-#include "lip_enum.h"
+#include "types.h"
+#include "enum.h"
 
 #define LIP_SEXP(F) \
 	F(LIP_SEXP_LIST) \

@@ -2,10 +2,10 @@
 #define LIP_PARSER_H
 
 #include <stdbool.h>
-#include "lip_sexp.h"
-#include "lip_token.h"
-#include "lip_lexer.h"
-#include "lip_enum.h"
+#include "sexp.h"
+#include "token.h"
+#include "lexer.h"
+#include "enum.h"
 
 #define LIP_PARSE(F) \
 	F(LIP_PARSE_OK) \

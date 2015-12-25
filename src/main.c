@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include "lip_token.h"
-#include "lip_lexer.h"
-#include "lip_allocator.h"
-#include "lip_parser.h"
+#include "token.h"
+#include "lexer.h"
+#include "allocator.h"
+#include "parser.h"
 
 bool read_file(const char* filename, void** buff, size_t* size)
 {
