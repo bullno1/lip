@@ -5,20 +5,9 @@
 `${NUMAKE} --enable-trace`
 
 # Compile source to object file
-${NUMAKE} --order-only dir:$(dirname $2)/
+mkdir -p $(dirname $2)
 $3 -c $1 -o $2 $4 -MMD -MF $2.d
 
 # Add headers dependency
-headers=
-for file in `cat $2.d`
-do
-	case ${file} in
-		\\|*:|$1)
-			continue
-			;;
-		*)
-			headers="${headers} ${file}"
-			;;
-	esac
-done
+headers=$(sed -e :a -e '/\\$/N; s/\\\n//; ta' "$2.d" | cut -d' ' -f3-)
 ${NUMAKE} --depend ${headers}

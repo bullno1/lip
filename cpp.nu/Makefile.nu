@@ -1,26 +1,26 @@
 BUILD_DIR ?= .build
-C_COMPILER ?= gcc
-CPP_COMPILER ?= g++
-LINKER ?= g++
+C_COMPILER ?= cc
+CPP_COMPILER ?= c++
+AR ?= ar
+LINKER ?= c++
 C_FLAGS ?= -Wall
 CPP_FLAGS ?= -Wall
 
 # A phony rule to register target as an executable
-exe:%: ${BUILD_DIR}/exe-% << BUILD_DIR ! live
-	${NUMAKE} --order-only dir:$(dirname ${m})
-	cp ${BUILD_DIR}/exe-${m} $m
+exe:%: ${BUILD_DIR}/%.exe << BUILD_DIR ! live
+	mkdir -p $(dirname ${m})
+	cp ${deps} ${m}
 
 # A temporary file will be built in the build directory.
 # This is to avoid linking if object files are not changed.
-$BUILD_DIR/exe-%: << sources BUILD_DIR linker LINKER
-	objs=
-	for file in ${sources}
-	do
-		obj_file="${BUILD_DIR}/${file}.o"
-		objs="${objs} ${obj_file}"
-	done
+$BUILD_DIR/%.exe: << sources BUILD_DIR linker LINKER
+	objs=$(
+		echo ${sources} |
+		awk -v BUILD_DIR=${BUILD_DIR} \
+			'{ for(i = 1; i <= NF; i++) { print BUILD_DIR "/" $i ".o"; } }'
+	)
 	${NUMAKE} --depend ${objs}
-	${NUMAKE} --order-only dir:$(dirname $@)
+	mkdir -p $(dirname $@)
 
 	${linker:-${LINKER}} -o $@ ${objs}
 
@@ -36,6 +36,3 @@ $BUILD_DIR/%.c.o: %.c << COMPILE c_compiler C_COMPILER c_flags C_FLAGS
 $BUILD_DIR/%.cpp.o: %.cpp << COMPILE compile cpp_compiler CPP_COMPILER cpp_flags CPP_FLAGS
 	${NUMAKE} --depend ${COMPILE}
 	${COMPILE} "${deps}" "$@" "${cpp_compiler:-${CPP_COMPILER}}" "${cpp_flags:-${C_FLAGS}}"
-
-dir:%: ! live
-	mkdir -p ${m}
