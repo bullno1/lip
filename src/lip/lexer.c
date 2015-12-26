@@ -18,7 +18,7 @@ static lip_lex_status_t lip_lexer_make_token(
 )
 {
 	token->type = type;
-	token->length = lexer->buff - token->lexeme;
+	token->lexeme.length = lexer->buff - token->lexeme.ptr;
 	token->end = lexer->location;
 	--token->end.column;
 
@@ -51,7 +51,7 @@ lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 	while(lip_lexer_peek_char(lexer, &ch))
 	{
 		token->start = lexer->location;
-		token->lexeme = lexer->buff;
+		token->lexeme.ptr = lexer->buff;
 		lip_lexer_consume_char(lexer);
 
 		switch(ch)
@@ -91,7 +91,7 @@ lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 				continue;
 			case '"':
 				token->start = lexer->location;
-				token->lexeme = lexer->buff;
+				token->lexeme.ptr = lexer->buff;
 				while(lip_lexer_peek_char(lexer, &ch))
 				{
 					if(ch == '"')
@@ -172,7 +172,7 @@ void lip_lexer_print_status(lip_lex_status_t status, lip_token_t* token)
 		case LIP_LEX_BAD_STRING:
 			printf(
 				" '%.*s' %u:%u - %u:%u",
-				(int)token->length, token->lexeme,
+				(int)token->lexeme.length, token->lexeme.ptr,
 				token->start.line, token->start.column,
 				token->end.line, token->end.column
 			);

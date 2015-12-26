@@ -17,8 +17,7 @@ LIP_ENUM(lip_token_type_t, LIP_TOKEN)
 typedef struct lip_token_t
 {
 	lip_token_type_t type;
-	const char* lexeme;
-	size_t length;
+	lip_string_ref_t lexeme;
 	lip_loc_t start;
 	lip_loc_t end;
 } lip_token_t;

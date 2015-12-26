@@ -82,8 +82,7 @@ static lip_parse_status_t lip_parser_make_string(
 
 	result->sexp.start = token->start;
 	result->sexp.end = token->end;
-	result->sexp.data.string.ptr = token->lexeme;
-	result->sexp.data.string.length = token->length;
+	result->sexp.data.string = token->lexeme;
 	return LIP_PARSE_OK;
 }
 

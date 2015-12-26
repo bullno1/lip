@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include "types.h"
 #include "function.h"
 
 #define LIP_ASM_END 0xFE
@@ -10,12 +11,6 @@
 
 typedef struct lip_allocator_t lip_allocator_t;
 typedef int32_t lip_asm_index_t;
-
-typedef struct lip_asm_symbol_t
-{
-	size_t length;
-	const char* ptr;
-} lip_asm_symbol_t;
 
 typedef struct lip_asm_t
 {
@@ -25,7 +20,7 @@ typedef struct lip_asm_t
 	lip_instruction_t* instructions;
 	lip_value_t* constants;
 	lip_function_t* functions;
-	lip_asm_symbol_t* import_symbols;
+	lip_string_ref_t* import_symbols;
 	lip_asm_index_t num_locals;
 } lip_asm_t;
 

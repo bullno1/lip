@@ -86,7 +86,7 @@ lip_asm_index_t lip_asm_new_import(
 )
 {
 	lip_asm_index_t index = lip_array_len(lasm->import_symbols);
-	lip_asm_symbol_t asm_symbol = { length , symbol };
+	lip_string_ref_t asm_symbol = { length , symbol };
 	lip_array_push(lasm->import_symbols, asm_symbol);
 	return index;
 }
@@ -145,7 +145,7 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 	size_t num_imports = lip_array_len(lasm->import_symbols);
 	size_t import_table_size = num_imports * sizeof(lip_string_t*);
 	size_t symbol_section_size = 0;
-	lip_array_foreach(lip_asm_symbol_t, itr, lasm->import_symbols)
+	lip_array_foreach(lip_string_ref_t, itr, lasm->import_symbols)
 	{
 		size_t symbol_size = sizeof(lip_string_t) + itr->length;
 		// align to void* size
@@ -201,7 +201,7 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 	// Write symbol section
 	for(int i = 0; i < lip_array_len(lasm->import_symbols); ++i)
 	{
-		lip_asm_symbol_t* symbol = lasm->import_symbols + i;
+		lip_string_ref_t* symbol = lasm->import_symbols + i;
 		lip_string_t* entry = (lip_string_t*)ptr;
 		entry->length = symbol->length;
 		memcpy(&entry->ptr, symbol->ptr, symbol->length);
