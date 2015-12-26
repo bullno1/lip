@@ -20,15 +20,15 @@ static-lib:%: ${BUILD_DIR}/%.lib << BUILD_DIR ! live
 # A temporary file will be built in the build directory.
 # This is to avoid linking if object files are not changed.
 
-$BUILD_DIR/%.exe: << sources BUILD_DIR linker LINKER link_flags LINK_FLAGS
+$BUILD_DIR/%.exe: << sources BUILD_DIR linker LINKER link_flags LINK_FLAGS libs
 	objs=$(
 		echo ${sources} |
 		awk -v BUILD_DIR=${BUILD_DIR} \
 			'{ for(i = 1; i <= NF; i++) { print BUILD_DIR "/" $i ".o"; } }'
 	)
-	${NUMAKE} --depend ${objs}
+	${NUMAKE} --depend ${objs} ${libs}
 	mkdir -p $(dirname $@)
-	${linker:-${LINKER}} -o $@ ${objs} ${link_flags:-${LINK_FLAGS}}
+	${linker:-${LINKER}} -o $@ ${objs} ${link_flags:-${LINK_FLAGS}} ${libs}
 
 $BUILD_DIR/%.lib: << sources BUILD_DIR ar AR
 	objs=$(

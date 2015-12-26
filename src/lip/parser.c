@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include "lexer.h"
 #include "token.h"
-#include "allocator.h"
+#include "array.h"
 
 static lip_parse_status_t lip_parser_switch_error(
 	lip_parser_t* parser,
@@ -11,10 +11,7 @@ static lip_parse_status_t lip_parser_switch_error(
 	lip_parse_result_t* alt_result
 )
 {
-	lip_sexp_list_free(
-		&(result->sexp.data.list),
-		parser->allocator
-	);
+	lip_sexp_cleanup(&result->sexp);
 	*result = *alt_result;
 	return alt_status;
 }
@@ -24,8 +21,8 @@ static lip_parse_status_t lip_parser_parse_list(
 )
 {
 	result->sexp.start = token->start;
+	result->sexp.data.list = lip_array_new(parser->allocator);
 	result->sexp.type = LIP_SEXP_LIST;
-	lip_sexp_list_init(&result->sexp.data.list);
 
 	lip_parse_status_t status;
 	lip_parse_result_t next_result;
@@ -36,11 +33,7 @@ static lip_parse_status_t lip_parser_parse_list(
 		switch(status)
 		{
 			case LIP_PARSE_OK:
-				lip_sexp_list_append(
-					&result->sexp.data.list,
-					&next_result.sexp,
-					parser->allocator
-				);
+				lip_array_push(result->sexp.data.list, next_result.sexp);
 				break;
 			case LIP_PARSE_LEX_ERROR:
 			case LIP_PARSE_UNTERMINATED_LIST:
@@ -60,10 +53,7 @@ static lip_parse_status_t lip_parser_parse_list(
 					);
 				}
 			case LIP_PARSE_EOS:
-				lip_sexp_list_free(
-					&(result->sexp.data.list),
-					parser->allocator
-				);
+				lip_sexp_cleanup(&result->sexp);
 				result->error.location = token->start;
 				return LIP_PARSE_UNTERMINATED_LIST;
 		}

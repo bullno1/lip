@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
 	)
 	{
 		lip_sexp_print(&parse_result.sexp, 0);
-		lip_sexp_free(&parse_result.sexp, lip_default_allocator);
+		lip_sexp_cleanup(&parse_result.sexp);
 		printf("\n");
 	}
 

@@ -1,6 +1,6 @@
 #include "sexp.h"
 #include <stdio.h>
-#include "allocator.h"
+#include "array.h"
 
 void lip_sexp_print(lip_sexp_t* sexp, int indent)
 {
@@ -11,18 +11,18 @@ void lip_sexp_print(lip_sexp_t* sexp, int indent)
 			"%*s%s(%d) %u:%u - %u:%u",
 			indent * 2, "",
 			lip_sexp_type_t_to_str(sexp->type),
-			(int)sexp->data.list.length,
+			(int)lip_array_len(sexp->data.list),
 			sexp->start.line, sexp->start.column,
 			sexp->end.line, sexp->end.column
 		);
 		for(
-			lip_sexp_list_node_t* itr = sexp->data.list.first;
-			itr != NULL;
-			itr = itr->next
+			lip_sexp_t* itr = lip_array_begin(sexp->data.list);
+			itr != lip_array_end(sexp->data.list);
+			++itr
 		)
 		{
 			printf("\n");
-			lip_sexp_print(&itr->data, indent + 1);
+			lip_sexp_print(itr, indent + 1);
 		}
 		break;
 	case LIP_SEXP_SYMBOL:
@@ -40,54 +40,23 @@ void lip_sexp_print(lip_sexp_t* sexp, int indent)
 	}
 }
 
-void lip_sexp_list_init(lip_sexp_list_t* list)
-{
-	list->length = 0;
-	list->first = NULL;
-	list->last = NULL;
-}
-
-void lip_sexp_list_append(
-	lip_sexp_list_t* list,
-	lip_sexp_t* element,
-	lip_allocator_t* allocator
-)
-{
-	lip_sexp_list_node_t* node = LIP_NEW(allocator, lip_sexp_list_node_t);
-	node->data = *element;
-	node->next = NULL;
-
-	if(list->first == NULL)
-	{
-		list->first = node;
-		list->last = node;
-	}
-	else
-	{
-		list->last->next = node;
-		list->last = node;
-	}
-	++list->length;
-}
-
-void lip_sexp_list_free(lip_sexp_list_t* list, lip_allocator_t* allocator)
+static void lip_sexp_cleanup_list(lip_sexp_t* list)
 {
 	for(
-		lip_sexp_list_node_t* itr = list->first;
-		itr != NULL;
+		lip_sexp_t* itr = lip_array_begin(list);
+		itr != lip_array_end(list);
+		++itr
 	)
 	{
-		lip_sexp_list_node_t* next = itr->next;
-		lip_sexp_free(&itr->data, allocator);
-		LIP_DELETE(allocator, itr);
-		itr = next;
+		lip_sexp_cleanup(itr);
 	}
 }
 
-void lip_sexp_free(lip_sexp_t* sexp, lip_allocator_t* allocator)
+void lip_sexp_cleanup(lip_sexp_t* sexp)
 {
 	if(sexp->type == LIP_SEXP_LIST)
 	{
-		lip_sexp_list_free(&sexp->data.list, allocator);
+		lip_sexp_cleanup_list(sexp->data.list);
+		lip_array_delete(sexp->data.list);
 	}
 }

@@ -1,4 +1,4 @@
-C_FLAGS ?= -Wall -Werror -pedantic
+C_FLAGS ?= -g -Wall -Werror -pedantic
 CPP_FLAGS ?= -Wall -Werror -pedantic
 
 -import cpp.nu
@@ -14,12 +14,12 @@ tests: ! live
 test:%: ! live
 	${NUMAKE} --depend exec:bin/tests/${m}
 
-bin/tests/%: bin/liblip.a << C_FLAGS CPP_FLAGS LINK_FLAGS
+bin/tests/%: << C_FLAGS CPP_FLAGS
 	${NUMAKE} exe:$@ \
 		sources="src/tests/${m}.c" \
 		c_flags="${C_FLAGS} -Isrc" \
 		cpp_flags="${CPP_FLAGS} -Isrc" \
-		link_flags="${LINK_FLAGS} -Lbin -llip"
+		libs="bin/liblip.a"
 
 bin/liblip.a:
 	${NUMAKE} static-lib:$@ \
@@ -27,5 +27,5 @@ bin/liblip.a:
 
 exec:%: % ! live
 	echo "-------------------------------------"
-	exec valgrind --leak-check=full ${m}
+	valgrind ${m}
 	echo "-------------------------------------"
