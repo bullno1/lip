@@ -27,5 +27,5 @@ bin/liblip.a:
 
 exec:%: % ! live
 	echo "-------------------------------------"
-	valgrind ${m}
+	valgrind --leak-check=full ${m}
 	echo "-------------------------------------"
