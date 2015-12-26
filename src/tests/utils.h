@@ -1,3 +1,6 @@
+#ifndef LIP_TEST_UTILS_H
+#define LIP_TEST_UTILS_H
+
 #include <stdio.h>
 
 static inline bool read_file(const char* filename, void** buff, size_t* size)
@@ -15,3 +18,4 @@ static inline bool read_file(const char* filename, void** buff, size_t* size)
 	return true;
 }
 
+#endif

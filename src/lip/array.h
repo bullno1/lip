@@ -6,7 +6,6 @@
 typedef struct lip_allocator_t lip_allocator_t;
 
 //TODO: convert all use of array to lip_array(type) instead of type*
-#define lip_array(TYPE) TYPE*
 //TODO: two kinds of resize: one exact and one double
 #define lip_array_push(ARRAY, ITEM) \
 	(ARRAY = lip_array_resize(ARRAY, lip_array_len(ARRAY) + 1), \
@@ -20,6 +19,7 @@ typedef struct lip_allocator_t lip_allocator_t;
 
 void* lip_array_new(lip_allocator_t* allocator);
 void lip_array_delete(void* array);
+void lip_array_clear(void* array);
 size_t lip_array_len(void* array);
 
 // private

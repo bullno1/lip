@@ -97,7 +97,7 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 
 	// Remove all labels, recording their addresses and record jump addresses
 	size_t num_instructions = lip_array_len(lasm->instructions);
-	lip_array_resize(lasm->jumps, 0);
+	lip_array_clear(lasm->jumps);
 	for(lip_asm_index_t index = 0; index < num_instructions; ++index)
 	{
 		lip_opcode_t opcode;
@@ -147,10 +147,10 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 	size_t symbol_section_size = 0;
 	lip_array_foreach(lip_string_ref_t, itr, lasm->import_symbols)
 	{
-		size_t symbol_size = sizeof(lip_string_t) + itr->length;
+		size_t entry_size = sizeof(lip_string_t) + itr->length;
 		// align to void* size
 		symbol_section_size +=
-			(symbol_size + sizeof(void*) - 1) / sizeof(void*) * sizeof(void*);
+			(entry_size + sizeof(void*) - 1) / sizeof(void*) * sizeof(void*);
 	}
 
 	size_t import_index_size = num_imports * sizeof(uint32_t);

@@ -51,3 +51,8 @@ size_t lip_array_len(void* array)
 {
 	return lip_array_head(array)->length;
 }
+
+void lip_array_clear(void* array)
+{
+	lip_array_head(array)->length = 0;
+}

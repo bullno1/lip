@@ -15,4 +15,6 @@ typedef struct lip_string_ref_t
 	const char* ptr;
 } lip_string_ref_t;
 
+#define lip_array(T) T*
+
 #endif
