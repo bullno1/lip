@@ -15,11 +15,7 @@ void lip_sexp_print(lip_sexp_t* sexp, int indent)
 			sexp->start.line, sexp->start.column,
 			sexp->end.line, sexp->end.column
 		);
-		for(
-			lip_sexp_t* itr = lip_array_begin(sexp->data.list);
-			itr != lip_array_end(sexp->data.list);
-			++itr
-		)
+		lip_array_foreach(lip_sexp_t, itr, sexp->data.list)
 		{
 			printf("\n");
 			lip_sexp_print(itr, indent + 1);
@@ -42,11 +38,7 @@ void lip_sexp_print(lip_sexp_t* sexp, int indent)
 
 static void lip_sexp_cleanup_list(lip_sexp_t* list)
 {
-	for(
-		lip_sexp_t* itr = lip_array_begin(list);
-		itr != lip_array_end(list);
-		++itr
-	)
+	lip_array_foreach(lip_sexp_t, itr, list)
 	{
 		lip_sexp_cleanup(itr);
 	}
