@@ -14,7 +14,7 @@ int main(int argc, char* argv[])
 	lip_lexer_init(&lexer, (char*)content, len);
 
 	lip_parser_t parser;
-	lip_parser_init(&parser, &lexer, &lip_default_allocator);
+	lip_parser_init(&parser, &lexer, lip_default_allocator);
 
 	lip_parse_status_t parse_status;
 	lip_parse_result_t parse_result;
@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
 	)
 	{
 		lip_sexp_print(&parse_result.sexp, 0);
-		lip_sexp_free(&parse_result.sexp, &lip_default_allocator);
+		lip_sexp_free(&parse_result.sexp, lip_default_allocator);
 		printf("\n");
 	}
 
