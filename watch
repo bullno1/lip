@@ -8,7 +8,7 @@ while :
 do
 	inotifywait \
 		-e close_write \
-		`${NUMAKE} --sources` `find . -name '*.nu'`
+		`${NUMAKE} --sources` `find . -name '*.nu'` || exit 1
 	${NUMAKE} $@ && {
 		echo "-------------------------------------"
 		valgrind --leak-check=full bin/lip
