@@ -10,7 +10,7 @@ void lip_sexp_print(lip_sexp_t* sexp, int indent)
 		printf(
 			"%*s%s(%d) %u:%u - %u:%u",
 			indent * 2, "",
-			lip_sexp_type_t_to_str(sexp->type),
+			lip_sexp_type_t_to_str(sexp->type) + sizeof("LIP_SEXP_") - 1,
 			(int)lip_array_len(sexp->data.list),
 			sexp->start.line, sexp->start.column,
 			sexp->end.line, sexp->end.column
@@ -27,7 +27,7 @@ void lip_sexp_print(lip_sexp_t* sexp, int indent)
 		printf(
 			"%*s%s '%.*s' %u:%u - %u:%u",
 			indent * 2, "",
-			lip_sexp_type_t_to_str(sexp->type),
+			lip_sexp_type_t_to_str(sexp->type) + sizeof("LIP_SEXP_") - 1,
 			(int)sexp->data.string.length, sexp->data.string.ptr,
 			sexp->start.line, sexp->start.column,
 			sexp->end.line, sexp->end.column
