@@ -9,9 +9,5 @@ do
 	inotifywait \
 		-e close_write \
 		`${NUMAKE} --sources` `find . -name '*.nu'` || exit 1
-	${NUMAKE} $@ && {
-		echo "-------------------------------------"
-		valgrind --leak-check=full bin/test
-		echo "-------------------------------------"
-	}
+	${NUMAKE} $@
 done
