@@ -7,16 +7,13 @@ void lip_closure_print(lip_closure_t* closure, int indent)
 {
 	if(closure->info.is_native)
 	{
+		printf("%*snative: 0x", indent * 2, "");
 		unsigned char* p = (unsigned char*)&closure->function_ptr.native;
 		for(int i = 0; i < sizeof(lip_native_function_t); ++i)
 		{
-			printf(
-				"%*snative: 0x%02x/%d",
-				indent * 2, "",
-				p[i],
-				closure->info.native_arity
-			);
+			printf("%02x", p[i]);
 		}
+		printf("\n");
 	}
 	else
 	{

@@ -8,10 +8,10 @@ typedef struct lip_allocator_t lip_allocator_t;
 //TODO: convert all use of array to lip_array(type) instead of type*
 //TODO: two kinds of resize: one exact and one double
 #define lip_array_push(ARRAY, ITEM) \
-	(ARRAY = lip_array_resize(ARRAY, lip_array_len(ARRAY) + 1), \
+	(lip_array_resize(ARRAY, lip_array_len(ARRAY) + 1), \
 	 ARRAY[lip_array_len(ARRAY) - 1] = ITEM)
 #define lip_array_resize(ARRAY, NEW_LENGTH) \
-	lip_array__resize(ARRAY, NEW_LENGTH, sizeof(*ARRAY))
+	(ARRAY = lip_array__resize(ARRAY, NEW_LENGTH, sizeof(*ARRAY)))
 #define lip_array_begin(ARRAY) (ARRAY)
 #define lip_array_end(ARRAY) ((ARRAY) + lip_array_len(ARRAY))
 #define lip_array_foreach(TYPE, VAR, ARRAY) \

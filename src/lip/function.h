@@ -14,7 +14,7 @@ LIP_ENUM(lip_exec_status_t, LIP_EXEC)
 
 typedef struct lip_vm_t lip_vm_t;
 
-typedef lip_exec_status_t (*lip_native_function_t)(lip_vm_t*, lip_value_t*);
+typedef lip_exec_status_t (*lip_native_function_t)(lip_vm_t*);
 
 typedef struct lip_function_t lip_function_t;
 
@@ -29,7 +29,7 @@ typedef struct lip_closure_t
 	union
 	{
 		lip_function_t* lip;
-		lip_native_function_t* native;
+		lip_native_function_t native;
 	} function_ptr;
 	lip_value_t environment[];
 } lip_closure_t;

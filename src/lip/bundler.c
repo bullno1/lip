@@ -21,14 +21,34 @@ void lip_bundler_begin(lip_bundler_t* bundler)
 	lip_array_clear(bundler->functions);
 }
 
-void lip_bundler_add_function(
+void lip_bundler_add_lip_function(
 	lip_bundler_t* bundler,
 	lip_string_ref_t name,
 	lip_function_t* function
 )
 {
 	lip_array_push(bundler->symbols, name);
-	lip_array_push(bundler->functions, function);
+	size_t index = lip_array_len(bundler->functions);
+	lip_array_resize(bundler->functions, index + 1);
+	lip_closure_t* closure = bundler->functions + index;
+	closure->info.is_native = false;
+	closure->function_ptr.lip = function;
+}
+
+void lip_bundler_add_native_function(
+	lip_bundler_t* bundler,
+	lip_string_ref_t name,
+	uint8_t arity,
+	lip_native_function_t function
+)
+{
+	lip_array_push(bundler->symbols, name);
+	size_t index = lip_array_len(bundler->functions);
+	lip_array_resize(bundler->functions, index + 1);
+	lip_closure_t* closure = bundler->functions + index;
+	closure->info.is_native = true;
+	closure->info.native_arity = arity;
+	closure->function_ptr.native = function;
 }
 
 lip_module_t* lip_bundler_end(lip_bundler_t* bundler)
@@ -84,14 +104,11 @@ lip_module_t* lip_bundler_end(lip_bundler_t* bundler)
 	}
 
 	// Write value section
+	memcpy(ptr, bundler->functions, closure_section_size);
 	for(size_t i = 0; i < num_symbols; ++i)
 	{
-		lip_closure_t* entry = (lip_closure_t*)ptr;
-		entry->info.is_native = false;
-		entry->function_ptr.lip = bundler->functions[i];
 		module->values[i].type = LIP_VAL_CLOSURE;
-		module->values[i].data.reference = (lip_closure_t*)ptr;
-		ptr += sizeof(lip_closure_t);
+		module->values[i].data.reference = (lip_closure_t*)ptr + i;
 	}
 
 	return module;
