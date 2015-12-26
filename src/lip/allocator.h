@@ -1,7 +1,7 @@
 #ifndef LIP_ALLOCATOR_H
 #define LIP_ALLOCATOR_H
 
-#include <stdlib.h>
+#include <stddef.h>
 
 typedef struct lip_allocator_t
 {

@@ -1,7 +1,6 @@
 #ifndef LIP_TOKEN_H
 #define LIP_TOKEN_H
 
-#include <stdlib.h>
 #include "types.h"
 #include "enum.h"
 

@@ -1,6 +1,8 @@
 #ifndef LIP_TYPES_H
 #define LIP_TYPES_H
 
+#include <stddef.h>
+
 typedef struct lip_loc_t
 {
 	unsigned int line;

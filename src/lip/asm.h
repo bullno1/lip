@@ -1,7 +1,6 @@
 #ifndef LIP_ASM_H
 #define LIP_ASM_H
 
-#include <stdlib.h>
 #include <stdint.h>
 #include "types.h"
 #include "function.h"

@@ -1,7 +1,6 @@
 #ifndef LIP_SEXP_H
 #define LIP_SEXP_H
 
-#include <stdlib.h>
 #include "types.h"
 #include "enum.h"
 

@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "allocator.h"
 
 void* lip_crt_realloc(void* context, void* old, size_t size)
