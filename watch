@@ -3,6 +3,7 @@
 NUMAKE=$(readlink -f numake)
 
 ${NUMAKE} $@
+${NUMAKE} --gc
 while :
 do
 	inotifywait \
