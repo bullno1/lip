@@ -16,9 +16,12 @@ typedef struct lip_allocator_t
 } lip_allocator_t;
 
 #define LIP_NEW(ALLOCATOR, TYPE) \
-	(TYPE*)(ALLOCATOR->vtable->malloc(allocator->context, sizeof(TYPE)))
-#define LIP_DELETE(ALLOCATOR, OBJ) \
-	ALLOCATOR->vtable->free(allocator->context, OBJ)
+	(TYPE*)(LIP_MALLOC(ALLOCATOR, sizeof(TYPE)))
+#define LIP_DELETE LIP_FREE
+#define LIP_MALLOC(ALLOCATOR, SIZE) \
+	(ALLOCATOR->vtable->malloc(ALLOCATOR->context, SIZE))
+#define LIP_FREE(ALLOCATOR, MEM) \
+	ALLOCATOR->vtable->free(ALLOCATOR->context, MEM)
 
 extern lip_allocator_t lip_default_allocator;
 
