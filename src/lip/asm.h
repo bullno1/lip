@@ -21,6 +21,7 @@ typedef struct lip_asm_t
 {
 	lip_allocator_t* allocator;
 	lip_asm_index_t* labels;
+	lip_asm_index_t* jumps;
 	lip_instruction_t* instructions;
 	lip_value_t* constants;
 	lip_function_t* functions;

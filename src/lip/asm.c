@@ -22,6 +22,7 @@ void lip_asm_init(lip_asm_t* lasm, lip_allocator_t* allocator)
 {
 	lasm->allocator = allocator;
 	lasm->labels = lip_array_new(allocator);
+	lasm->jumps = lip_array_new(allocator);
 	lasm->instructions = lip_array_new(allocator);
 	lasm->constants = lip_array_new(allocator);
 	lasm->functions = lip_array_new(allocator);
@@ -93,10 +94,49 @@ lip_asm_index_t lip_asm_new_import(
 lip_function_t* lip_asm_end(lip_asm_t* lasm)
 {
 	//TODO: build a string table for constant strings
-	// Calculate the memory block needed for the function
+
+	// Remove all labels, recording their addresses and record jump addresses
+	size_t num_instructions = lip_array_len(lasm->instructions);
+	lip_array_resize(lasm->jumps, 0);
+	for(lip_asm_index_t index = 0; index < num_instructions; ++index)
+	{
+		lip_opcode_t opcode;
+		int32_t operand;
+		lip_disasm(lasm->instructions[index], &opcode, &operand);
+
+		switch((uint32_t)opcode)
+		{
+			case LIP_OP_LABEL:
+				memmove(
+					&lasm->instructions[index],
+					&lasm->instructions[index + 1],
+					(num_instructions - index - 1) * sizeof(lip_instruction_t)
+				);
+				lasm->labels[operand] = index;
+				--num_instructions;
+				break;
+			case LIP_OP_JMP:
+			case LIP_OP_JOF:
+				lip_array_push(lasm->jumps, index);
+				break;
+		}
+	}
+	lip_array_resize(lasm->instructions, num_instructions);
+
+	// Replace all jumps with label address
+	lip_array_foreach(lip_asm_index_t, itr, lasm->jumps)
+	{
+		lip_asm_index_t address = *itr;
+
+		lip_opcode_t opcode;
+		int32_t operand;
+		lip_disasm(lasm->instructions[address], &opcode, &operand);
+		lasm->instructions[address] = lip_asm(opcode, lasm->labels[operand]);
+	}
+
+	// Calculate the size of the memory block needed for the function
 	size_t header_size = sizeof(lip_function_t);
-	size_t code_size =
-		lip_array_len(lasm->instructions) * sizeof(lip_instruction_t);
+	size_t code_size = num_instructions * sizeof(lip_instruction_t);
 	size_t const_pool_size =
 		lip_array_len(lasm->constants) * sizeof(lip_value_t);
 	size_t nested_function_table_size =
@@ -181,5 +221,6 @@ void lip_asm_cleanup(lip_asm_t* lasm)
 	lip_array_delete(lasm->functions);
 	lip_array_delete(lasm->constants);
 	lip_array_delete(lasm->instructions);
+	lip_array_delete(lasm->jumps);
 	lip_array_delete(lasm->labels);
 }
