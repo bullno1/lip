@@ -1,8 +1,38 @@
+#include <string.h>
 #include "vm.h"
 #include "asm.h"
-#include <stdio.h>
 
-void lip_vm_do_call(lip_vm_t* vm, int32_t arity);
+void lip_vm_do_call(lip_vm_t* vm, uint8_t num_args)
+{
+	lip_value_t* value = lip_vm_pop(vm);
+	lip_closure_t* closure = (lip_closure_t*)value->data.reference;
+
+	bool is_native = closure->info.is_native;
+	lip_function_t* lip_function = closure->function_ptr.lip;
+	size_t stack_size = is_native ? num_args : lip_function->stack_size;
+
+	*(vm->fp++) = vm->ctx;
+
+	// Pop arguments from operand stack into environment
+	vm->ctx.ep += stack_size;
+	vm->sp -= num_args;
+	memcpy(
+		vm->ctx.ep - num_args,
+		vm->sp,
+		num_args * sizeof(lip_value_t)
+	);
+
+	if(is_native)
+	{
+		closure->function_ptr.native(vm);
+		vm->ctx = *(--vm->fp);
+	}
+	else
+	{
+		vm->ctx.pc = lip_function->instructions;
+		vm->ctx.closure = closure;
+	}
+}
 
 #define LOAD_CONTEXT \
 	fn = vm->ctx.closure ? vm->ctx.closure->function_ptr.lip : 0; \

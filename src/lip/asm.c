@@ -3,7 +3,6 @@
 #include <string.h>
 #include "array.h"
 #include "allocator.h"
-#include <stdio.h>
 
 lip_instruction_t lip_asm(lip_opcode_t opcode, int32_t operand)
 {

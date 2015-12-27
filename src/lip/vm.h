@@ -25,8 +25,8 @@ typedef struct lip_vm_t
 	lip_value_t* max_sp;
 	lip_value_t* min_ep;
 	lip_value_t* max_ep;
-	lip_vm_context_t* max_fp;
 	lip_vm_context_t* min_fp;
+	lip_vm_context_t* max_fp;
 
 	lip_value_t* sp;
 	lip_vm_context_t* fp;
