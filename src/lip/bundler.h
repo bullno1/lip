@@ -26,8 +26,8 @@ void lip_bundler_add_lip_function(
 void lip_bundler_add_native_function(
 	lip_bundler_t* bundler,
 	lip_string_ref_t name,
-	uint8_t arity,
-	lip_native_function_t function
+	lip_native_function_t function,
+	uint8_t arity
 );
 lip_module_t* lip_bundler_end(lip_bundler_t* bundler);
 void lip_bundler_cleanup(lip_bundler_t* bundler);

@@ -1,6 +1,7 @@
 #ifndef LIP_TEST_ASM_H
 #define LIP_TEST_ASM_H
 
+#include <stdio.h>
 #include <string.h>
 #include <lip/asm.h>
 #include <lip/allocator.h>
@@ -32,6 +33,7 @@ static inline lip_function_t* load_asm(lip_asm_t* lasm)
 		LIP_OP_CALL, 2,
 		LIP_OP_LDS, print_index,
 		LIP_OP_CALL, 1,
+		LIP_OP_RET, 0,
 		LIP_OP_POP, 1,
 		LIP_OP_JMP, label,
 		LIP_OP_LABEL, label2,

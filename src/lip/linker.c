@@ -14,7 +14,9 @@ void lip_linker_add_module(lip_linker_t* linker, lip_module_t* module)
 	lip_array_push(linker->modules, module);
 }
 
-lip_value_t lip_linker_find_symbol(lip_linker_t* linker, lip_string_t* symbol)
+static inline void lip_linker_find_symbol_common(
+	lip_linker_t* linker, size_t length, const char* ptr, lip_value_t* result
+)
 {
 	lip_array_foreach(lip_module_t*, itr, linker->modules)
 	{
@@ -23,17 +25,17 @@ lip_value_t lip_linker_find_symbol(lip_linker_t* linker, lip_string_t* symbol)
 		{
 			lip_string_t* current_sym = module->symbols[sym_index];
 			if(
-				current_sym->length == symbol->length
-				&& memcmp(current_sym->ptr, symbol->ptr, symbol->length) == 0
+				current_sym->length == length
+				&& memcmp(current_sym->ptr, ptr, length) == 0
 			)
 			{
-				return module->values[sym_index];
+				*result = module->values[sym_index];
+				return;
 			}
 		}
 	}
 
-	lip_value_t nil = { .type = LIP_VAL_NIL };
-	return nil;
+	result->type = LIP_VAL_NIL;
 }
 
 static void lip_linker_link_function(
@@ -46,10 +48,13 @@ static void lip_linker_link_function(
 		++import_index
 	)
 	{
-		lip_string_t* symbol =
-			function->import_symbols[import_index];
-		function->import_values[import_index] =
-			lip_linker_find_symbol(linker, symbol);
+		lip_string_t* symbol = function->import_symbols[import_index];
+		lip_linker_find_symbol_common(
+			linker,
+			symbol->length,
+			symbol->ptr,
+			&function->import_values[import_index]
+		);
 	}
 }
 
@@ -76,6 +81,13 @@ void lip_linker_link_modules(lip_linker_t* linker)
 	{
 		lip_linker_link_module(linker, *itr);
 	}
+}
+
+void lip_linker_find_symbol(
+	lip_linker_t* linker, lip_string_ref_t symbol, lip_value_t* result
+)
+{
+	lip_linker_find_symbol_common(linker, symbol.length, symbol.ptr, result);
 }
 
 void lip_linker_cleanup(lip_linker_t* linker)

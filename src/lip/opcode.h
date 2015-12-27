@@ -5,6 +5,7 @@
 
 #define LIP_OP(F) \
 	F(LIP_OP_NOP) \
+	F(LIP_OP_POP) \
 	F(LIP_OP_LDC) \
 	F(LIP_OP_LDL) \
 	F(LIP_OP_SET) \

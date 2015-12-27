@@ -13,7 +13,6 @@ void lip_closure_print(lip_closure_t* closure, int indent)
 		{
 			printf("%02x", p[i]);
 		}
-		printf("\n");
 	}
 	else
 	{
