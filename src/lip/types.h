@@ -17,4 +17,6 @@ typedef struct lip_string_ref_t
 
 #define lip_array(T) T*
 
+typedef struct lip_allocator_t lip_allocator_t;
+
 #endif

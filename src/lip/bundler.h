@@ -4,7 +4,6 @@
 #include "types.h"
 #include "function.h"
 
-typedef struct lip_allocator_t lip_allocator_t;
 typedef struct lip_module_t lip_module_t;
 
 typedef struct lip_bundler_t

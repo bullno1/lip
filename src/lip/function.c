@@ -64,5 +64,7 @@ void lip_function_print(lip_function_t* function, int indent)
 			i,
 			symbol->length, symbol->ptr
 		);
+		lip_value_print(&function->import_values[i], indent + 1);
+		printf("\n");
 	}
 }

@@ -153,7 +153,7 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 			(entry_size + sizeof(void*) - 1) / sizeof(void*) * sizeof(void*);
 	}
 
-	size_t import_index_size = num_imports * sizeof(uint32_t);
+	size_t import_value_table_size = num_imports * sizeof(lip_value_t);
 	size_t block_size =
 		  header_size
 		+ code_size
@@ -161,7 +161,7 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 		+ nested_function_table_size
 		+ import_table_size
 		+ symbol_section_size
-		+ import_index_size;
+		+ import_value_table_size;
 
 	lip_function_t* function = lip_malloc(lasm->allocator, block_size);
 
@@ -189,10 +189,10 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 	memcpy(ptr, lasm->functions, nested_function_table_size);
 	ptr += nested_function_table_size;
 
-	// Reserve space for index table
-	function->import_indices = (uint32_t*)ptr;
-	memset(ptr, 0, import_index_size);
-	ptr += import_index_size;
+	// Reserve space for value table
+	function->import_values = (lip_value_t*)ptr;
+	memset(ptr, 0, import_value_table_size);
+	ptr += import_value_table_size;
 
 	// Write import table
 	function->import_symbols = (lip_string_t**)ptr;

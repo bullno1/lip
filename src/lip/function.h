@@ -48,7 +48,7 @@ typedef struct lip_function_t
 	lip_value_t* constants;
 	lip_function_t* functions;
 	lip_string_t** import_symbols;
-	uint32_t* import_indices;
+	lip_value_t* import_values;
 } lip_function_t;
 
 void lip_function_print(lip_function_t* function, int indent);

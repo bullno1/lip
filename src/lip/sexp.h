@@ -12,8 +12,6 @@
 
 LIP_ENUM(lip_sexp_type_t, LIP_SEXP)
 
-typedef struct lip_allocator_t lip_allocator_t;
-
 typedef struct lip_sexp_t
 {
 	lip_sexp_type_t type;

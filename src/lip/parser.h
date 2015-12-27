@@ -16,8 +16,6 @@
 
 LIP_ENUM(lip_parse_status_t, LIP_PARSE)
 
-typedef struct lip_allocator_t lip_allocator_t;
-
 typedef struct lip_parser_t
 {
 	lip_lexer_t* lexer;

@@ -6,6 +6,7 @@
 #include "enum.h"
 
 #define LIP_VAL(F) \
+	F(LIP_VAL_NIL) \
 	F(LIP_VAL_NUMBER) \
 	F(LIP_VAL_BOOLEAN) \
 	F(LIP_VAL_STRING) \

@@ -6,6 +6,8 @@
 #include "value.h"
 #include "function.h"
 
+typedef struct lip_linker_t lip_linker_t;
+
 typedef struct lip_vm_context_t
 {
 	lip_closure_t* closure;

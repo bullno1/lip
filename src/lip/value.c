@@ -6,6 +6,9 @@ void lip_value_print(lip_value_t* value, int indent)
 {
 	switch(value->type)
 	{
+		case LIP_VAL_NIL:
+			printf("%*snil", indent * 2, "");
+			break;
 		case LIP_VAL_NUMBER:
 			printf("%*s%f", indent * 2, "", value->data.number);
 			break;
