@@ -17,10 +17,12 @@ static inline lip_function_t* load_asm(lip_asm_t* lasm)
 	lip_asm_index_t life_index = lip_asm_new_constant(lasm, &life);
 
 	const char* print = "print";
-	lip_asm_index_t print_index = lip_asm_new_import(lasm, print, strlen(print));
+	lip_string_ref_t print_ref = { strlen(print), print };
+	lip_asm_index_t print_index = lip_asm_new_import(lasm, print_ref);
 
 	const char* plus = "+";
-	lip_asm_index_t plus_index = lip_asm_new_import(lasm, plus, strlen(plus));
+	lip_string_ref_t plus_ref = { strlen(plus), plus };
+	lip_asm_index_t plus_index = lip_asm_new_import(lasm, plus_ref);
 
 	lip_asm_index_t label = lip_asm_new_label(lasm);
 	lip_asm_index_t label2 = lip_asm_new_label(lasm);

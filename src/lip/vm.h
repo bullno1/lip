@@ -8,6 +8,9 @@
 #include "function.h"
 
 typedef struct lip_linker_t lip_linker_t;
+typedef struct lip_vm_t lip_vm_t;
+
+typedef void(*lip_vm_hook_t)(lip_vm_t* vm, void* ctx);
 
 typedef struct lip_vm_context_t
 {
@@ -32,6 +35,8 @@ typedef struct lip_vm_t
 	lip_vm_context_t* fp;
 
 	lip_linker_t* linker;
+	lip_vm_hook_t hook;
+	void* hook_ctx;
 } lip_vm_t;
 
 size_t lip_vm_config(
@@ -41,11 +46,11 @@ size_t lip_vm_config(
 	uint16_t environment_size,
 	uint16_t call_stack_size
 );
-
 void lip_vm_init(lip_vm_t* vm, void* mem);
 
 void lip_vm_push_nil(lip_vm_t* vm);
 void lip_vm_push_number(lip_vm_t* vm, double number);
+void lip_vm_push_boolean(lip_vm_t* vm, bool boolean);
 void lip_vm_push_value(lip_vm_t* vm, lip_value_t* value);
 lip_exec_status_t lip_vm_call(lip_vm_t* vm, uint8_t num_args);
 lip_value_t* lip_vm_pop(lip_vm_t* vm);

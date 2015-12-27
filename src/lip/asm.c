@@ -1,6 +1,7 @@
 #include "asm.h"
 #include <stdarg.h>
 #include <string.h>
+#include <stdio.h>
 #include "array.h"
 #include "allocator.h"
 
@@ -14,7 +15,20 @@ void lip_disasm(
 )
 {
 	*opcode = (instruction >> 24) & 0xFF;
-	*operand = instruction & 0x00FFFFFF;
+	*operand = (instruction << 8) >> 8;
+}
+
+void lip_asm_print(lip_instruction_t instruction)
+{
+	lip_opcode_t opcode;
+	int32_t operand;
+	lip_disasm(instruction, &opcode, &operand);
+	printf(
+		"%-4s %4d (0x%08x)",
+		lip_opcode_t_to_str(opcode) + sizeof("LIP_OP_") - 1,
+		operand,
+		instruction
+	);
 }
 
 void lip_asm_init(lip_asm_t* lasm, lip_allocator_t* allocator)
@@ -62,7 +76,7 @@ lip_asm_index_t lip_asm_new_label(lip_asm_t* lasm)
 
 lip_asm_index_t lip_asm_new_local(lip_asm_t* lasm)
 {
-	return lasm->num_locals++;
+	return ++lasm->num_locals;
 }
 
 lip_asm_index_t lip_asm_new_constant(lip_asm_t* lasm, lip_value_t* value)
@@ -80,13 +94,10 @@ lip_asm_index_t lip_asm_new_function(lip_asm_t* lasm, lip_function_t* function)
 	return index;
 }
 
-lip_asm_index_t lip_asm_new_import(
-	lip_asm_t* lasm, const char* symbol, size_t length
-)
+lip_asm_index_t lip_asm_new_import(lip_asm_t* lasm, lip_string_ref_t symbol)
 {
 	lip_asm_index_t index = lip_array_len(lasm->import_symbols);
-	lip_string_ref_t asm_symbol = { length , symbol };
-	lip_array_push(lasm->import_symbols, asm_symbol);
+	lip_array_push(lasm->import_symbols, symbol);
 	return index;
 }
 

@@ -25,17 +25,10 @@ void lip_function_print(lip_function_t* function, int indent)
 	printf("%*s.TEXT:\n", indent * 2, "");
 	for(int i = 0; i < function->num_instructions; ++i)
 	{
+		printf("%*s", indent * 2 + 1, "");
 		lip_instruction_t instruction = function->instructions[i];
-		lip_opcode_t opcode;
-		int32_t operand;
-		lip_disasm(instruction, &opcode, &operand);
-		printf(
-			"%*s%-4s %d (0x%08x)\n",
-			indent * 2 + 1, "",
-			lip_opcode_t_to_str(opcode) + sizeof("LIP_OP_") - 1,
-			operand,
-			instruction
-		);
+		lip_asm_print(instruction);
+		printf("\n");
 	}
 
 	printf("%*s.DATA:\n", indent * 2, "");
