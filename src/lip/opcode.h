@@ -15,6 +15,8 @@
 	F(LIP_OP_JOF) \
 	F(LIP_OP_CALL) \
 	F(LIP_OP_RET) \
+	F(LIP_OP_PLUS) \
+	F(LIP_OP_LT) \
 	F(LIP_OP_CLS)
 
 LIP_ENUM(lip_opcode_t, LIP_OP)

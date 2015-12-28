@@ -61,30 +61,24 @@ int main(int argc, char* argv[])
 	lip_asm_begin(&lasm);
 	lip_asm_index_t param = lip_asm_new_local(&lasm);
 	lip_asm_index_t fib_import = lip_asm_new_import(&lasm, fib_ref);
-	lip_asm_index_t plus_import = lip_asm_new_import(&lasm, plus_ref);
-	lip_asm_index_t lt_import = lip_asm_new_import(&lasm, lt_ref);
 	lip_asm_index_t else_label = lip_asm_new_label(&lasm);
 	lip_asm_index_t done_label = lip_asm_new_label(&lasm);
 	lip_asm_add(&lasm,
 		LIP_OP_LDL, param,
 		LIP_OP_LDI, 3,
-		LIP_OP_LDS, lt_import,
-		LIP_OP_CALL, 2,
+		LIP_OP_LT, 0,
 		LIP_OP_JOF, else_label,
 		LIP_OP_LDI, -1,
 		LIP_OP_LDL, param,
-		LIP_OP_LDS, plus_import,
-		LIP_OP_CALL, 2,
+		LIP_OP_PLUS, 2,
 		LIP_OP_LDS, fib_import,
 		LIP_OP_CALL, 1,
 		LIP_OP_LDI, -2,
 		LIP_OP_LDL, param,
-		LIP_OP_LDS, plus_import,
-		LIP_OP_CALL, 2,
+		LIP_OP_PLUS, 2,
 		LIP_OP_LDS, fib_import,
 		LIP_OP_CALL, 1,
-		LIP_OP_LDS, plus_import,
-		LIP_OP_CALL, 2,
+		LIP_OP_PLUS, 2,
 		LIP_OP_JMP, done_label,
 		LIP_OP_LABEL, else_label,
 		LIP_OP_LDI, 1,

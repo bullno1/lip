@@ -104,10 +104,36 @@ BEGIN_LOOP
 	END_OP(CALL)
 
 	BEGIN_OP(RET)
+		SAVE_CONTEXT();
 		vm->ctx = *(--vm->fp);
 		if(vm->ctx.is_native) { return LIP_EXEC_OK; }
 		LOAD_CONTEXT();
 	END_OP(RET)
+
+	BEGIN_OP(LT)
+		lip_value_t* lhs = sp - 1;
+		lip_value_t* rhs = sp - 2;
+		lip_value_t result = {
+			.type = LIP_VAL_BOOLEAN,
+			.data = { .boolean = lhs->data.number < rhs->data.number }
+		};
+		--sp;
+		*(sp - 1) = result;
+	END_OP(LT)
+
+	BEGIN_OP(PLUS)
+		double acc = 0.0;
+		for(int i = 0; i < operand; ++i)
+		{
+			acc += (sp - 1 - i)->data.number;
+		}
+		lip_value_t result = {
+			.type = LIP_VAL_NUMBER,
+			.data = { .number = acc }
+		};
+		sp -= (operand - 1);
+		*(sp - 1) = result;
+	END_OP(PLUS)
 
 	BEGIN_OP(CLS)
 	END_OP(CLS)
