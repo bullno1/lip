@@ -6,12 +6,9 @@
 
 int main(int argc, char* argv[])
 {
-	void* content = NULL;
-	size_t len = 0;
-	if(!read_file("data/test.lip", &content, &len)) { return EXIT_FAILURE; }
-
 	lip_lexer_t lexer;
-	lip_lexer_init(&lexer, (char*)content, len);
+	FILE* file = fopen("data/test.lip", "rb");
+	lip_lexer_init(&lexer, lip_default_allocator, read_file, file);
 
 	lip_parser_t parser;
 	lip_parser_init(&parser, &lexer, lip_default_allocator);
@@ -28,10 +25,11 @@ int main(int argc, char* argv[])
 		printf("\n");
 	}
 
+	lip_lexer_cleanup(&lexer);
+
 	printf("\n");
 	lip_parser_print_status(parse_status, &parse_result);
 	printf("\n");
 
-	free(content);
 	return EXIT_SUCCESS;
 }

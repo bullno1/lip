@@ -27,6 +27,7 @@ int main(int argc, char* argv[])
 	printf("\n");
 
 	lip_lexer_cleanup(&lexer);
+	fclose(file);
 
 	return EXIT_SUCCESS;
 }
