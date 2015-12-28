@@ -918,7 +918,7 @@ class Rule(object):
                             ctx,
                             imported_file_path,
                             working_directory,
-                            env.copy()
+                            env
                         )
                     )
                 elif "?=" in line:

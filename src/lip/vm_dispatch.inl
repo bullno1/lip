@@ -1,5 +1,66 @@
-PROLOG
-LOAD_CONTEXT
+#if defined(__GNUC__) || defined(__GNUG__)
+#	define HAS_COMPUTED_GOTO 1
+#else
+#	define HAS_COMPUTED_GOTO 0
+#endif
+
+#define LOAD_CONTEXT() \
+	fn = vm->ctx.closure->function_ptr.lip; \
+	pc = vm->ctx.pc; \
+	ep = vm->ctx.ep; \
+	sp = vm->sp;
+
+#define SAVE_CONTEXT() \
+	vm->ctx.pc = pc; \
+	vm->sp = sp;
+
+#if USE_HOOK
+#	define CALL_HOOK() SAVE_CONTEXT(); vm->hook(vm, vm->hook_ctx);
+#else
+#	define CALL_HOOK()
+#endif
+
+#if HAS_COMPUTED_GOTO
+
+#	define GENERATE_LABEL(ENUM) &&do_##ENUM,
+
+#	define BEGIN_LOOP \
+	void* dispatch_table[] = { LIP_OP(GENERATE_LABEL) }; \
+	lip_opcode_t opcode; \
+	int32_t operand; \
+	DISPATCH()
+
+#	define END_LOOP
+
+#	define BEGIN_OP(OP) do_LIP_OP_##OP: {
+#	define END_OP(OP) } DISPATCH();
+#	define DISPATCH() \
+	CALL_HOOK(); \
+	lip_disasm(*(pc++), &opcode, &operand); \
+	goto *dispatch_table[opcode];
+
+#else
+#	define BEGIN_LOOP \
+	while(true) { \
+		CALL_HOOK(); \
+		lip_opcode_t opcode; \
+		int32_t operand; \
+		lip_disasm(*(pc++), &opcode, &operand); \
+		switch(opcode) {
+
+#	define END_LOOP }}
+
+#	define BEGIN_OP(OP) case LIP_OP_##OP: {
+#	define END_OP(OP) } continue;
+
+#endif
+
+lip_function_t* fn;
+lip_instruction_t* pc;
+lip_value_t* ep;
+lip_value_t* sp;
+
+LOAD_CONTEXT()
 BEGIN_LOOP
 	BEGIN_OP(NOP)
 	END_OP(NOP)
@@ -36,16 +97,16 @@ BEGIN_LOOP
 	END_OP(JOF)
 
 	BEGIN_OP(CALL)
-		SAVE_CONTEXT
+		SAVE_CONTEXT();
 		*(vm->fp++) = vm->ctx;
 		lip_vm_do_call(vm, operand);
-		LOAD_CONTEXT
+		LOAD_CONTEXT();
 	END_OP(CALL)
 
 	BEGIN_OP(RET)
 		vm->ctx = *(--vm->fp);
 		if(vm->ctx.is_native) { return LIP_EXEC_OK; }
-		LOAD_CONTEXT
+		LOAD_CONTEXT();
 	END_OP(RET)
 
 	BEGIN_OP(CLS)
@@ -55,3 +116,13 @@ BEGIN_LOOP
 		*(ep - operand) = *(--sp);
 	END_OP(SET)
 END_LOOP
+
+#undef LOAD_CONTEXT
+#undef SAVE_CONTEXT
+#undef BEGIN_LOOP
+#undef END_LOOP
+#undef BEGIN_OP
+#undef END_OP
+#undef CALL_HOOK
+#undef DISPATCH
+#undef GENERATE_LABEL

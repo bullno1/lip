@@ -29,3 +29,7 @@ exec:%: % ! live
 	echo "-------------------------------------"
 	valgrind --leak-check=full ${m}
 	echo "-------------------------------------"
+
+$BUILD_DIR/src/lip/vm_dispatch.c.o: src/lip/vm_dispatch.c << COMPILE c_compiler C_COMPILER c_flags C_FLAGS
+	${NUMAKE} --depend ${COMPILE} # Compilation depends on the compile script too
+	${COMPILE} "${deps}" "$@" "${c_compiler:-${C_COMPILER}}" "$(echo ${c_flags:-${C_FLAGS}} | sed 's/-pedantic//g')"

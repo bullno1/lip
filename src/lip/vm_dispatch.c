@@ -33,52 +33,18 @@ void lip_vm_do_call(lip_vm_t* vm, uint8_t num_args)
 	}
 }
 
-#define PROLOG \
-	lip_function_t* fn; \
-	lip_instruction_t* pc; \
-	lip_value_t* ep; \
-	lip_value_t* sp;
-
-#define LOAD_CONTEXT \
-	fn = vm->ctx.closure->function_ptr.lip; \
-	pc = vm->ctx.pc; \
-	ep = vm->ctx.ep; \
-	sp = vm->sp;
-
-#define SAVE_CONTEXT \
-	vm->ctx.pc = pc; \
-	vm->sp = sp;
-
-#define BEGIN_LOOP \
-	while(true) { \
-		lip_opcode_t opcode; \
-		int32_t operand; \
-		lip_disasm(*(pc++), &opcode, &operand); \
-		switch(opcode) {
-
-#define END_LOOP }}
-
-#define BEGIN_OP(OP) case LIP_OP_##OP: {
-#define END_OP(OP) } continue;
+lip_exec_status_t lip_vm_loop_with_hook(lip_vm_t* vm)
+{
+#define USE_HOOK 1
+#include "vm_dispatch.inl"
+#undef USE_HOOK
+}
 
 lip_exec_status_t lip_vm_loop_without_hook(lip_vm_t* vm)
 {
+#define USE_HOOK 0
 #include "vm_dispatch.inl"
-}
-
-#undef BEGIN_LOOP
-#define BEGIN_LOOP \
-	while(true) { \
-		SAVE_CONTEXT \
-		vm->hook(vm, vm->hook_ctx); \
-		lip_opcode_t opcode; \
-		int32_t operand; \
-		lip_disasm(*(pc++), &opcode, &operand); \
-		switch(opcode) {
-
-lip_exec_status_t lip_vm_loop_with_hook(lip_vm_t* vm)
-{
-#include "vm_dispatch.inl"
+#undef USE_HOOK
 }
 
 lip_exec_status_t lip_vm_loop(lip_vm_t* vm)
