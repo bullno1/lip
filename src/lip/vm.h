@@ -7,7 +7,6 @@
 #include "value.h"
 #include "function.h"
 
-typedef struct lip_linker_t lip_linker_t;
 typedef struct lip_vm_t lip_vm_t;
 
 typedef void(*lip_vm_hook_t)(lip_vm_t* vm, void* ctx);
@@ -34,14 +33,12 @@ typedef struct lip_vm_t
 	lip_value_t* sp;
 	lip_vm_context_t* fp;
 
-	lip_linker_t* linker;
 	lip_vm_hook_t hook;
 	void* hook_ctx;
 } lip_vm_t;
 
 size_t lip_vm_config(
 	lip_vm_t* vm,
-	lip_linker_t* linker,
 	uint16_t operand_stack_size,
 	uint16_t environment_size,
 	uint16_t call_stack_size

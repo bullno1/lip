@@ -4,13 +4,11 @@
 
 size_t lip_vm_config(
 	lip_vm_t* vm,
-	lip_linker_t* linker,
 	uint16_t operand_stack_size,
 	uint16_t environment_size,
 	uint16_t call_stack_size
 )
 {
-	vm->linker = linker;
 	vm->max_sp = (void*)(uintptr_t)operand_stack_size;
 	vm->max_ep = (void*)(uintptr_t)environment_size;
 	vm->max_fp = (void*)(uintptr_t)call_stack_size;

@@ -104,7 +104,7 @@ int main(int argc, char* argv[])
 
 	printf("\n");
 	lip_vm_t vm;
-	size_t mem_required = lip_vm_config(&vm, &linker, 256, 256, 256);
+	size_t mem_required = lip_vm_config(&vm, 256, 256, 256);
 	void* mem = lip_malloc(lip_default_allocator, mem_required);
 	const char* sym = "fib";
 	lip_string_ref_t sym_ref = { strlen(sym), sym };
