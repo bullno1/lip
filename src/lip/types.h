@@ -20,5 +20,6 @@ typedef struct lip_string_ref_t
 typedef struct lip_allocator_t lip_allocator_t;
 
 typedef size_t (*lip_read_fn_t)(void* ptr, size_t size, void* context);
+typedef size_t (*lip_write_fn_t)(const void* ptr, size_t size, void* context);
 
 #endif

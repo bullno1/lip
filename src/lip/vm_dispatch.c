@@ -23,7 +23,11 @@ void lip_vm_do_call(lip_vm_t* vm, uint8_t num_args)
 	vm->ctx.is_native = is_native;
 	if(is_native)
 	{
+		// Ensure that a value is always returned
+		vm->sp->type = LIP_VAL_NIL;
+		lip_value_t* next_sp = vm->sp + 1;
 		closure->function_ptr.native(vm);
+		vm->sp = next_sp;
 		vm->ctx = *(--vm->fp);
 	}
 	else

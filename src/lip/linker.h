@@ -17,6 +17,7 @@ void lip_linker_find_symbol(
 	lip_linker_t* linker, lip_string_ref_t symbol, lip_value_t* result
 );
 void lip_linker_link_modules(lip_linker_t* linker);
+void lip_linker_reset(lip_linker_t* linker);
 void lip_linker_cleanup(lip_linker_t* linker);
 
 #endif

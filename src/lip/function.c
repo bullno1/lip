@@ -25,7 +25,7 @@ void lip_function_print(lip_function_t* function, int indent)
 	printf("%*s.TEXT:\n", indent * 2, "");
 	for(int i = 0; i < function->num_instructions; ++i)
 	{
-		printf("%*s", indent * 2 + 1, "");
+		printf("%*s%3d: ", indent * 2 + 1, "", i);
 		lip_instruction_t instruction = function->instructions[i];
 		lip_asm_print(instruction);
 		printf("\n");

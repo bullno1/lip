@@ -14,6 +14,11 @@ void lip_linker_add_module(lip_linker_t* linker, lip_module_t* module)
 	lip_array_push(linker->modules, module);
 }
 
+void lip_linker_reset(lip_linker_t* linker)
+{
+	lip_array_resize(linker->modules, 0);
+}
+
 static inline void lip_linker_find_symbol_common(
 	lip_linker_t* linker, size_t length, const char* ptr, lip_value_t* result
 )

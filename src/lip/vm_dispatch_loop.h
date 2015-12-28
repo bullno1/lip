@@ -87,6 +87,10 @@ BEGIN_LOOP
 		value->data.number = operand;
 	END_OP(LDI)
 
+	BEGIN_OP(NIL)
+		(sp++)->type = LIP_VAL_NIL;
+	END_OP(NIL)
+
 	BEGIN_OP(JMP)
 		pc = fn->instructions + operand;
 	END_OP(JMP)

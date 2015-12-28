@@ -62,10 +62,11 @@ void lip_lexer_reset_capture(lip_lexer_t* lexer)
 
 lip_string_ref_t lip_lexer_end_capture(lip_lexer_t* lexer)
 {
+	lip_array_push(lexer->capture_buff, 0); // null-terminate
 	size_t len = lip_array_len(lexer->capture_buff);
 	char* string = lip_malloc(lexer->allocator, len);
 	memcpy(string, lexer->capture_buff, len);
-	lip_string_ref_t ref = { len, string };
+	lip_string_ref_t ref = { len - 1, string }; // exclude null terminator
 
 	lip_array_push(lexer->strings, string);
 	lip_lexer_reset_capture(lexer);
