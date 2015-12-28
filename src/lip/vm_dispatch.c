@@ -36,14 +36,14 @@ void lip_vm_do_call(lip_vm_t* vm, uint8_t num_args)
 lip_exec_status_t lip_vm_loop_with_hook(lip_vm_t* vm)
 {
 #define USE_HOOK 1
-#include "vm_dispatch.inl"
+#include "vm_dispatch_loop.h"
 #undef USE_HOOK
 }
 
 lip_exec_status_t lip_vm_loop_without_hook(lip_vm_t* vm)
 {
 #define USE_HOOK 0
-#include "vm_dispatch.inl"
+#include "vm_dispatch_loop.h"
 #undef USE_HOOK
 }
 
