@@ -2,20 +2,11 @@
 #define LIP_TEST_UTILS_H
 
 #include <stdio.h>
+#include <stdlib.h>
 
-static inline bool read_file(const char* filename, void** buff, size_t* size)
+static inline size_t read_file(void* ptr, size_t size, void* file)
 {
-	FILE* file = fopen(filename, "rb");
-	if(!file) { return false; }
-
-	fseek(file, 0, SEEK_END);
-	*size = ftell(file);
-	*buff = malloc(*size);
-	fseek(file, 0, SEEK_SET);
-	fread(*buff, sizeof(char), *size, file);
-	fclose(file);
-
-	return true;
+	return fread(ptr, size, 1, (FILE*)file);
 }
 
 #endif

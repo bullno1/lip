@@ -1,14 +1,76 @@
 #include "lexer.h"
 #include "token.h"
+#include "array.h"
+#include "allocator.h"
 #include <ctype.h>
 #include <stdio.h>
+#include <string.h>
 
-void lip_lexer_init(lip_lexer_t* lexer, const char* buff, size_t len)
+void lip_lexer_init(
+	lip_lexer_t* lexer,
+	lip_allocator_t* allocator,
+	lip_read_fn_t read_fn,
+	void* read_ctx
+)
 {
-	lexer->buff = buff;
-	lexer->end = buff + len;
+	lexer->capture_buff = lip_array_new(allocator);
+	lexer->strings = lip_array_new(allocator);
+	lexer->read_fn = read_fn;
+	lexer->read_ctx = read_ctx;
+	lexer->allocator = allocator;
+	lip_lexer_reset(lexer);
+}
+
+static void lip_lexer_release_strings(lip_lexer_t* lexer)
+{
+	lip_array_foreach(char*, string, lexer->strings)
+	{
+		lip_free(lexer->allocator, *string);
+	}
+	lip_array_resize(lexer->strings, 0);
+}
+
+void lip_lexer_reset(lip_lexer_t* lexer)
+{
+	lip_array_resize(lexer->capture_buff, 0);
+	lip_lexer_release_strings(lexer);
 	lexer->location.line = 1;
 	lexer->location.column = 1;
+	lexer->buff = 0;
+	lexer->capturing = false;
+	lexer->buffered = false;
+	lexer->eos = false;
+}
+
+void lip_lexer_cleanup(lip_lexer_t* lexer)
+{
+	lip_lexer_release_strings(lexer);
+	lip_array_delete(lexer->capture_buff);
+	lip_array_delete(lexer->strings);
+}
+
+static void lip_lexer_begin_capture(lip_lexer_t* lexer)
+{
+	lexer->capturing = true;
+}
+
+void lip_lexer_reset_capture(lip_lexer_t* lexer)
+{
+	lip_array_resize(lexer->capture_buff, 0);
+	lexer->capturing = false;
+}
+
+lip_string_ref_t lip_lexer_end_capture(lip_lexer_t* lexer)
+{
+	size_t len = lip_array_len(lexer->capture_buff);
+	char* string = lip_malloc(lexer->allocator, len);
+	memcpy(string, lexer->capture_buff, len);
+	lip_string_ref_t ref = { len, string };
+
+	lip_array_push(lexer->strings, string);
+	lip_lexer_reset_capture(lexer);
+
+	return ref;
 }
 
 static lip_lex_status_t lip_lexer_make_token(
@@ -18,7 +80,7 @@ static lip_lex_status_t lip_lexer_make_token(
 )
 {
 	token->type = type;
-	token->lexeme.length = lexer->buff - token->lexeme.ptr;
+	token->lexeme = lip_lexer_end_capture(lexer);
 	token->end = lexer->location;
 	--token->end.column;
 
@@ -27,14 +89,28 @@ static lip_lex_status_t lip_lexer_make_token(
 
 static bool lip_lexer_peek_char(lip_lexer_t* lexer, char* ch)
 {
-	bool eos = lexer->buff == lexer->end;
-	*ch = eos ? 0 : *lexer->buff;
-	return !eos;
+	if(lexer->buffered) { *ch = lexer->buff; return true; }
+
+	if(lexer->read_fn(&lexer->buff, 1, lexer->read_ctx))
+	{
+		lexer->buffered = true;
+		*ch = lexer->buff;
+		return true;
+	}
+	else
+	{
+		lexer->eos = true;
+		return false;
+	}
 }
 
 static void lip_lexer_consume_char(lip_lexer_t* lexer)
 {
-	++lexer->buff;
+	lexer->buffered = false;
+	if(lexer->capturing)
+	{
+		lip_array_push(lexer->capture_buff, lexer->buff);
+	}
 	++lexer->location.column;
 }
 
@@ -45,21 +121,23 @@ static bool lip_lexer_is_separator(char ch)
 
 lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 {
-	if(lexer->buff >= lexer->end) { return LIP_LEX_EOS; }
+	if(lexer->eos) { return LIP_LEX_EOS; }
 
 	char ch;
 	while(lip_lexer_peek_char(lexer, &ch))
 	{
 		token->start = lexer->location;
-		token->lexeme.ptr = lexer->buff;
+		lip_lexer_begin_capture(lexer);
 		lip_lexer_consume_char(lexer);
 
 		switch(ch)
 		{
 			case ' ':
 			case '\t':
+				lip_lexer_reset_capture(lexer);
 				continue;
 			case '\r':
+				lip_lexer_reset_capture(lexer);
 				++lexer->location.line;
 				lexer->location.column = 1;
 
@@ -69,6 +147,7 @@ lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 				}
 				continue;
 			case '\n':
+				lip_lexer_reset_capture(lexer);
 				++lexer->location.line;
 				lexer->location.column = 1;
 				continue;
@@ -91,7 +170,8 @@ lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 				continue;
 			case '"':
 				token->start = lexer->location;
-				token->lexeme.ptr = lexer->buff;
+				lip_lexer_reset_capture(lexer);
+				lip_lexer_begin_capture(lexer);
 				while(lip_lexer_peek_char(lexer, &ch))
 				{
 					if(ch == '"')

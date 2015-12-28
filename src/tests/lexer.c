@@ -1,16 +1,15 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <lip/token.h>
 #include <lip/lexer.h>
+#include <lip/allocator.h>
 #include "utils.h"
 
 int main(int argc, char* argv[])
 {
-	void* content = NULL;
-	size_t len = 0;
-	if(!read_file("data/test.lip", &content, &len)) { return EXIT_FAILURE; }
-
 	lip_lexer_t lexer;
-	lip_lexer_init(&lexer, (char*)content, len);
+	FILE* file = fopen("data/test.lip", "rb");
+	lip_lexer_init(&lexer, lip_default_allocator, read_file, file);
 	lip_token_t token;
 	lip_lex_status_t lex_status;
 
@@ -27,7 +26,7 @@ int main(int argc, char* argv[])
 	lip_lexer_print_status(lex_status, &token);
 	printf("\n");
 
-	free(content);
+	lip_lexer_cleanup(&lexer);
 
 	return EXIT_SUCCESS;
 }
