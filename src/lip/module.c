@@ -5,7 +5,7 @@
 
 void lip_module_print(lip_module_t* module)
 {
-	for(size_t i = 0; i < module->num_symbols; ++i)
+	for(unsigned int i = 0; i < module->num_symbols; ++i)
 	{
 		printf("%.*s:\n", module->symbols[i]->length, module->symbols[i]->ptr);
 		lip_value_print(&module->values[i], 1);
@@ -15,7 +15,7 @@ void lip_module_print(lip_module_t* module)
 
 void lip_function_free(lip_allocator_t* allocator, lip_function_t* function)
 {
-	for(size_t i = 0; i < function->num_functions; ++i)
+	for(unsigned int i = 0; i < function->num_functions; ++i)
 	{
 		lip_function_free(allocator, function->functions + i);
 	}
@@ -25,7 +25,7 @@ void lip_function_free(lip_allocator_t* allocator, lip_function_t* function)
 
 void lip_module_free(lip_allocator_t* allocator, lip_module_t* module)
 {
-	for(size_t i = 0; i < module->num_symbols; ++i)
+	for(unsigned int i = 0; i < module->num_symbols; ++i)
 	{
 		lip_value_t* value = &module->values[i];
 		if(value->type != LIP_VAL_CLOSURE) { continue; }

@@ -9,7 +9,7 @@ void lip_vm_do_call(lip_vm_t* vm, uint8_t num_args)
 
 	bool is_native = closure->info.is_native;
 	lip_function_t* lip_function = closure->function_ptr.lip;
-	size_t stack_size = is_native ? num_args : lip_function->stack_size;
+	unsigned int stack_size = is_native ? num_args : lip_function->stack_size;
 
 	// Pop arguments from operand stack into environment
 	vm->ctx.ep += stack_size;

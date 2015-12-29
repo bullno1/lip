@@ -63,7 +63,7 @@ void lip_lexer_reset_capture(lip_lexer_t* lexer)
 lip_string_ref_t lip_lexer_end_capture(lip_lexer_t* lexer)
 {
 	lip_array_push(lexer->capture_buff, 0); // null-terminate
-	size_t len = lip_array_len(lexer->capture_buff);
+	unsigned int len = lip_array_len(lexer->capture_buff);
 	char* string = lip_malloc(lexer->allocator, len);
 	memcpy(string, lexer->capture_buff, len);
 	lip_string_ref_t ref = { len - 1, string }; // exclude null terminator
@@ -175,8 +175,10 @@ lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 				lip_lexer_begin_capture(lexer);
 				while(lip_lexer_peek_char(lexer, &ch))
 				{
+					// TODO: handle \"
 					if(ch == '"')
 					{
+						// TODO: decode escape sequences
 						lip_lexer_make_token(lexer, token, LIP_TOKEN_STRING);
 						lip_lexer_consume_char(lexer);
 						return LIP_LEX_OK;

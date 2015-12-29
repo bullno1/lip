@@ -6,8 +6,7 @@
 
 typedef struct lip_module_t
 {
-	size_t num_symbols;
-	size_t symbol_section_size;
+	uint32_t num_symbols;
 	lip_string_t** symbols;
 	lip_value_t* values;
 } lip_module_t;

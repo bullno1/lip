@@ -39,9 +39,9 @@ typedef struct lip_vm_t
 
 size_t lip_vm_config(
 	lip_vm_t* vm,
-	uint16_t operand_stack_size,
-	uint16_t environment_size,
-	uint16_t call_stack_size
+	unsigned int operand_stack_size,
+	unsigned int environment_size,
+	unsigned int call_stack_size
 );
 void lip_vm_init(lip_vm_t* vm, void* mem);
 
@@ -51,6 +51,6 @@ void lip_vm_push_boolean(lip_vm_t* vm, bool boolean);
 void lip_vm_push_value(lip_vm_t* vm, lip_value_t* value);
 lip_exec_status_t lip_vm_call(lip_vm_t* vm, uint8_t num_args);
 lip_value_t* lip_vm_pop(lip_vm_t* vm);
-lip_value_t* lip_vm_get_arg(lip_vm_t* vm, uint16_t index);
+lip_value_t* lip_vm_get_arg(lip_vm_t* vm, uint8_t index);
 
 #endif

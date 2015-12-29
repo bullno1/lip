@@ -4,6 +4,7 @@
 #include "array.h"
 #include "allocator.h"
 #include "function.h"
+#include "utils.h"
 
 void lip_bundler_init(
 	lip_bundler_t* bundler,
@@ -28,7 +29,7 @@ void lip_bundler_add_lip_function(
 )
 {
 	lip_array_push(bundler->symbols, name);
-	size_t index = lip_array_len(bundler->functions);
+	unsigned int index = lip_array_len(bundler->functions);
 	lip_array_resize(bundler->functions, index + 1);
 	lip_closure_t* closure = bundler->functions + index;
 	closure->info.is_native = false;
@@ -43,7 +44,7 @@ void lip_bundler_add_native_function(
 )
 {
 	lip_array_push(bundler->symbols, name);
-	size_t index = lip_array_len(bundler->functions);
+	unsigned int index = lip_array_len(bundler->functions);
 	lip_array_resize(bundler->functions, index + 1);
 	lip_closure_t* closure = bundler->functions + index;
 	closure->info.is_native = true;
@@ -55,15 +56,12 @@ lip_module_t* lip_bundler_end(lip_bundler_t* bundler)
 {
 	// Calculate the size of the memory block for the module
 	size_t header_size = sizeof(lip_module_t);
-	size_t num_symbols = lip_array_len(bundler->symbols);
+	unsigned int num_symbols = lip_array_len(bundler->symbols);
 	size_t symbol_table_size = num_symbols * sizeof(lip_string_t*);
 	size_t symbol_section_size = 0;
 	lip_array_foreach(lip_string_ref_t, itr, bundler->symbols)
 	{
-		size_t entry_size = sizeof(lip_string_t) + itr->length;
-		// align to void* size
-		symbol_section_size +=
-			(entry_size + sizeof(void*) - 1) / sizeof(void*) * sizeof(void*);
+		symbol_section_size += lip_string_align(itr->length);
 	}
 	size_t value_table_size = num_symbols * sizeof(lip_value_t);
 	size_t closure_section_size = num_symbols * sizeof(lip_closure_t);
@@ -78,7 +76,6 @@ lip_module_t* lip_bundler_end(lip_bundler_t* bundler)
 	lip_module_t* module = lip_malloc(bundler->allocator, block_size);
 	// Write header
 	module->num_symbols = num_symbols;
-	module->symbol_section_size = symbol_section_size;
 	char* ptr = (char*)module + header_size;
 
 	// Write symbol table
@@ -90,7 +87,7 @@ lip_module_t* lip_bundler_end(lip_bundler_t* bundler)
 	ptr += value_table_size;
 
 	// Write symbol section
-	for(size_t i = 0; i < num_symbols; ++i)
+	for(unsigned int i = 0; i < num_symbols; ++i)
 	{
 		lip_string_ref_t* symbol = bundler->symbols + i;
 		lip_string_t* entry = (lip_string_t*)ptr;
@@ -98,14 +95,12 @@ lip_module_t* lip_bundler_end(lip_bundler_t* bundler)
 		memcpy(&entry->ptr, symbol->ptr, symbol->length);
 		module->symbols[i] = (lip_string_t*)ptr;
 
-		size_t entry_size = sizeof(lip_string_t) + symbol->length;
-		ptr +=
-			(entry_size + sizeof(void*) - 1) / sizeof(void*) * sizeof(void*);
+		ptr += lip_string_align(symbol->length);
 	}
 
 	// Write value section
 	memcpy(ptr, bundler->functions, closure_section_size);
-	for(size_t i = 0; i < num_symbols; ++i)
+	for(unsigned int i = 0; i < num_symbols; ++i)
 	{
 		module->values[i].type = LIP_VAL_CLOSURE;
 		module->values[i].data.reference = (lip_closure_t*)ptr + i;

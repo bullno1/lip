@@ -26,7 +26,7 @@ static inline void lip_linker_find_symbol_common(
 	lip_array_foreach(lip_module_t*, itr, linker->modules)
 	{
 		lip_module_t* module = *itr;
-		for(size_t sym_index = 0; sym_index < module->num_symbols; ++sym_index)
+		for(unsigned int sym_index = 0; sym_index < module->num_symbols; ++sym_index)
 		{
 			lip_string_t* current_sym = module->symbols[sym_index];
 			if(
@@ -65,7 +65,7 @@ static void lip_linker_link_function(
 
 static void lip_linker_link_module(lip_linker_t* linker, lip_module_t* module)
 {
-	for(size_t sym_index = 0; sym_index < module->num_symbols; ++sym_index)
+	for(unsigned int sym_index = 0; sym_index < module->num_symbols; ++sym_index)
 	{
 		lip_value_t* value = module->values + sym_index;
 		if(

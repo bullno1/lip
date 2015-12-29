@@ -7,7 +7,6 @@
 
 #define LIP_ASM_END 0xFE
 #define LIP_OP_LABEL 0xFF
-#define LIP_ASM(ASM, ...) lip_asm_add(ASM, __VA_ARGS__, LIP_ASM_END)
 
 typedef int32_t lip_asm_index_t;
 

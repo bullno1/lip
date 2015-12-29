@@ -4,9 +4,9 @@
 
 size_t lip_vm_config(
 	lip_vm_t* vm,
-	uint16_t operand_stack_size,
-	uint16_t environment_size,
-	uint16_t call_stack_size
+	unsigned int operand_stack_size,
+	unsigned int environment_size,
+	unsigned int call_stack_size
 )
 {
 	vm->max_sp = (void*)(uintptr_t)operand_stack_size;
@@ -88,7 +88,7 @@ lip_value_t* lip_vm_pop(lip_vm_t* vm)
 	return --vm->sp;
 }
 
-lip_value_t* lip_vm_get_arg(lip_vm_t* vm, uint16_t index)
+lip_value_t* lip_vm_get_arg(lip_vm_t* vm, uint8_t index)
 {
 	return vm->ctx.ep - (int32_t)index - 1;
 }

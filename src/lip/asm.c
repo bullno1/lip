@@ -104,7 +104,7 @@ lip_asm_index_t lip_asm_new_string_const(lip_asm_t* lasm, lip_string_ref_t str)
 	};
 	lip_array_push(lasm->constants, value);
 
-	lip_array_resize(lasm->string_pool, lip_string_t_align(str.length));
+	lip_array_resize(lasm->string_pool, lip_string_align(str.length));
 	lip_string_t* entry = (lip_string_t*)(lasm->string_pool + string_pool_size);
 	entry->length = str.length;
 	memcpy(entry->ptr, str.ptr, str.length);
@@ -129,10 +129,10 @@ lip_asm_index_t lip_asm_new_import(lip_asm_t* lasm, lip_string_ref_t symbol)
 lip_function_t* lip_asm_end(lip_asm_t* lasm)
 {
 	// Remove all labels, recording their addresses and record jump addresses
-	size_t num_instructions = lip_array_len(lasm->instructions);
+	unsigned int num_instructions = lip_array_len(lasm->instructions);
 	lip_array_clear(lasm->jumps);
 	lip_asm_index_t out_index = 0;
-	size_t num_labels = 0;
+	unsigned int num_labels = 0;
 	for(lip_asm_index_t index = 0; index < num_instructions; ++index)
 	{
 		lip_opcode_t opcode;
@@ -182,7 +182,7 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 	size_t symbol_section_size = 0;
 	lip_array_foreach(lip_string_ref_t, itr, lasm->import_symbols)
 	{
-		symbol_section_size += lip_string_t_align(itr->length);
+		symbol_section_size += lip_string_align(itr->length);
 	}
 
 	size_t import_value_table_size = num_imports * sizeof(lip_value_t);
@@ -240,7 +240,7 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 		memcpy(&entry->ptr, symbol->ptr, symbol->length);
 		function->import_symbols[i] = (lip_string_t*)ptr;
 
-		ptr += lip_string_t_align(symbol->length);
+		ptr += lip_string_align(symbol->length);
 	}
 
 	// Write string pool

@@ -21,11 +21,15 @@ LIP_ENUM(lip_compile_status_t, LIP_COMPILE)
 
 LIP_ENUM(lip_compile_mode_t, LIP_COMPILE_MODE)
 
+typedef struct lip_scope_t lip_scope_t;
+
 typedef struct lip_compiler_t
 {
 	lip_allocator_t* allocator;
-	lip_asm_t lasm;
 	lip_bundler_t bundler;
+	lip_compile_mode_t mode;
+	lip_scope_t* current_scope;
+	lip_scope_t* free_scopes;
 	lip_write_fn_t error_fn;
 	void* error_ctx;
 } lip_compiler_t;
