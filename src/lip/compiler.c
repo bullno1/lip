@@ -66,12 +66,8 @@ static inline lip_compile_status_t lip_compile_identifier(
 {
 	// TODO: scoping and other kinds of import
 	// TODO: pool imports
-	lip_asm_index_t symbol =
-		lip_asm_new_import(&compiler->lasm, sexp->data.string);
-	lip_asm_add(
-		&compiler->lasm,
-		LIP_OP_LDS, symbol,
-		LIP_ASM_END
+	LIP_ASM(&compiler->lasm,
+		LIP_OP_LDS, lip_asm_new_import(&compiler->lasm, sexp->data.string)
 	);
 	return LIP_COMPILE_OK;
 }
@@ -90,6 +86,18 @@ static inline lip_compile_status_t lip_compile_arguments(
 	return LIP_COMPILE_OK;
 }
 
+static inline lip_compile_status_t lip_compile_string(
+	lip_compiler_t* compiler, lip_sexp_t* sexp
+)
+{
+	// TODO: pool strings, decode escape sequences
+	lip_string_ref_t string = sexp->data.string;
+	LIP_ASM(&compiler->lasm,
+		LIP_OP_LDC, lip_asm_new_string_const(&compiler->lasm, string)
+	);
+	return LIP_COMPILE_OK;
+}
+
 static inline lip_compile_status_t lip_compile_number(
 	lip_compiler_t* compiler, lip_sexp_t* sexp
 )
@@ -97,14 +105,8 @@ static inline lip_compile_status_t lip_compile_number(
 	// TODO: pool constants
 	lip_string_ref_t string = sexp->data.string;
 	double number = strtod(string.ptr, NULL);
-	lip_value_t value = {
-		.type = LIP_VAL_NUMBER,
-		.data = { .number = number }
-	};
-	lip_asm_add(
-		&compiler->lasm,
-		LIP_OP_LDC, lip_asm_new_constant(&compiler->lasm, &value),
-		LIP_ASM_END
+	LIP_ASM(&compiler->lasm,
+		LIP_OP_LDC, lip_asm_new_number_const(&compiler->lasm, number)
 	);
 	return LIP_COMPILE_OK;
 }
@@ -124,37 +126,25 @@ static inline lip_compile_status_t lip_compile_application(
 			lip_asm_index_t else_label = lip_asm_new_label(&compiler->lasm);
 			lip_asm_index_t done_label = lip_asm_new_label(&compiler->lasm);
 			CHECK_COMPILE(lip_compile_sexp(compiler, &head[1]));
-			lip_asm_add(
-				&compiler->lasm,
-				LIP_OP_JOF, else_label,
-				LIP_ASM_END
-			);
+			LIP_ASM(&compiler->lasm, LIP_OP_JOF, else_label);
 			CHECK_COMPILE(lip_compile_sexp(compiler, &head[2]));
 			if(arity == 2)
 			{
-				lip_asm_add(
-					&compiler->lasm,
+				LIP_ASM(&compiler->lasm,
 					LIP_OP_JMP, done_label,
 					LIP_OP_LABEL, else_label,
 					LIP_OP_NIL, 0,
-					LIP_OP_LABEL, done_label,
-					LIP_ASM_END
+					LIP_OP_LABEL, done_label
 				);
 			}
 			else // arity == 3
 			{
-				lip_asm_add(
-					&compiler->lasm,
+				LIP_ASM(&compiler->lasm,
 					LIP_OP_JMP, done_label,
-					LIP_OP_LABEL, else_label,
-					LIP_ASM_END
+					LIP_OP_LABEL, else_label
 				);
 				CHECK_COMPILE(lip_compile_sexp(compiler, &head[3]));
-				lip_asm_add(
-					&compiler->lasm,
-					LIP_OP_LABEL, done_label,
-					LIP_ASM_END
-				);
+				LIP_ASM(&compiler->lasm, LIP_OP_LABEL, done_label);
 			}
 		}
 		// TODO: compile as regular application:
@@ -233,11 +223,15 @@ static inline lip_compile_status_t lip_compile_sexp(
 	{
 		case LIP_SEXP_LIST:
 			return lip_compile_list(compiler, sexp);
+		case LIP_SEXP_SYMBOL:
+			return lip_compile_identifier(compiler, sexp);
+		case LIP_SEXP_STRING:
+			return lip_compile_string(compiler, sexp);
 		case LIP_SEXP_NUMBER:
 			return lip_compile_number(compiler, sexp);
-		default:
-			return lip_compile_identifier(compiler, sexp);
 	}
+
+	return LIP_COMPILE_ERROR;
 }
 
 lip_compile_status_t lip_compiler_add_sexp(

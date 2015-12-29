@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
+#include "utils.h"
 #include "array.h"
 #include "allocator.h"
 
@@ -40,6 +41,7 @@ void lip_asm_init(lip_asm_t* lasm, lip_allocator_t* allocator)
 	lasm->constants = lip_array_new(allocator);
 	lasm->functions = lip_array_new(allocator);
 	lasm->import_symbols = lip_array_new(allocator);
+	lasm->string_pool = lip_array_new(allocator);
 }
 
 void lip_asm_begin(lip_asm_t* lasm)
@@ -49,6 +51,7 @@ void lip_asm_begin(lip_asm_t* lasm)
 	lip_array_resize(lasm->constants, 0);
 	lip_array_resize(lasm->functions, 0);
 	lip_array_resize(lasm->import_symbols, 0);
+	lip_array_resize(lasm->string_pool, 0);
 	lasm->num_locals = 0;
 }
 
@@ -79,11 +82,33 @@ lip_asm_index_t lip_asm_new_local(lip_asm_t* lasm)
 	return ++lasm->num_locals;
 }
 
-lip_asm_index_t lip_asm_new_constant(lip_asm_t* lasm, lip_value_t* value)
+lip_asm_index_t lip_asm_new_number_const(lip_asm_t* lasm, double number)
 {
-	//TODO: assert that constants are only of primitive types or strings
 	lip_asm_index_t index = lip_array_len(lasm->constants);
-	lip_array_push(lasm->constants, *value);
+	lip_value_t value = {
+		.type = LIP_VAL_NUMBER,
+		.data = { .number = number }
+	};
+	lip_array_push(lasm->constants, value);
+	return index;
+}
+
+lip_asm_index_t lip_asm_new_string_const(lip_asm_t* lasm, lip_string_ref_t str)
+{
+	lip_asm_index_t index = lip_array_len(lasm->constants);
+
+	size_t string_pool_size = lip_array_len(lasm->string_pool);
+	lip_value_t value = {
+		.type = LIP_VAL_STRING,
+		.data = { .reference = (void*)string_pool_size }
+	};
+	lip_array_push(lasm->constants, value);
+
+	lip_array_resize(lasm->string_pool, lip_string_t_align(str.length));
+	lip_string_t* entry = (lip_string_t*)(lasm->string_pool + string_pool_size);
+	entry->length = str.length;
+	memcpy(entry->ptr, str.ptr, str.length);
+
 	return index;
 }
 
@@ -103,8 +128,6 @@ lip_asm_index_t lip_asm_new_import(lip_asm_t* lasm, lip_string_ref_t symbol)
 
 lip_function_t* lip_asm_end(lip_asm_t* lasm)
 {
-	//TODO: build a string table for constant strings
-
 	// Remove all labels, recording their addresses and record jump addresses
 	size_t num_instructions = lip_array_len(lasm->instructions);
 	lip_array_clear(lasm->jumps);
@@ -152,16 +175,14 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 		lip_array_len(lasm->constants) * sizeof(lip_value_t);
 	size_t nested_function_table_size =
 		lip_array_len(lasm->functions) * sizeof(lip_function_t*);
+	size_t string_pool_size = lip_array_len(lasm->string_pool);
 
 	size_t num_imports = lip_array_len(lasm->import_symbols);
 	size_t import_table_size = num_imports * sizeof(lip_string_t*);
 	size_t symbol_section_size = 0;
 	lip_array_foreach(lip_string_ref_t, itr, lasm->import_symbols)
 	{
-		size_t entry_size = sizeof(lip_string_t) + itr->length;
-		// align to void* size
-		symbol_section_size +=
-			(entry_size + sizeof(void*) - 1) / sizeof(void*) * sizeof(void*);
+		symbol_section_size += lip_string_t_align(itr->length);
 	}
 
 	size_t import_value_table_size = num_imports * sizeof(lip_value_t);
@@ -170,6 +191,7 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 		+ code_size
 		+ const_pool_size
 		+ nested_function_table_size
+		+ string_pool_size
 		+ import_table_size
 		+ symbol_section_size
 		+ import_value_table_size;
@@ -218,16 +240,28 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 		memcpy(&entry->ptr, symbol->ptr, symbol->length);
 		function->import_symbols[i] = (lip_string_t*)ptr;
 
-		size_t symbol_size = sizeof(lip_string_t) + symbol->length;
-		ptr +=
-			(symbol_size + sizeof(void*) - 1) / sizeof(void*) * sizeof(void*);
+		ptr += lip_string_t_align(symbol->length);
 	}
+
+	// Write string pool
+	memcpy(ptr, lasm->string_pool, string_pool_size);
+	// Fix pointers in constant table
+	for(int i = 0; i < function->num_constants; ++i)
+	{
+		lip_value_t* constant = &function->constants[i];
+		if(constant->type == LIP_VAL_STRING)
+		{
+			constant->data.reference = ptr + (uintptr_t)constant->data.reference;
+		}
+	}
+	ptr += string_pool_size;
 
 	return function;
 }
 
 void lip_asm_cleanup(lip_asm_t* lasm)
 {
+	lip_array_delete(lasm->string_pool);
 	lip_array_delete(lasm->import_symbols);
 	lip_array_delete(lasm->functions);
 	lip_array_delete(lasm->constants);
