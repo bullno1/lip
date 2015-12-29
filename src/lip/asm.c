@@ -108,6 +108,8 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 	// Remove all labels, recording their addresses and record jump addresses
 	size_t num_instructions = lip_array_len(lasm->instructions);
 	lip_array_clear(lasm->jumps);
+	lip_asm_index_t out_index = 0;
+	size_t num_labels = 0;
 	for(lip_asm_index_t index = 0; index < num_instructions; ++index)
 	{
 		lip_opcode_t opcode;
@@ -117,21 +119,20 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 		switch((uint32_t)opcode)
 		{
 			case LIP_OP_LABEL:
-				memmove(
-					&lasm->instructions[index],
-					&lasm->instructions[index + 1],
-					(num_instructions - index - 1) * sizeof(lip_instruction_t)
-				);
-				lasm->labels[operand] = index;
-				--num_instructions;
+				lasm->labels[operand] = out_index;
+				++num_labels;
 				break;
 			case LIP_OP_JMP:
 			case LIP_OP_JOF:
 				lip_array_push(lasm->jumps, index);
 				break;
 		}
+
+		// Overwrite a label with the next instruction if needed
+		lasm->instructions[out_index] = lasm->instructions[index];
+		if(opcode != LIP_OP_LABEL) { ++out_index; }
 	}
-	lip_array_resize(lasm->instructions, num_instructions);
+	lip_array_resize(lasm->instructions, num_instructions - num_labels);
 
 	// Replace all jumps with label address
 	lip_array_foreach(lip_asm_index_t, itr, lasm->jumps)
