@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <lip/asm.h>
 #include <lip/allocator.h>
+#include <stdlib.h>
 #include "asm.h"
 
 int main(int argc, char* argv[])

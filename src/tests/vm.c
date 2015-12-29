@@ -49,18 +49,11 @@ int main(int argc, char* argv[])
 
 	lip_bundler_begin(&bundler);
 
-	const char* plus_sym = "+";
-	lip_string_ref_t plus_ref = { strlen(plus_sym), plus_sym };
-	lip_bundler_add_native_function(&bundler, plus_ref, add, 2);
-
-	const char* fib_sym = "fib";
-	lip_string_ref_t fib_ref = { strlen(fib_sym), fib_sym };
-	const char* lt_sym = "<";
-	lip_string_ref_t lt_ref = { strlen(lt_sym), lt_sym };
+	lip_bundler_add_native_function(&bundler, lip_string_ref("+"), add, 2);
 
 	lip_asm_begin(&lasm);
 	lip_asm_index_t param = lip_asm_new_local(&lasm);
-	lip_asm_index_t fib_import = lip_asm_new_import(&lasm, fib_ref);
+	lip_asm_index_t fib_import = lip_asm_new_import(&lasm, lip_string_ref("fib"));
 	lip_asm_index_t else_label = lip_asm_new_label(&lasm);
 	lip_asm_index_t done_label = lip_asm_new_label(&lasm);
 	lip_asm_add(&lasm,
@@ -89,8 +82,8 @@ int main(int argc, char* argv[])
 	lip_function_t* fib_fn = lip_asm_end(&lasm);
 
 	fib_fn->arity = 1;
-	lip_bundler_add_lip_function(&bundler, fib_ref, fib_fn);
-	lip_bundler_add_native_function(&bundler, lt_ref, lt, 2);
+	lip_bundler_add_lip_function(&bundler, lip_string_ref("fib"), fib_fn);
+	lip_bundler_add_native_function(&bundler, lip_string_ref("<"), lt, 2);
 
 	lip_module_t* module2 = lip_bundler_end(&bundler);
 
@@ -106,13 +99,11 @@ int main(int argc, char* argv[])
 	lip_vm_t vm;
 	size_t mem_required = lip_vm_config(&vm, 256, 256, 256);
 	void* mem = lip_malloc(lip_default_allocator, mem_required);
-	const char* sym = "fib";
-	lip_string_ref_t sym_ref = { strlen(sym), sym };
 	lip_vm_init(&vm, mem);
 	(void)hook;
 	lip_vm_push_number(&vm, 40);
 	lip_value_t value;
-	lip_linker_find_symbol(&linker, sym_ref, &value);
+	lip_linker_find_symbol(&linker, lip_string_ref("fib"), &value);
 	lip_vm_push_value(&vm, &value);
 	lip_vm_call(&vm, 1);
 	lip_value_print(lip_vm_pop(&vm), 0);

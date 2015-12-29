@@ -5,23 +5,19 @@
 #include <string.h>
 #include <lip/asm.h>
 #include <lip/allocator.h>
+#include <lip/utils.h>
 
 static inline lip_function_t* load_asm(lip_asm_t* lasm)
 {
 	lip_asm_begin(lasm);
 
-	lip_value_t pi = { .type = LIP_VAL_NUMBER, .data = { .number = 3.14 } };
-	lip_asm_index_t pi_index = lip_asm_new_constant(lasm, &pi);
+	lip_asm_index_t pi_index = lip_asm_new_number_const(lasm, 3.14);
+	lip_asm_index_t life_index = lip_asm_new_number_const(lasm, 42.0);
 
-	lip_value_t life = { .type = LIP_VAL_NUMBER, .data = { .number = 42.0 } };
-	lip_asm_index_t life_index = lip_asm_new_constant(lasm, &life);
-
-	const char* print = "print";
-	lip_string_ref_t print_ref = { strlen(print), print };
+	lip_string_ref_t print_ref = lip_string_ref("print");
 	lip_asm_index_t print_index = lip_asm_new_import(lasm, print_ref);
 
-	const char* plus = "+";
-	lip_string_ref_t plus_ref = { strlen(plus), plus };
+	lip_string_ref_t plus_ref = lip_string_ref("+");
 	lip_asm_index_t plus_index = lip_asm_new_import(lasm, plus_ref);
 
 	lip_asm_index_t label = lip_asm_new_label(lasm);
