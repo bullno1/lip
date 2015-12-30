@@ -27,12 +27,12 @@ static void lip_lexer_release_strings(lip_lexer_t* lexer)
 	{
 		lip_free(lexer->allocator, *string);
 	}
-	lip_array_resize(lexer->strings, 0);
+	lip_array_clear(lexer->strings);
 }
 
 void lip_lexer_reset(lip_lexer_t* lexer)
 {
-	lip_array_resize(lexer->capture_buff, 0);
+	lip_array_clear(lexer->capture_buff);
 	lip_lexer_release_strings(lexer);
 	lexer->location.line = 1;
 	lexer->location.column = 1;
@@ -56,7 +56,7 @@ static void lip_lexer_begin_capture(lip_lexer_t* lexer)
 
 void lip_lexer_reset_capture(lip_lexer_t* lexer)
 {
-	lip_array_resize(lexer->capture_buff, 0);
+	lip_array_clear(lexer->capture_buff);
 	lexer->capturing = false;
 }
 

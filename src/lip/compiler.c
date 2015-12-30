@@ -93,12 +93,12 @@ void lip_scope_begin(lip_compiler_t* compiler)
 	lip_scope_t* scope = lip_scope_new(compiler);
 
 	lip_asm_begin(&scope->lasm);
-	lip_array_resize(scope->var_names, 0);
-	lip_array_resize(scope->var_indices, 0);
-	lip_array_resize(scope->constant_values, 0);
-	lip_array_resize(scope->constant_indices, 0);
-	lip_array_resize(scope->import_names, 0);
-	lip_array_resize(scope->import_indices, 0);
+	lip_array_clear(scope->var_names);
+	lip_array_clear(scope->var_indices);
+	lip_array_clear(scope->constant_values);
+	lip_array_clear(scope->constant_indices);
+	lip_array_clear(scope->import_names);
+	lip_array_clear(scope->import_indices);
 
 	scope->parent = compiler->current_scope;
 	compiler->current_scope = scope;

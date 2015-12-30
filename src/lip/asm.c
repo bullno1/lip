@@ -46,12 +46,12 @@ void lip_asm_init(lip_asm_t* lasm, lip_allocator_t* allocator)
 
 void lip_asm_begin(lip_asm_t* lasm)
 {
-	lip_array_resize(lasm->labels, 0);
-	lip_array_resize(lasm->instructions, 0);
-	lip_array_resize(lasm->constants, 0);
-	lip_array_resize(lasm->functions, 0);
-	lip_array_resize(lasm->import_symbols, 0);
-	lip_array_resize(lasm->string_pool, 0);
+	lip_array_clear(lasm->labels);
+	lip_array_clear(lasm->instructions);
+	lip_array_clear(lasm->constants);
+	lip_array_clear(lasm->functions);
+	lip_array_clear(lasm->import_symbols);
+	lip_array_clear(lasm->string_pool);
 	lasm->num_locals = 0;
 }
 

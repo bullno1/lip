@@ -16,7 +16,7 @@ void lip_linker_add_module(lip_linker_t* linker, lip_module_t* module)
 
 void lip_linker_reset(lip_linker_t* linker)
 {
-	lip_array_resize(linker->modules, 0);
+	lip_array_clear(linker->modules);
 }
 
 static inline void lip_linker_find_symbol_common(
