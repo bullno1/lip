@@ -55,7 +55,7 @@ void lip_function_print(lip_function_t* function, int indent, int max_depth)
 	printf("%*s.DATA:\n", indent * 2, "");
 	for(int i = 0; i < function->num_constants; ++i)
 	{
-		printf("%*s%d:\n", indent * 2 + 1, "", i + 1);
+		printf("%*s%d:\n", indent * 2 + 1, "", i);
 		lip_value_print(&function->constants[i], indent + 1, max_depth - 1);
 		printf("\n");
 	}

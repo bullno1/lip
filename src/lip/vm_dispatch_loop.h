@@ -114,6 +114,14 @@ BEGIN_LOOP
 		LOAD_CONTEXT();
 	END_OP(CALL)
 
+	BEGIN_OP(TAIL)
+		SAVE_CONTEXT();
+		vm->ctx.ep = (vm->fp - 1)->ep;
+		lip_vm_do_call(vm, operand);
+		if(vm->ctx.is_native) { return LIP_EXEC_OK; }
+		LOAD_CONTEXT();
+	END_OP(TAIL)
+
 	BEGIN_OP(RET)
 		SAVE_CONTEXT();
 		vm->ctx = *(--vm->fp);

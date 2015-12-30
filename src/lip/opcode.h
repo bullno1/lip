@@ -16,6 +16,7 @@
 	F(LIP_OP_JMP) \
 	F(LIP_OP_JOF) \
 	F(LIP_OP_CALL) \
+	F(LIP_OP_TAIL) \
 	F(LIP_OP_RET) \
 	F(LIP_OP_PLUS) \
 	F(LIP_OP_LT) \
