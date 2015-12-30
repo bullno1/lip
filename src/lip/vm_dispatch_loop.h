@@ -154,7 +154,7 @@ BEGIN_LOOP
 		lip_closure_t* closure = lip_malloc(vm->allocator, closure_size);
 		closure->info.is_native = false;
 		closure->function_ptr.lip = fn->functions[function_index];
-		closure->environment_size = environment_size;
+		closure->environment_size = environment_size / sizeof(lip_value_t);
 		for(unsigned int i = 0; i < num_captures; ++i)
 		{
 			lip_opcode_t opcode;
