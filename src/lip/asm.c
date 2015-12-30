@@ -104,7 +104,10 @@ lip_asm_index_t lip_asm_new_string_const(lip_asm_t* lasm, lip_string_ref_t str)
 	};
 	lip_array_push(lasm->constants, value);
 
-	lip_array_resize(lasm->string_pool, lip_string_align(str.length));
+	lip_array_resize(
+		lasm->string_pool,
+		string_pool_size + lip_string_align(str.length)
+	);
 	lip_string_t* entry = (lip_string_t*)(lasm->string_pool + string_pool_size);
 	entry->length = str.length;
 	memcpy(entry->ptr, str.ptr, str.length);
