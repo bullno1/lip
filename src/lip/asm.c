@@ -24,12 +24,37 @@ void lip_asm_print(lip_instruction_t instruction)
 	lip_opcode_t opcode;
 	int32_t operand;
 	lip_disasm(instruction, &opcode, &operand);
-	printf(
-		"%-4s %4d (0x%08x)",
-		lip_opcode_t_to_str(opcode) + sizeof("LIP_OP_") - 1,
-		operand,
-		instruction
-	);
+	int32_t hi_operand = (operand >> 12) & 0xFFF;
+	int32_t lo_operand = operand & 0xFFF;
+	switch(opcode)
+	{
+		case LIP_OP_NOP:
+		case LIP_OP_NIL:
+		case LIP_OP_RET:
+		case LIP_OP_LT:
+			printf(
+				"%-9s (0x%08x)",
+				lip_opcode_t_to_str(opcode) + sizeof("LIP_OP_") - 1,
+				instruction
+			);
+			break;
+		case LIP_OP_CLS:
+			printf(
+				"%-4s %d, %d (0x%08x)",
+				lip_opcode_t_to_str(opcode) + sizeof("LIP_OP_") - 1,
+				hi_operand, lo_operand,
+				instruction
+			);
+			break;
+		default:
+			printf(
+				"%-4s %4d (0x%08x)",
+				lip_opcode_t_to_str(opcode) + sizeof("LIP_OP_") - 1,
+				operand,
+				instruction
+			);
+			break;
+	}
 }
 
 void lip_asm_init(lip_asm_t* lasm, lip_allocator_t* allocator)
@@ -135,7 +160,6 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 	unsigned int num_instructions = lip_array_len(lasm->instructions);
 	lip_array_clear(lasm->jumps);
 	lip_asm_index_t out_index = 0;
-	unsigned int num_labels = 0;
 	for(lip_asm_index_t index = 0; index < num_instructions; ++index)
 	{
 		lip_opcode_t opcode;
@@ -146,7 +170,6 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 		{
 			case LIP_OP_LABEL:
 				lasm->labels[operand] = out_index;
-				++num_labels;
 				break;
 			case LIP_OP_JMP:
 			case LIP_OP_JOF:
@@ -158,7 +181,7 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 		lasm->instructions[out_index] = lasm->instructions[index];
 		if(opcode != LIP_OP_LABEL) { ++out_index; }
 	}
-	lip_array_resize(lasm->instructions, num_instructions - num_labels);
+	lip_array_resize(lasm->instructions, out_index);
 
 	// Replace all jumps with label address
 	lip_array_foreach(lip_asm_index_t, itr, lasm->jumps)

@@ -24,6 +24,8 @@ typedef struct lip_compiler_t
 	lip_compile_mode_t mode;
 	lip_scope_t* current_scope;
 	lip_scope_t* free_scopes;
+	lip_array(lip_string_ref_t) free_var_names;
+	lip_array(lip_asm_index_t) free_var_indices;
 	lip_write_fn_t error_fn;
 	void* error_ctx;
 } lip_compiler_t;

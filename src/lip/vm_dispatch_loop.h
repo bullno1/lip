@@ -74,7 +74,8 @@ BEGIN_LOOP
 	END_OP(LDC)
 
 	BEGIN_OP(LDL)
-		*(sp++) = *(ep - operand);
+		lip_value_t* target = operand > 0 ? ep - operand : vm->ctx.closure->environment - operand;
+		*(sp++) = *target;
 	END_OP(LDL)
 
 	BEGIN_OP(LDS)
@@ -140,12 +141,22 @@ BEGIN_LOOP
 	END_OP(PLUS)
 
 	BEGIN_OP(CLS)
-		unsigned int num_captures = 0;
+		unsigned int function_index = operand & 0xFFF;
+		unsigned int num_captures = (operand >> 12) & 0xFFF;
 		size_t environment_size = num_captures * sizeof(lip_value_t);
 		size_t closure_size = sizeof(lip_closure_t) + environment_size;
 		lip_closure_t* closure = lip_malloc(vm->allocator, closure_size);
 		closure->info.is_native = false;
-		closure->function_ptr.lip = fn->functions[operand];
+		closure->function_ptr.lip = fn->functions[function_index];
+		for(unsigned int i = 0; i < num_captures; ++i)
+		{
+			lip_opcode_t opcode;
+			int32_t local_index;
+			lip_disasm(pc[i], &opcode, &local_index);
+			lip_value_t* target = local_index > 0 ? ep - local_index : vm->ctx.closure->environment - local_index;
+			closure->environment[i] = *target;
+		}
+		pc += num_captures;
 		lip_value_t value = {
 			.type = LIP_VAL_CLOSURE,
 			.data = { .reference = closure }
@@ -154,7 +165,8 @@ BEGIN_LOOP
 	END_OP(CLS)
 
 	BEGIN_OP(SET)
-		*(ep - operand) = *(--sp);
+		lip_value_t* target = operand > 0 ? ep - operand : vm->ctx.closure->environment - operand;
+		*target = *(--sp);
 	END_OP(SET)
 END_LOOP
 

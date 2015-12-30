@@ -61,6 +61,15 @@ static void lip_linker_link_function(
 			&function->import_values[import_index]
 		);
 	}
+
+	for(
+		uint16_t function_index = 0;
+		function_index < function->num_functions;
+		++function_index
+	)
+	{
+		lip_linker_link_function(linker, function->functions[function_index]);
+	}
 }
 
 static void lip_linker_link_module(lip_linker_t* linker, lip_module_t* module)

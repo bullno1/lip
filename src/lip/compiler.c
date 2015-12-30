@@ -322,6 +322,8 @@ void lip_compiler_init(
 	lip_bundler_init(&compiler->bundler, allocator);
 	compiler->current_scope = NULL;
 	compiler->free_scopes = NULL;
+	compiler->free_var_names = lip_array_new(allocator);
+	compiler->free_var_indices = lip_array_new(allocator);
 	compiler->error_fn = error_fn;
 	compiler->error_ctx = error_ctx;
 }
@@ -618,6 +620,82 @@ static inline bool lip_compile_let(
 	return true;
 }
 
+void lip_add_var(lip_array(lip_string_ref_t)* free_vars, lip_string_ref_t var)
+{
+	lip_array_foreach(lip_string_ref_t, str, *free_vars)
+	{
+		if(lip_string_ref_equal(*str, var)) { return; }
+	}
+
+	lip_array_push(*free_vars, var);
+}
+
+void lip_remove_var(lip_array(lip_string_ref_t)* free_vars, lip_string_ref_t var)
+{
+	unsigned int num_vars = lip_array_len(*free_vars);
+
+	for(unsigned int i = 0; i < num_vars; ++i)
+	{
+		if(lip_string_ref_equal((*free_vars)[i], var))
+		{
+			(*free_vars)[i] = (*free_vars)[num_vars - 1];
+			lip_array_resize(*free_vars, num_vars - 1);
+			return;
+		}
+	}
+}
+
+static inline void lip_find_free_vars(
+	lip_sexp_t* sexp, lip_array(lip_string_ref_t)* free_vars
+)
+{
+	switch(lip_ast_type(sexp))
+	{
+		case LIP_AST_IDENTIFIER:
+			lip_add_var(free_vars, sexp->data.string);
+			break;
+		case LIP_AST_IF:
+			lip_find_free_vars(&sexp->data.list[1], free_vars);
+			lip_find_free_vars(&sexp->data.list[2], free_vars);
+			if(lip_array_len(sexp->data.list) == 4)
+			{
+				lip_find_free_vars(&sexp->data.list[3], free_vars);
+			}
+			break;
+		case LIP_AST_APPLICATION:
+			lip_array_foreach(lip_sexp_t, sub_exp, sexp->data.list)
+			{
+				lip_find_free_vars(sub_exp, free_vars);
+			}
+			break;
+		case LIP_AST_LAMBDA:
+			lip_find_free_vars(&sexp->data.list[2], free_vars);
+			lip_array_foreach(lip_sexp_t, param, sexp->data.list[1].data.list)
+			{
+				lip_remove_var(free_vars, param->data.string);
+			}
+			break;
+		case LIP_AST_LET:
+			lip_find_free_vars(&sexp->data.list[2], free_vars);
+			{
+				lip_array(lip_sexp_t) bindings = sexp->data.list[1].data.list;
+				int num_bindings = lip_array_len(bindings);
+				for(int i = num_bindings - 1; i >= 0; --i)
+				{
+					lip_sexp_t* binding = &bindings[i];
+					lip_remove_var(free_vars, binding->data.list[0].data.string);
+					lip_find_free_vars(&binding->data.list[1], free_vars);
+				}
+			}
+			break;
+		case LIP_AST_STRING:
+		case LIP_AST_NUMBER:
+			break;;
+		case LIP_AST_ERROR:
+			abort();
+	}
+}
+
 static inline bool lip_compile_lambda(
 	lip_compiler_t* compiler, lip_sexp_t* sexp
 )
@@ -628,6 +706,29 @@ static inline bool lip_compile_lambda(
 	{
 		lip_new_local(compiler, param->data.string);
 	}
+	// Allocate free vars
+	lip_array_clear(compiler->free_var_names);
+	lip_array_clear(compiler->free_var_indices);
+	lip_find_free_vars(sexp, &compiler->free_var_names);
+	unsigned int num_free_vars = lip_array_len(compiler->free_var_names);
+	unsigned int num_captures = 0;
+	int free_var_index = 0;
+	lip_scope_t* scope = compiler->current_scope;
+	for(unsigned int i = 0; i < num_free_vars; ++i)
+	{
+		compiler->free_var_names[num_captures] = compiler->free_var_names[i];
+
+		lip_asm_index_t local_index;
+		if(lip_find_local(compiler, compiler->free_var_names[i], &local_index))
+		{
+			lip_array_push(scope->var_names, compiler->free_var_names[i]);
+			lip_array_push(scope->var_indices, free_var_index--);
+			lip_array_push(compiler->free_var_indices, local_index);
+			++num_captures;
+		}
+	}
+	lip_array_resize(compiler->free_var_names, num_captures);
+	// Compile body
 	if(!lip_compile_sexp(compiler, &sexp->data.list[2]))
 	{
 		lip_scope_end(compiler);
@@ -636,9 +737,16 @@ static inline bool lip_compile_lambda(
 	LASM(compiler, LIP_OP_RET, 0);
 	lip_function_t* function = lip_asm_end(&compiler->current_scope->lasm);
 	lip_scope_end(compiler);
-	lip_asm_index_t index =
+
+	lip_asm_index_t function_index =
 		lip_asm_new_function(&compiler->current_scope->lasm, function);
-	LASM(compiler, LIP_OP_CLS, index);
+	int32_t operand = (function_index & 0xFFF) | ((num_captures & 0xFFF) << 12);
+	LASM(compiler, LIP_OP_CLS, operand);
+	// pseudo-instructions to capture local variables into closure
+	for(unsigned int i = 0; i < num_captures; ++i)
+	{
+		LASM(compiler, LIP_OP_LDL, compiler->free_var_indices[i]);
+	}
 	return true;
 }
 
@@ -745,6 +853,8 @@ lip_module_t* lip_compiler_end(lip_compiler_t* compiler)
 
 void lip_compiler_cleanup(lip_compiler_t* compiler)
 {
+	lip_array_delete(compiler->free_var_names);
+	lip_array_delete(compiler->free_var_indices);
 	lip_compiler_reset(compiler);
 	lip_scope_t* itr = compiler->free_scopes;
 	while(itr)
