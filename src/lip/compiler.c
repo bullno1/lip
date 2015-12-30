@@ -338,6 +338,27 @@ static inline lip_compile_status_t lip_compile_number(
 	return lip_compile_constant(compiler, &constant);
 }
 
+static inline lip_asm_index_t lip_new_local(
+	lip_compiler_t* compiler, lip_string_ref_t name
+)
+{
+	lip_scope_t* scope = compiler->current_scope;
+	lip_array_push(scope->var_names, name);
+	unsigned int num_locals = lip_array_len(scope->var_names);
+	if(num_locals <= lip_array_len(scope->var_indices))
+	{
+		// reuse index allocated in an earlier sibling let
+		return scope->var_indices[num_locals - 1];
+	}
+	else
+	{
+		// allocate a new local
+		lip_asm_index_t index = lip_asm_new_local(&scope->lasm);
+		lip_array_push(scope->var_indices, index);
+		return index;
+	}
+}
+
 static inline lip_compile_status_t lip_compile_application(
 	lip_compiler_t* compiler, lip_sexp_t* sexp
 )
@@ -348,7 +369,8 @@ static inline lip_compile_status_t lip_compile_application(
 	lip_scope_t* scope = compiler->current_scope;
 	if(head->type == LIP_SEXP_SYMBOL)
 	{
-		if(strcmp(head->data.string.ptr, "if") == 0)
+		const char* symbol = head->data.string.ptr;
+		if(strcmp(symbol, "if") == 0)
 		{
 			ENSURE(arity == 2 || arity == 3, "'if' expects 2 or 3 arguments");
 			lip_asm_index_t else_label = lip_asm_new_label(&scope->lasm);
@@ -374,6 +396,47 @@ static inline lip_compile_status_t lip_compile_application(
 				CHECK_COMPILE(lip_compile_sexp(compiler, &head[3]));
 				LASM(compiler, LIP_OP_LABEL, done_label);
 			}
+		}
+		else if(strcmp(symbol, "let") == 0)
+		{
+			ENSURE(arity == 2, "'let' expects 2 arguments");
+			ENSURE(
+				head[1].type == LIP_SEXP_LIST,
+				"'let' expects a list of bindings as its first argument"
+			);
+
+			lip_scope_t* scope = compiler->current_scope;
+			unsigned int num_locals = lip_array_len(scope->var_names);
+
+			// Compile bindings
+			lip_array_foreach(lip_sexp_t, binding_exp, head[1].data.list)
+			{
+				bool valid = binding_exp->type == LIP_SEXP_LIST
+				          && lip_array_len(binding_exp->data.list) == 2
+						  && binding_exp->data.list[0].type == LIP_SEXP_SYMBOL;
+				if(!valid)
+				{
+					return lip_compile_error(
+						compiler,
+						"a binding expression must be of the form: (<symbol> <exp>)",
+						binding_exp
+					);
+				}
+				CHECK_COMPILE(
+					lip_compile_sexp(compiler, &binding_exp->data.list[1])
+				);
+				lip_asm_index_t local = lip_new_local(
+					compiler,
+					binding_exp->data.list[0].data.string
+				);
+				LASM(compiler, LIP_OP_SET, local);
+			}
+
+			// Compile body
+			CHECK_COMPILE(lip_compile_sexp(compiler, &head[2]));
+
+			lip_array_resize(scope->var_names, num_locals);
+			return LIP_COMPILE_OK;
 		}
 		// TODO: optimize in asm instead, search for import->call sequence and
 		// change to instruction before label collection
@@ -410,20 +473,15 @@ static inline lip_compile_status_t lip_compile_list(
 )
 {
 	unsigned int len = lip_array_len(sexp->data.list);
-	if(len == 0)
-	{
-		return lip_compile_error(compiler, "syntax error", sexp);
-	}
+	ENSURE(len > 0, "syntax error");
 
 	lip_sexp_t* head = sexp->data.list;
-	if(head->type == LIP_SEXP_LIST || head->type == LIP_SEXP_SYMBOL)
-	{
-		return lip_compile_application(compiler, sexp);
-	}
-	else
-	{
-		return lip_compile_error(compiler, "term cannot be applied", sexp);
-	}
+	ENSURE(
+		head->type == LIP_SEXP_LIST || head->type == LIP_SEXP_SYMBOL,
+		"term cannot be applied"
+	);
+
+	return lip_compile_application(compiler, sexp);
 }
 
 static inline lip_compile_status_t lip_compile_sexp(
