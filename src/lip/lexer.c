@@ -21,7 +21,7 @@ void lip_lexer_init(
 	lip_lexer_reset(lexer);
 }
 
-static void lip_lexer_release_strings(lip_lexer_t* lexer)
+static inline void lip_lexer_release_strings(lip_lexer_t* lexer)
 {
 	lip_array_foreach(char*, string, lexer->strings)
 	{
@@ -49,18 +49,18 @@ void lip_lexer_cleanup(lip_lexer_t* lexer)
 	lip_array_delete(lexer->strings);
 }
 
-static void lip_lexer_begin_capture(lip_lexer_t* lexer)
+static inline void lip_lexer_begin_capture(lip_lexer_t* lexer)
 {
 	lexer->capturing = true;
 }
 
-void lip_lexer_reset_capture(lip_lexer_t* lexer)
+static inline void lip_lexer_reset_capture(lip_lexer_t* lexer)
 {
 	lip_array_clear(lexer->capture_buff);
 	lexer->capturing = false;
 }
 
-lip_string_ref_t lip_lexer_end_capture(lip_lexer_t* lexer)
+static inline lip_string_ref_t lip_lexer_end_capture(lip_lexer_t* lexer)
 {
 	lip_array_push(lexer->capture_buff, 0); // null-terminate
 	unsigned int len = lip_array_len(lexer->capture_buff);
@@ -74,7 +74,7 @@ lip_string_ref_t lip_lexer_end_capture(lip_lexer_t* lexer)
 	return ref;
 }
 
-static lip_lex_status_t lip_lexer_make_token(
+static inline lip_lex_status_t lip_lexer_make_token(
 	lip_lexer_t* lexer,
 	lip_token_t* token,
 	lip_token_type_t type
@@ -88,7 +88,7 @@ static lip_lex_status_t lip_lexer_make_token(
 	return LIP_LEX_OK;
 }
 
-static bool lip_lexer_peek_char(lip_lexer_t* lexer, char* ch)
+static inline bool lip_lexer_peek_char(lip_lexer_t* lexer, char* ch)
 {
 	if(lexer->buffered) { *ch = lexer->buff; return true; }
 
@@ -105,7 +105,7 @@ static bool lip_lexer_peek_char(lip_lexer_t* lexer, char* ch)
 	}
 }
 
-static void lip_lexer_consume_char(lip_lexer_t* lexer)
+static inline void lip_lexer_consume_char(lip_lexer_t* lexer)
 {
 	lexer->buffered = false;
 	if(lexer->capturing)
@@ -115,9 +115,60 @@ static void lip_lexer_consume_char(lip_lexer_t* lexer)
 	++lexer->location.column;
 }
 
-static bool lip_lexer_is_separator(char ch)
+static inline bool lip_lexer_is_separator(char ch)
 {
-	return isspace(ch) || ch == ')' || ch == '(' || ch == ';';
+	return isspace(ch) || ch == ')' || ch == '(' || ch == ';' || ch == '"';
+}
+
+static inline lip_lex_status_t lip_lexer_lex_number(
+	lip_lexer_t* lexer, lip_token_t* token
+)
+{
+	char ch;
+	while(lip_lexer_peek_char(lexer, &ch))
+	{
+		if(ch == '.' || isdigit(ch))
+		{
+			lip_lexer_consume_char(lexer);
+			continue;
+		}
+		else if(!lip_lexer_is_separator(ch))
+		{
+			lip_lexer_consume_char(lexer);
+			lip_lexer_make_token(
+				lexer,
+				token,
+				LIP_TOKEN_NUMBER
+			);
+			return LIP_LEX_BAD_NUMBER;
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	return lip_lexer_make_token(lexer, token, LIP_TOKEN_NUMBER);
+}
+
+static inline lip_lex_status_t lip_lexer_lex_symbol(
+	lip_lexer_t* lexer, lip_token_t* token
+)
+{
+	char ch;
+	while(lip_lexer_peek_char(lexer, &ch))
+	{
+		if(!lip_lexer_is_separator(ch))
+		{
+			lip_lexer_consume_char(lexer);
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	return lip_lexer_make_token(lexer, token, LIP_TOKEN_SYMBOL);
 }
 
 lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
@@ -189,49 +240,28 @@ lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 				}
 				lip_lexer_make_token(lexer, token, LIP_TOKEN_STRING);
 				return LIP_LEX_BAD_STRING;
-			default:
+			case '-':
+				lip_lexer_peek_char(lexer, &ch);
 				if(isdigit(ch))
 				{
-					while(lip_lexer_peek_char(lexer, &ch))
-					{
-						if(ch == '.' || isdigit(ch))
-						{
-							lip_lexer_consume_char(lexer);
-							continue;
-						}
-						else if(!lip_lexer_is_separator(ch))
-						{
-							lip_lexer_consume_char(lexer);
-							lip_lexer_make_token(
-								lexer,
-								token,
-								LIP_TOKEN_NUMBER
-							);
-							return LIP_LEX_BAD_NUMBER;
-						}
-						else
-						{
-							break;
-						}
-					}
-
-					return lip_lexer_make_token(lexer, token, LIP_TOKEN_NUMBER);
+					return lip_lexer_lex_number(lexer, token);
+				}
+				else if(lip_lexer_is_separator(ch))
+				{
+					return lip_lexer_make_token(lexer, token, LIP_TOKEN_SYMBOL);
 				}
 				else
 				{
-					while(lip_lexer_peek_char(lexer, &ch))
-					{
-						if(!lip_lexer_is_separator(ch))
-						{
-							lip_lexer_consume_char(lexer);
-						}
-						else
-						{
-							break;
-						}
-					}
-
-					return lip_lexer_make_token(lexer, token, LIP_TOKEN_SYMBOL);
+					return lip_lexer_lex_symbol(lexer, token);
+				}
+			default:
+				if(isdigit(ch))
+				{
+					return lip_lexer_lex_number(lexer, token);
+				}
+				else
+				{
+					return lip_lexer_lex_symbol(lexer, token);
 				}
 		}
 	}
