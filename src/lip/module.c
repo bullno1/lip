@@ -17,7 +17,7 @@ void lip_function_free(lip_allocator_t* allocator, lip_function_t* function)
 {
 	for(unsigned int i = 0; i < function->num_functions; ++i)
 	{
-		lip_function_free(allocator, function->functions + i);
+		lip_function_free(allocator, function->functions[i]);
 	}
 
 	lip_free(allocator, function);

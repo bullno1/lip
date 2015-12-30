@@ -46,7 +46,7 @@ typedef struct lip_function_t
 
 	lip_instruction_t* instructions;
 	lip_value_t* constants;
-	lip_function_t* functions;
+	lip_function_t** functions;
 	lip_string_t** import_symbols;
 	lip_value_t* import_values;
 } lip_function_t;

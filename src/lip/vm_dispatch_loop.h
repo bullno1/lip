@@ -140,6 +140,17 @@ BEGIN_LOOP
 	END_OP(PLUS)
 
 	BEGIN_OP(CLS)
+		unsigned int num_captures = 0;
+		size_t environment_size = num_captures * sizeof(lip_value_t);
+		size_t closure_size = sizeof(lip_closure_t) + environment_size;
+		lip_closure_t* closure = lip_malloc(vm->allocator, closure_size);
+		closure->info.is_native = false;
+		closure->function_ptr.lip = fn->functions[operand];
+		lip_value_t value = {
+			.type = LIP_VAL_CLOSURE,
+			.data = { .reference = closure }
+		};
+		*(sp++) = value;
 	END_OP(CLS)
 
 	BEGIN_OP(SET)

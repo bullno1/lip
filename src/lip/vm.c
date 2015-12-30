@@ -4,11 +4,13 @@
 
 size_t lip_vm_config(
 	lip_vm_t* vm,
+	lip_allocator_t* allocator,
 	unsigned int operand_stack_size,
 	unsigned int environment_size,
 	unsigned int call_stack_size
 )
 {
+	vm->allocator = allocator;
 	vm->max_sp = (void*)(uintptr_t)operand_stack_size;
 	vm->max_ep = (void*)(uintptr_t)environment_size;
 	vm->max_fp = (void*)(uintptr_t)call_stack_size;

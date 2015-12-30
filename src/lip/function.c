@@ -43,7 +43,7 @@ void lip_function_print(lip_function_t* function, int indent)
 	for(int i = 0; i < function->num_functions; ++i)
 	{
 		printf("%*s%d:\n", indent * 2 + 1, "", i);
-		lip_function_print(&function->functions[i], indent + 1);
+		lip_function_print(function->functions[i], indent + 1);
 	}
 
 	printf("%*s.IMPORTS:\n", indent * 2, "");

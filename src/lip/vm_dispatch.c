@@ -1,6 +1,7 @@
 #include <string.h>
 #include "vm.h"
 #include "asm.h"
+#include "allocator.h"
 
 void lip_vm_do_call(lip_vm_t* vm, uint8_t num_args)
 {

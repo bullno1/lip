@@ -359,6 +359,32 @@ static inline lip_asm_index_t lip_new_local(
 	}
 }
 
+static inline lip_compile_status_t lip_compile_lambda_body(
+	lip_compiler_t* compiler,
+	lip_sexp_t* params,
+	lip_sexp_t* body,
+	lip_function_t** result
+)
+{
+	// Allocate parameters as local variables
+	lip_array_foreach(lip_sexp_t, param, params)
+	{
+		if(param->type != LIP_SEXP_SYMBOL)
+		{
+			return lip_compile_error(
+				compiler,
+				"parameter must be a symbol",
+				param
+			);
+		}
+		lip_new_local(compiler, param->data.string);
+	}
+	CHECK_COMPILE(lip_compile_sexp(compiler, body));
+	LASM(compiler, LIP_OP_RET, 0);
+	*result = lip_asm_end(&compiler->current_scope->lasm);
+	return LIP_COMPILE_OK;
+}
+
 static inline lip_compile_status_t lip_compile_application(
 	lip_compiler_t* compiler, lip_sexp_t* sexp
 )
@@ -399,10 +425,9 @@ static inline lip_compile_status_t lip_compile_application(
 		}
 		else if(strcmp(symbol, "let") == 0)
 		{
-			ENSURE(arity == 2, "'let' expects 2 arguments");
 			ENSURE(
-				head[1].type == LIP_SEXP_LIST,
-				"'let' expects a list of bindings as its first argument"
+				arity == 2 && head[1].type == LIP_SEXP_LIST,
+				"'let' must have the form: (let (<bindings>) <exp>)"
 			);
 
 			lip_scope_t* scope = compiler->current_scope;
@@ -418,7 +443,7 @@ static inline lip_compile_status_t lip_compile_application(
 				{
 					return lip_compile_error(
 						compiler,
-						"a binding expression must be of the form: (<symbol> <exp>)",
+						"a binding must have the form: (<symbol> <exp>)",
 						binding_exp
 					);
 				}
@@ -436,6 +461,29 @@ static inline lip_compile_status_t lip_compile_application(
 			CHECK_COMPILE(lip_compile_sexp(compiler, &head[2]));
 
 			lip_array_resize(scope->var_names, num_locals);
+			return LIP_COMPILE_OK;
+		}
+		else if(strcmp(head->data.string.ptr, "lambda") == 0)
+		{
+			ENSURE(
+				arity == 2 && head[1].type == LIP_SEXP_LIST,
+				"'lambda' must have the form (lambda (<parameters>) <body>)"
+			);
+
+			lip_scope_t* scope = compiler->current_scope;
+			lip_function_t* func = NULL;
+			lip_scope_begin(compiler);
+			lip_compile_lambda_body(
+				compiler, head[1].data.list, &head[2], &func
+			);
+			if(func == NULL)
+			{
+				lip_scope_end(compiler);
+				return LIP_COMPILE_ERROR;
+			}
+			lip_scope_end(compiler);
+			lip_asm_index_t index = lip_asm_new_function(&scope->lasm, func);
+			LASM(compiler, LIP_OP_CLS, index);
 			return LIP_COMPILE_OK;
 		}
 		// TODO: optimize in asm instead, search for import->call sequence and

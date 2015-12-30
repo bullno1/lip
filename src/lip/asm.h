@@ -17,7 +17,7 @@ typedef struct lip_asm_t
 	lip_array(lip_asm_index_t) jumps;
 	lip_array(lip_instruction_t) instructions;
 	lip_array(lip_value_t) constants;
-	lip_array(lip_function_t) functions;
+	lip_array(lip_function_t*) functions;
 	lip_array(lip_string_ref_t) import_symbols;
 	lip_array(char) string_pool;
 	lip_asm_index_t num_locals;

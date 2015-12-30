@@ -22,6 +22,7 @@ typedef struct lip_vm_context_t
 typedef struct lip_vm_t
 {
 	lip_vm_context_t ctx;
+	lip_allocator_t* allocator;
 
 	lip_value_t* min_sp;
 	lip_value_t* max_sp;
@@ -39,6 +40,7 @@ typedef struct lip_vm_t
 
 size_t lip_vm_config(
 	lip_vm_t* vm,
+	lip_allocator_t* allocator,
 	unsigned int operand_stack_size,
 	unsigned int environment_size,
 	unsigned int call_stack_size

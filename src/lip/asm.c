@@ -115,7 +115,7 @@ lip_asm_index_t lip_asm_new_string_const(lip_asm_t* lasm, lip_string_ref_t str)
 lip_asm_index_t lip_asm_new_function(lip_asm_t* lasm, lip_function_t* function)
 {
 	lip_asm_index_t index = lip_array_len(lasm->functions);
-	lip_array_push(lasm->functions, *function);
+	lip_array_push(lasm->functions, function);
 	return index;
 }
 
@@ -218,7 +218,7 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 	ptr += const_pool_size;
 
 	// Write nested function table
-	function->functions = (lip_function_t*)ptr;
+	function->functions = (lip_function_t**)ptr;
 	memcpy(ptr, lasm->functions, nested_function_table_size);
 	ptr += nested_function_table_size;
 
