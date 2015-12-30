@@ -540,11 +540,21 @@ static inline bool lip_compile_number(
 {
 	lip_string_ref_t string = sexp->data.string;
 	double number = strtod(string.ptr, NULL);
-	lip_constant_t constant = {
-		.type = LIP_VAL_NUMBER,
-		.data = { .number = number }
-	};
-	return lip_compile_constant(compiler, &constant);
+	// For small 24-bit integers, use LDI instead
+	int integer = (int)number;
+	if(number == (double)integer && -16777216 <= integer && integer <= 16777215)
+	{
+		LASM(compiler, LIP_OP_LDI, integer);
+		return true;
+	}
+	else
+	{
+		lip_constant_t constant = {
+			.type = LIP_VAL_NUMBER,
+			.data = { .number = number }
+		};
+		return lip_compile_constant(compiler, &constant);
+	}
 }
 
 static inline lip_asm_index_t lip_new_local(
