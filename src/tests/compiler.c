@@ -82,7 +82,7 @@ void stack_allocator_delete(lip_allocator_t* allocator)
 
 lip_exec_status_t print(lip_vm_t* vm)
 {
-	lip_value_print(lip_vm_get_arg(vm, 0), 0);
+	lip_value_print(lip_vm_get_arg(vm, 0), 0, 3);
 	printf("\n");
 	lip_vm_push_nil(vm);
 	return LIP_EXEC_OK;
@@ -130,7 +130,7 @@ int main(int argc, char* argv[])
 			if(lip_compiler_add_sexp(&compiler, &parse_result.sexp))
 			{
 				lip_module_t* module = lip_compiler_end(&compiler);
-				lip_module_print(module);
+				lip_module_print(module, 3);
 
 				lip_linker_reset(&linker);
 				lip_linker_add_module(&linker, builtins);
@@ -143,7 +143,7 @@ int main(int argc, char* argv[])
 				);
 				lip_vm_push_value(&vm, &main_symbol);
 				lip_vm_call(&vm, 0);
-				lip_value_print(lip_vm_pop(&vm), 0);
+				lip_value_print(lip_vm_pop(&vm), 0, 3);
 				printf("\n");
 
 				lip_module_free(lip_default_allocator, module);

@@ -34,6 +34,6 @@ typedef struct lip_cons_t
 	lip_value_t cdr;
 } lip_cons_t;
 
-void lip_value_print(lip_value_t* value, int indent);
+void lip_value_print(lip_value_t* value, int max_depth, int indent);
 
 #endif

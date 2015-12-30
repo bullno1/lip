@@ -3,12 +3,12 @@
 #include "function.h"
 #include "allocator.h"
 
-void lip_module_print(lip_module_t* module)
+void lip_module_print(lip_module_t* module, int max_depth)
 {
 	for(unsigned int i = 0; i < module->num_symbols; ++i)
 	{
 		printf("%.*s:\n", module->symbols[i]->length, module->symbols[i]->ptr);
-		lip_value_print(&module->values[i], 1);
+		lip_value_print(&module->values[i], 1, max_depth);
 		printf("\n");
 	}
 }
