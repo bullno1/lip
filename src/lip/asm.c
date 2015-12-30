@@ -156,11 +156,33 @@ lip_asm_index_t lip_asm_new_import(lip_asm_t* lasm, lip_string_ref_t symbol)
 
 lip_function_t* lip_asm_end(lip_asm_t* lasm)
 {
+	// TODO: Optimize CALL n; JMP->RET sequence into CALL n; RET
+	// This will be optimized further into TAIL in the next pass
 	// Perform Tail call optimization
 	{
-		// TODO: handle CALL n; LABEL l; RET; actually possible if 'if' form
-		// TAIL n; LABEL l; RET;
+		// Transform [CALL n; LABEL l; RET] into [TAIL n; LABEL l; RET]
 		unsigned int num_instructions = lip_array_len(lasm->instructions);
+		for(unsigned int i = 0; i < num_instructions; ++i)
+		{
+			if(i + 2 < num_instructions)
+			{
+				lip_opcode_t opcode1, opcode2, opcode3;
+				int32_t operand1, operand2, operand3;
+				lip_disasm(lasm->instructions[i], &opcode1, &operand1);
+				lip_disasm(lasm->instructions[i + 1], &opcode2, &operand2);
+				lip_disasm(lasm->instructions[i + 2], &opcode3, &operand3);
+
+				if(opcode1 == LIP_OP_CALL
+				&& opcode2 == LIP_OP_LABEL
+				&& opcode3 == LIP_OP_RET
+				)
+				{
+					lasm->instructions[i] = lip_asm(LIP_OP_TAIL, operand1);
+				}
+			}
+		}
+
+		// Transform [CALL n; RET] into [TAIL n]
 		unsigned int out_index = 0;
 		for(unsigned int i = 0; i < num_instructions; ++i)
 		{
@@ -171,7 +193,7 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 				lip_disasm(lasm->instructions[i], &opcode1, &operand1);
 				lip_disasm(lasm->instructions[i + 1], &opcode2, &operand2);
 
-				if(opcode2 == LIP_OP_RET && opcode1 == LIP_OP_CALL)
+				if(opcode1 == LIP_OP_CALL && opcode2 == LIP_OP_RET)
 				{
 					lip_instruction_t tailcall = lip_asm(LIP_OP_TAIL, operand1);
 					lasm->instructions[out_index] = tailcall;
