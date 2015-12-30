@@ -37,5 +37,14 @@ void lip_value_print(lip_value_t* value, int indent)
 				lip_closure_print(closure, indent);
 			}
 			break;
+		case LIP_VAL_PLACEHOLDER:
+			{
+				printf(
+					"%*splaceholder: %d",
+					indent * 2, "",
+					value->data.integer
+				);
+			}
+			break;
 	}
 }

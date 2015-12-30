@@ -34,6 +34,7 @@ void lip_bundler_add_lip_function(
 	lip_closure_t* closure = bundler->functions + index;
 	closure->info.is_native = false;
 	closure->function_ptr.lip = function;
+	closure->environment_size = 0;
 }
 
 void lip_bundler_add_native_function(
@@ -50,6 +51,7 @@ void lip_bundler_add_native_function(
 	closure->info.is_native = true;
 	closure->info.native_arity = arity;
 	closure->function_ptr.native = function;
+	closure->environment_size = 0;
 }
 
 lip_module_t* lip_bundler_end(lip_bundler_t* bundler)

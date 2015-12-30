@@ -10,6 +10,7 @@
 	F(LIP_OP_LDL) \
 	F(LIP_OP_LDS) \
 	F(LIP_OP_LDI) \
+	F(LIP_OP_PLHR) \
 	F(LIP_OP_NIL) \
 	F(LIP_OP_SET) \
 	F(LIP_OP_JMP) \
@@ -18,7 +19,8 @@
 	F(LIP_OP_RET) \
 	F(LIP_OP_PLUS) \
 	F(LIP_OP_LT) \
-	F(LIP_OP_CLS)
+	F(LIP_OP_CLS) \
+	F(LIP_OP_RCLS)
 
 LIP_ENUM(lip_opcode_t, LIP_OP)
 

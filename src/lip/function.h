@@ -32,6 +32,8 @@ typedef struct lip_closure_t
 		lip_function_t* lip;
 		lip_native_function_t native;
 	} function_ptr;
+
+	unsigned int environment_size;
 	lip_value_t environment[];
 } lip_closure_t;
 

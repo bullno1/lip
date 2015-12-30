@@ -11,7 +11,8 @@
 	F(LIP_VAL_BOOLEAN) \
 	F(LIP_VAL_STRING) \
 	F(LIP_VAL_CONS) \
-	F(LIP_VAL_CLOSURE)
+	F(LIP_VAL_CLOSURE) \
+	F(LIP_VAL_PLACEHOLDER)
 
 LIP_ENUM(lip_value_type_t, LIP_VAL)
 
@@ -20,6 +21,7 @@ typedef struct lip_value_t
 	lip_value_type_t type;
 	union
 	{
+		int32_t integer;
 		void* reference;
 		bool boolean;
 		double number;

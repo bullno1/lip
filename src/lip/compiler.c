@@ -22,6 +22,7 @@
 	F(LIP_AST_APPLICATION) \
 	F(LIP_AST_IF) \
 	F(LIP_AST_LET) \
+	F(LIP_AST_LETREC) \
 	F(LIP_AST_LAMBDA) \
 	F(LIP_AST_ERROR)
 
@@ -136,6 +137,10 @@ static inline lip_ast_type_t lip_ast_type(lip_sexp_t* sexp)
 				{
 					return LIP_AST_LET;
 				}
+				else if(lip_string_ref_equal(symbol, lip_string_ref("letrec")))
+				{
+					return LIP_AST_LETREC;
+				}
 				else if(lip_string_ref_equal(symbol, lip_string_ref("lambda")))
 				{
 					return LIP_AST_LAMBDA;
@@ -206,16 +211,16 @@ static inline bool lip_check_if_syntax(
 }
 
 static inline bool lip_check_let_syntax(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
+	lip_compiler_t* compiler, lip_sexp_t* sexp, bool recursive
 )
 {
 	lip_sexp_t* list = sexp->data.list;
 	unsigned int arity = lip_array_len(list) - 1;
 
-	ENSURE(
-		arity == 2 && list[1].type == LIP_SEXP_LIST,
-		"'let' must have the form: (let (<bindings...>) <exp>)"
-	);
+	const char* error_msg = recursive ?
+		"'letrec' must have the form: (letrec (<bindings...>) <exp>)" :
+		"'let' must have the form: (let (<bindings...>) <exp>)";
+	ENSURE(arity == 2 && list[1].type == LIP_SEXP_LIST, error_msg);
 
 	lip_array_foreach(lip_sexp_t, binding, list[1].data.list)
 	{
@@ -297,7 +302,9 @@ static inline bool lip_check_syntax(
 		case LIP_AST_IF:
 			return lip_check_if_syntax(compiler, sexp);
 		case LIP_AST_LET:
-			return lip_check_let_syntax(compiler, sexp);
+			return lip_check_let_syntax(compiler, sexp, false);
+		case LIP_AST_LETREC:
+			return lip_check_let_syntax(compiler, sexp, true);
 		case LIP_AST_LAMBDA:
 			return lip_check_lambda_syntax(compiler, sexp);
 		case LIP_AST_IDENTIFIER:
@@ -596,21 +603,47 @@ static inline bool lip_compile_if(
 }
 
 static inline bool lip_compile_let(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
+	lip_compiler_t* compiler, lip_sexp_t* sexp, bool recursive
 )
 {
 	lip_scope_t* scope = compiler->current_scope;
 	unsigned int num_locals = lip_array_len(scope->var_names);
 
 	// Compile bindings
-	lip_array_foreach(lip_sexp_t, binding, sexp->data.list[1].data.list)
+	if(recursive)
 	{
-		CHECK(lip_compile_sexp(compiler, &binding->data.list[1]));
-		lip_asm_index_t local = lip_new_local(
-			compiler,
-			binding->data.list[0].data.string
-		);
-		LASM(compiler, LIP_OP_SET, local);
+		lip_array_foreach(lip_sexp_t, binding, sexp->data.list[1].data.list)
+		{
+			lip_asm_index_t index =
+				lip_new_local(compiler, binding->data.list[0].data.string);
+
+			LASM(compiler, LIP_OP_PLHR, index);
+		}
+
+		unsigned int local_index = num_locals;
+		lip_array_foreach(lip_sexp_t, binding, sexp->data.list[1].data.list)
+		{
+			CHECK(lip_compile_sexp(compiler, &binding->data.list[1]));
+			LASM(compiler, LIP_OP_SET, scope->var_indices[local_index++]);
+		}
+
+		local_index = num_locals;
+		lip_array_foreach(lip_sexp_t, binding, sexp->data.list[1].data.list)
+		{
+			LASM(compiler, LIP_OP_RCLS, scope->var_indices[local_index++]);
+		}
+	}
+	else
+	{
+		lip_array_foreach(lip_sexp_t, binding, sexp->data.list[1].data.list)
+		{
+			CHECK(lip_compile_sexp(compiler, &binding->data.list[1]));
+			lip_asm_index_t local = lip_new_local(
+				compiler,
+				binding->data.list[0].data.string
+			);
+			LASM(compiler, LIP_OP_SET, local);
+		}
 	}
 
 	// Compile body
@@ -676,8 +709,8 @@ static inline void lip_find_free_vars(
 			}
 			break;
 		case LIP_AST_LET:
-			lip_find_free_vars(&sexp->data.list[2], free_vars);
 			{
+				lip_find_free_vars(&sexp->data.list[2], free_vars);
 				lip_array(lip_sexp_t) bindings = sexp->data.list[1].data.list;
 				int num_bindings = lip_array_len(bindings);
 				for(int i = num_bindings - 1; i >= 0; --i)
@@ -685,6 +718,20 @@ static inline void lip_find_free_vars(
 					lip_sexp_t* binding = &bindings[i];
 					lip_remove_var(free_vars, binding->data.list[0].data.string);
 					lip_find_free_vars(&binding->data.list[1], free_vars);
+				}
+			}
+			break;
+		case LIP_AST_LETREC:
+			{
+				lip_find_free_vars(&sexp->data.list[2], free_vars);
+				lip_array(lip_sexp_t) bindings = sexp->data.list[1].data.list;
+				lip_array_foreach(lip_sexp_t, binding, bindings)
+				{
+					lip_find_free_vars(&binding->data.list[1], free_vars);
+				}
+				lip_array_foreach(lip_sexp_t, binding, bindings)
+				{
+					lip_remove_var(free_vars, binding->data.list[0].data.string);
 				}
 			}
 			break;
@@ -805,7 +852,9 @@ static inline bool lip_compile_sexp(
 		case LIP_AST_IF:
 			return lip_compile_if(compiler, sexp);
 		case LIP_AST_LET:
-			return lip_compile_let(compiler, sexp);
+			return lip_compile_let(compiler, sexp, false);
+		case LIP_AST_LETREC:
+			return lip_compile_let(compiler, sexp, true);
 		case LIP_AST_APPLICATION:
 			return lip_compile_application(compiler, sexp);
 		case LIP_AST_LAMBDA:

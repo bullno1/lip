@@ -88,6 +88,12 @@ BEGIN_LOOP
 		value->data.number = operand;
 	END_OP(LDI)
 
+	BEGIN_OP(PLHR)
+		lip_value_t* value = ep - operand;
+		value->type = LIP_VAL_PLACEHOLDER;
+		value->data.integer = operand;
+	END_OP(PLHR)
+
 	BEGIN_OP(NIL)
 		(sp++)->type = LIP_VAL_NIL;
 	END_OP(NIL)
@@ -148,6 +154,7 @@ BEGIN_LOOP
 		lip_closure_t* closure = lip_malloc(vm->allocator, closure_size);
 		closure->info.is_native = false;
 		closure->function_ptr.lip = fn->functions[function_index];
+		closure->environment_size = environment_size;
 		for(unsigned int i = 0; i < num_captures; ++i)
 		{
 			lip_opcode_t opcode;
@@ -163,6 +170,22 @@ BEGIN_LOOP
 		};
 		*(sp++) = value;
 	END_OP(CLS)
+
+	BEGIN_OP(RCLS)
+		lip_value_t* target = ep - operand;
+		if(target->type == LIP_VAL_CLOSURE)
+		{
+			lip_closure_t* closure = target->data.reference;
+			for(unsigned int i = 0; i < closure->environment_size; ++i)
+			{
+				lip_value_t* captured_val = &closure->environment[i];
+				if(captured_val->type == LIP_VAL_PLACEHOLDER)
+				{
+					*captured_val = *(ep - captured_val->data.integer);
+				}
+			}
+		}
+	END_OP(RCLS)
 
 	BEGIN_OP(SET)
 		lip_value_t* target = operand > 0 ? ep - operand : vm->ctx.closure->environment - operand;
