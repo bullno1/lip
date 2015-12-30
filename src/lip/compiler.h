@@ -9,12 +9,6 @@
 typedef struct lip_sexp_t lip_sexp_t;
 typedef struct lip_module_t lip_module_t;
 
-#define LIP_COMPILE(F) \
-	F(LIP_COMPILE_OK) \
-	F(LIP_COMPILE_ERROR)
-
-LIP_ENUM(lip_compile_status_t, LIP_COMPILE)
-
 #define LIP_COMPILE_MODE(F) \
 	F(LIP_COMPILE_MODE_REPL) \
 	F(LIP_COMPILE_MODE_MODULE)
@@ -44,9 +38,7 @@ void lip_compiler_begin(
 	lip_compiler_t* compiler,
 	lip_compile_mode_t mode
 );
-lip_compile_status_t lip_compiler_add_sexp(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-);
+bool lip_compiler_add_sexp(lip_compiler_t* compiler, lip_sexp_t* sexp);
 lip_module_t* lip_compiler_end(lip_compiler_t* compiler);
 void lip_compiler_cleanup(lip_compiler_t* compiler);
 

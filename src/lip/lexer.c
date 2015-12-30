@@ -178,7 +178,6 @@ lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 					// TODO: handle \"
 					if(ch == '"')
 					{
-						// TODO: decode escape sequences
 						lip_lexer_make_token(lexer, token, LIP_TOKEN_STRING);
 						lip_lexer_consume_char(lexer);
 						return LIP_LEX_OK;

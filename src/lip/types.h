@@ -2,6 +2,8 @@
 #define LIP_TYPES_H
 
 #include <stddef.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 typedef struct lip_loc_t
 {
@@ -14,6 +16,12 @@ typedef struct lip_string_ref_t
 	size_t length;
 	const char* ptr;
 } lip_string_ref_t;
+
+typedef struct lip_string_t
+{
+	uint32_t length;
+	char ptr[];
+} lip_string_t;
 
 #define lip_array(T) T*
 

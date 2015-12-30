@@ -7,13 +7,25 @@
 #include "sexp.h"
 #include "asm.h"
 #include "utils.h"
+#include "enum.h"
 
 #define ENSURE(cond, msg) \
 	if(!(cond)) { return lip_compile_error(compiler, msg, sexp); }
-#define CHECK_COMPILE(status) \
-	if((status) != LIP_COMPILE_OK) { return status; }
+#define CHECK(status) if(!(status)) { return false; }
 #define LASM(compiler, ...) \
 	lip_asm_add(&compiler->current_scope->lasm, __VA_ARGS__, LIP_ASM_END)
+
+#define LIP_AST(F) \
+	F(LIP_AST_NUMBER) \
+	F(LIP_AST_STRING) \
+	F(LIP_AST_IDENTIFIER) \
+	F(LIP_AST_APPLICATION) \
+	F(LIP_AST_IF) \
+	F(LIP_AST_LET) \
+	F(LIP_AST_LAMBDA) \
+	F(LIP_AST_ERROR)
+
+LIP_ENUM(lip_ast_type_t, LIP_AST)
 
 typedef struct lip_constant_t
 {
@@ -101,6 +113,204 @@ void lip_scope_end(lip_compiler_t* compiler)
 	compiler->free_scopes = current_scope;
 }
 
+static inline lip_ast_type_t lip_ast_type(lip_sexp_t* sexp)
+{
+	lip_sexp_t* list;
+	switch(sexp->type)
+	{
+		case LIP_SEXP_LIST:
+			list = sexp->data.list;
+
+			if(lip_array_len(list) == 0)
+			{
+				return LIP_AST_ERROR;
+			}
+			else if(list[0].type == LIP_SEXP_SYMBOL)
+			{
+				lip_string_ref_t symbol = list[0].data.string;
+				if(lip_string_ref_equal(symbol, lip_string_ref("if")))
+				{
+					return LIP_AST_IF;
+				}
+				else if(lip_string_ref_equal(symbol, lip_string_ref("let")))
+				{
+					return LIP_AST_LET;
+				}
+				else if(lip_string_ref_equal(symbol, lip_string_ref("lambda")))
+				{
+					return LIP_AST_LAMBDA;
+				}
+				else
+				{
+					return LIP_AST_APPLICATION;
+				}
+			}
+			else
+			{
+				return LIP_AST_APPLICATION;
+			}
+		case LIP_SEXP_SYMBOL:
+			return LIP_AST_IDENTIFIER;
+		case LIP_SEXP_STRING:
+			return LIP_AST_STRING;
+		case LIP_SEXP_NUMBER:
+			return LIP_AST_NUMBER;
+	}
+
+	return LIP_AST_ERROR;
+}
+
+static inline bool lip_compile_error(
+	lip_compiler_t* compiler, const char* msg, lip_sexp_t* sexp
+)
+{
+	char buff[2048];
+	int num_chars = snprintf(
+		buff, 2048,
+		"%d:%d - %d:%d: %s\n",
+		sexp->start.line, sexp->start.column,
+		sexp->end.line, sexp->end.column,
+		msg
+	);
+
+	if(num_chars > 0)
+	{
+		compiler->error_fn(buff, num_chars, compiler->error_ctx);
+	}
+
+	return false;
+}
+
+static inline bool lip_check_syntax(lip_compiler_t* compiler, lip_sexp_t* sexp);
+
+static inline bool lip_check_if_syntax(
+	lip_compiler_t* compiler, lip_sexp_t* sexp
+)
+{
+	lip_sexp_t* list = sexp->data.list;
+	unsigned int arity = lip_array_len(list) - 1;
+
+	ENSURE(
+		arity == 2 || arity == 3,
+		"'if' must have the form: (if <cond> <then> [else])"
+	);
+
+	CHECK(lip_check_syntax(compiler, &list[1]));
+	CHECK(lip_check_syntax(compiler, &list[2]));
+	if(arity == 3)
+	{
+		CHECK(lip_check_syntax(compiler, &list[3]));
+	}
+
+	return true;
+}
+
+static inline bool lip_check_let_syntax(
+	lip_compiler_t* compiler, lip_sexp_t* sexp
+)
+{
+	lip_sexp_t* list = sexp->data.list;
+	unsigned int arity = lip_array_len(list) - 1;
+
+	ENSURE(
+		arity == 2 && list[1].type == LIP_SEXP_LIST,
+		"'let' must have the form: (let (<bindings...>) <exp>)"
+	);
+
+	lip_array_foreach(lip_sexp_t, binding, list[1].data.list)
+	{
+		bool valid = binding->type == LIP_SEXP_LIST
+				  && lip_array_len(binding->data.list) == 2
+				  && binding->data.list[0].type == LIP_SEXP_SYMBOL;
+		if(!valid)
+		{
+			return lip_compile_error(
+				compiler,
+				"a binding must have the form: (<symbol> <exp>)",
+				binding
+			);
+		}
+		CHECK(lip_check_syntax(compiler, &binding->data.list[1]));
+	}
+
+	CHECK(lip_check_syntax(compiler, &list[2]));
+
+	return true;
+}
+
+static inline bool lip_check_lambda_syntax(
+	lip_compiler_t* compiler, lip_sexp_t* sexp
+)
+{
+	lip_sexp_t* list = sexp->data.list;
+	unsigned int arity = lip_array_len(list) - 1;
+
+	ENSURE(
+		arity == 2 && list[1].type == LIP_SEXP_LIST,
+		"'lambda' must have the form: (lambda (<parameters>) <body>)"
+	);
+
+	lip_array_foreach(lip_sexp_t, param, list[1].data.list)
+	{
+		if(param->type != LIP_SEXP_SYMBOL)
+		{
+			return lip_compile_error(
+				compiler,
+				"parameter must be a symbol",
+				param
+			);
+		}
+	}
+
+	CHECK(lip_check_syntax(compiler, &list[2]));
+
+	return true;
+}
+
+static inline bool lip_check_application_syntax(
+	lip_compiler_t* compiler, lip_sexp_t* sexp
+)
+{
+	lip_sexp_t* head = &sexp->data.list[0];
+
+	if(head->type != LIP_SEXP_SYMBOL && head->type != LIP_SEXP_LIST)
+	{
+		return lip_compile_error(compiler, "term cannot be applied", head);
+	}
+
+	lip_array_foreach(lip_sexp_t, sub_exp, sexp->data.list)
+	{
+		CHECK(lip_check_syntax(compiler, sub_exp));
+	}
+
+	return true;
+}
+
+static inline bool lip_check_syntax(
+	lip_compiler_t* compiler, lip_sexp_t* sexp
+)
+{
+	switch(lip_ast_type(sexp))
+	{
+		case LIP_AST_APPLICATION:
+			return lip_check_application_syntax(compiler, sexp);
+		case LIP_AST_IF:
+			return lip_check_if_syntax(compiler, sexp);
+		case LIP_AST_LET:
+			return lip_check_let_syntax(compiler, sexp);
+		case LIP_AST_LAMBDA:
+			return lip_check_lambda_syntax(compiler, sexp);
+		case LIP_AST_IDENTIFIER:
+		case LIP_AST_STRING:
+		case LIP_AST_NUMBER:
+			return true;
+		case LIP_AST_ERROR:
+			return lip_compile_error(compiler, "unrecognized form", sexp);
+	}
+
+	return lip_compile_error(compiler, "unrecognized form", sexp);
+}
+
 void lip_compiler_init(
 	lip_compiler_t* compiler,
 	lip_allocator_t* allocator,
@@ -145,31 +355,7 @@ void lip_compiler_begin(
 	}
 }
 
-static inline lip_compile_status_t lip_compile_error(
-	lip_compiler_t* compiler, const char* msg, lip_sexp_t* sexp
-)
-{
-	char buff[2048];
-	int num_chars = snprintf(
-		buff, 2048,
-		"%d:%d - %d:%d: %s\n",
-		sexp->start.line, sexp->start.column,
-		sexp->end.line, sexp->end.column,
-		msg
-	);
-
-	if(num_chars > 0)
-	{
-		compiler->error_fn(buff, num_chars, compiler->error_ctx);
-	}
-
-	return LIP_COMPILE_ERROR;
-}
-
-static lip_compile_status_t lip_compile_sexp(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-);
-static lip_compile_status_t lip_compile_list(
+static bool lip_compile_sexp(
 	lip_compiler_t* compiler, lip_sexp_t* sexp
 );
 
@@ -236,7 +422,7 @@ static inline lip_asm_index_t lip_find_import(
 	return index;
 }
 
-static inline lip_compile_status_t lip_compile_identifier(
+static inline bool lip_compile_identifier(
 	lip_compiler_t* compiler, lip_sexp_t* sexp
 )
 {
@@ -253,10 +439,10 @@ static inline lip_compile_status_t lip_compile_identifier(
 		LASM(compiler, LIP_OP_LDS, lip_find_import(compiler, identifier));
 	}
 
-	return LIP_COMPILE_OK;
+	return true;
 }
 
-static inline lip_compile_status_t lip_compile_arguments(
+static inline bool lip_compile_arguments(
 	lip_compiler_t* compiler, lip_sexp_t* sexp
 )
 {
@@ -264,10 +450,26 @@ static inline lip_compile_status_t lip_compile_arguments(
 	unsigned int arity = lip_array_len(sexp->data.list) - 1;
 	for(unsigned int arg = arity; arg > 0; --arg)
 	{
-		CHECK_COMPILE(lip_compile_sexp(compiler, &head[arg]));
+		CHECK(lip_compile_sexp(compiler, &head[arg]));
 	}
 
-	return LIP_COMPILE_OK;
+	return true;
+}
+
+static inline bool lip_constant_equal(lip_constant_t* lhs, lip_constant_t* rhs)
+{
+	if(lhs->type != rhs->type) { return false; }
+
+	switch(lhs->type)
+	{
+		case LIP_VAL_NUMBER:
+			return lhs->data.number == rhs->data.number;
+		case LIP_VAL_STRING:
+			return lip_string_ref_equal(lhs->data.string, rhs->data.string);
+		default:
+			abort();
+			return false;
+	}
 }
 
 static inline lip_asm_index_t lip_find_constant(
@@ -278,10 +480,7 @@ static inline lip_asm_index_t lip_find_constant(
 	unsigned int num_consts = lip_array_len(scope->constant_values);
 	for(unsigned int i = 0; i < num_consts; ++i)
 	{
-		int cmp = memcmp(
-			&scope->constant_values[i], constant, sizeof(lip_constant_t)
-		);
-		if(cmp == 0)
+		if(lip_constant_equal(&scope->constant_values[i], constant))
 		{
 			return scope->constant_indices[i];
 		}
@@ -306,18 +505,19 @@ static inline lip_asm_index_t lip_find_constant(
 	return index;
 }
 
-static inline lip_compile_status_t lip_compile_constant(
+static inline bool lip_compile_constant(
 	lip_compiler_t* compiler, lip_constant_t* constant
 )
 {
 	LASM(compiler, LIP_OP_LDC, lip_find_constant(compiler, constant));
-	return LIP_COMPILE_OK;
+	return true;
 }
 
-static inline lip_compile_status_t lip_compile_string(
+static inline bool lip_compile_string(
 	lip_compiler_t* compiler, lip_sexp_t* sexp
 )
 {
+	// TODO: decode escape sequences
 	lip_constant_t constant = {
 		.type = LIP_VAL_STRING,
 		.data = { .string = sexp->data.string }
@@ -325,7 +525,7 @@ static inline lip_compile_status_t lip_compile_string(
 	return lip_compile_constant(compiler, &constant);
 }
 
-static inline lip_compile_status_t lip_compile_number(
+static inline bool lip_compile_number(
 	lip_compiler_t* compiler, lip_sexp_t* sexp
 )
 {
@@ -359,202 +559,160 @@ static inline lip_asm_index_t lip_new_local(
 	}
 }
 
-static inline lip_compile_status_t lip_compile_lambda_body(
-	lip_compiler_t* compiler,
-	lip_sexp_t* params,
-	lip_sexp_t* body,
-	lip_function_t** result
-)
-{
-	// Allocate parameters as local variables
-	lip_array_foreach(lip_sexp_t, param, params)
-	{
-		if(param->type != LIP_SEXP_SYMBOL)
-		{
-			return lip_compile_error(
-				compiler,
-				"parameter must be a symbol",
-				param
-			);
-		}
-		lip_new_local(compiler, param->data.string);
-	}
-	CHECK_COMPILE(lip_compile_sexp(compiler, body));
-	LASM(compiler, LIP_OP_RET, 0);
-	*result = lip_asm_end(&compiler->current_scope->lasm);
-	return LIP_COMPILE_OK;
-}
-
-static inline lip_compile_status_t lip_compile_application(
+static inline bool lip_compile_if(
 	lip_compiler_t* compiler, lip_sexp_t* sexp
 )
 {
-	lip_sexp_t* head = sexp->data.list;
+	lip_scope_t* scope = compiler->current_scope;
+	lip_array(lip_sexp_t) list = sexp->data.list;
+
+	lip_asm_index_t else_label = lip_asm_new_label(&scope->lasm);
+	lip_asm_index_t done_label = lip_asm_new_label(&scope->lasm);
+	CHECK(lip_compile_sexp(compiler, &list[1]));
+	LASM(compiler, LIP_OP_JOF, else_label);
+	CHECK(lip_compile_sexp(compiler, &list[2]));
+	if(lip_array_len(list) == 3)
+	{
+		LASM(compiler,
+			LIP_OP_JMP, done_label,
+			LIP_OP_LABEL, else_label,
+			LIP_OP_NIL, 0,
+			LIP_OP_LABEL, done_label
+		);
+	}
+	else
+	{
+		LASM(compiler,
+			LIP_OP_JMP, done_label,
+			LIP_OP_LABEL, else_label
+		);
+		CHECK(lip_compile_sexp(compiler, &list[3]));
+		LASM(compiler, LIP_OP_LABEL, done_label);
+	}
+
+	return true;
+}
+
+static inline bool lip_compile_let(
+	lip_compiler_t* compiler, lip_sexp_t* sexp
+)
+{
+	lip_scope_t* scope = compiler->current_scope;
+	unsigned int num_locals = lip_array_len(scope->var_names);
+
+	// Compile bindings
+	lip_array_foreach(lip_sexp_t, binding, sexp->data.list[1].data.list)
+	{
+		CHECK(lip_compile_sexp(compiler, &binding->data.list[1]));
+		lip_asm_index_t local = lip_new_local(
+			compiler,
+			binding->data.list[0].data.string
+		);
+		LASM(compiler, LIP_OP_SET, local);
+	}
+
+	// Compile body
+	CHECK(lip_compile_sexp(compiler, &sexp->data.list[2]));
+
+	lip_array_resize(scope->var_names, num_locals);
+	return true;
+}
+
+static inline bool lip_compile_lambda(
+	lip_compiler_t* compiler, lip_sexp_t* sexp
+)
+{
+	lip_scope_begin(compiler);
+	// Allocate parameters as local variables
+	lip_array_foreach(lip_sexp_t, param, sexp->data.list[1].data.list)
+	{
+		lip_new_local(compiler, param->data.string);
+	}
+	if(!lip_compile_sexp(compiler, &sexp->data.list[2]))
+	{
+		lip_scope_end(compiler);
+		return false;
+	}
+	LASM(compiler, LIP_OP_RET, 0);
+	lip_function_t* function = lip_asm_end(&compiler->current_scope->lasm);
+	lip_scope_end(compiler);
+	lip_asm_index_t index =
+		lip_asm_new_function(&compiler->current_scope->lasm, function);
+	LASM(compiler, LIP_OP_CLS, index);
+	return true;
+}
+
+static inline bool lip_compile_application(
+	lip_compiler_t* compiler, lip_sexp_t* sexp
+)
+{
+	lip_sexp_t* head = &sexp->data.list[0];
 	unsigned int arity = lip_array_len(sexp->data.list) - 1;
 
-	lip_scope_t* scope = compiler->current_scope;
 	if(head->type == LIP_SEXP_SYMBOL)
 	{
-		const char* symbol = head->data.string.ptr;
-		if(strcmp(symbol, "if") == 0)
-		{
-			ENSURE(arity == 2 || arity == 3, "'if' expects 2 or 3 arguments");
-			lip_asm_index_t else_label = lip_asm_new_label(&scope->lasm);
-			lip_asm_index_t done_label = lip_asm_new_label(&scope->lasm);
-			CHECK_COMPILE(lip_compile_sexp(compiler, &head[1]));
-			LASM(compiler, LIP_OP_JOF, else_label);
-			CHECK_COMPILE(lip_compile_sexp(compiler, &head[2]));
-			if(arity == 2)
-			{
-				LASM(compiler,
-					LIP_OP_JMP, done_label,
-					LIP_OP_LABEL, else_label,
-					LIP_OP_NIL, 0,
-					LIP_OP_LABEL, done_label
-				);
-			}
-			else // arity == 3
-			{
-				LASM(compiler,
-					LIP_OP_JMP, done_label,
-					LIP_OP_LABEL, else_label
-				);
-				CHECK_COMPILE(lip_compile_sexp(compiler, &head[3]));
-				LASM(compiler, LIP_OP_LABEL, done_label);
-			}
-		}
-		else if(strcmp(symbol, "let") == 0)
-		{
-			ENSURE(
-				arity == 2 && head[1].type == LIP_SEXP_LIST,
-				"'let' must have the form: (let (<bindings>) <exp>)"
-			);
-
-			lip_scope_t* scope = compiler->current_scope;
-			unsigned int num_locals = lip_array_len(scope->var_names);
-
-			// Compile bindings
-			lip_array_foreach(lip_sexp_t, binding_exp, head[1].data.list)
-			{
-				bool valid = binding_exp->type == LIP_SEXP_LIST
-				          && lip_array_len(binding_exp->data.list) == 2
-						  && binding_exp->data.list[0].type == LIP_SEXP_SYMBOL;
-				if(!valid)
-				{
-					return lip_compile_error(
-						compiler,
-						"a binding must have the form: (<symbol> <exp>)",
-						binding_exp
-					);
-				}
-				CHECK_COMPILE(
-					lip_compile_sexp(compiler, &binding_exp->data.list[1])
-				);
-				lip_asm_index_t local = lip_new_local(
-					compiler,
-					binding_exp->data.list[0].data.string
-				);
-				LASM(compiler, LIP_OP_SET, local);
-			}
-
-			// Compile body
-			CHECK_COMPILE(lip_compile_sexp(compiler, &head[2]));
-
-			lip_array_resize(scope->var_names, num_locals);
-			return LIP_COMPILE_OK;
-		}
-		else if(strcmp(head->data.string.ptr, "lambda") == 0)
-		{
-			ENSURE(
-				arity == 2 && head[1].type == LIP_SEXP_LIST,
-				"'lambda' must have the form (lambda (<parameters>) <body>)"
-			);
-
-			lip_scope_t* scope = compiler->current_scope;
-			lip_function_t* func = NULL;
-			lip_scope_begin(compiler);
-			lip_compile_lambda_body(
-				compiler, head[1].data.list, &head[2], &func
-			);
-			if(func == NULL)
-			{
-				lip_scope_end(compiler);
-				return LIP_COMPILE_ERROR;
-			}
-			lip_scope_end(compiler);
-			lip_asm_index_t index = lip_asm_new_function(&scope->lasm, func);
-			LASM(compiler, LIP_OP_CLS, index);
-			return LIP_COMPILE_OK;
-		}
+		lip_string_ref_t symbol = head->data.string;
 		// TODO: optimize in asm instead, search for import->call sequence and
 		// change to instruction before label collection
-		else if(strcmp(head->data.string.ptr, "+") == 0)
+		if(lip_string_ref_equal(symbol, lip_string_ref("+")))
 		{
-			CHECK_COMPILE(lip_compile_arguments(compiler, sexp));
+			CHECK(lip_compile_arguments(compiler, sexp));
 			LASM(compiler, LIP_OP_PLUS, arity);
 		}
-		else if(strcmp(head->data.string.ptr, "<") == 0)
+		else if(lip_string_ref_equal(symbol, lip_string_ref("<")))
 		{
 			ENSURE(arity == 2, "'<' expects 2 arguments");
-			CHECK_COMPILE(lip_compile_arguments(compiler, sexp));
+			CHECK(lip_compile_arguments(compiler, sexp));
 			LASM(compiler, LIP_OP_LT, 0);
 		}
 		else
 		{
-			CHECK_COMPILE(lip_compile_arguments(compiler, sexp));
-			CHECK_COMPILE(lip_compile_identifier(compiler, head));
+			CHECK(lip_compile_arguments(compiler, sexp));
+			CHECK(lip_compile_sexp(compiler, head));
 			LASM(compiler, LIP_OP_CALL, arity);
 		}
 	}
-	else // list
+	else
 	{
-		CHECK_COMPILE(lip_compile_arguments(compiler, sexp));
-		CHECK_COMPILE(lip_compile_list(compiler, head));
+		CHECK(lip_compile_arguments(compiler, sexp));
+		CHECK(lip_compile_sexp(compiler, head));
 		LASM(compiler, LIP_OP_CALL, arity);
 	}
 
-	return LIP_COMPILE_OK;
+	return true;
 }
 
-static inline lip_compile_status_t lip_compile_list(
+static inline bool lip_compile_sexp(
 	lip_compiler_t* compiler, lip_sexp_t* sexp
 )
 {
-	unsigned int len = lip_array_len(sexp->data.list);
-	ENSURE(len > 0, "syntax error");
-
-	lip_sexp_t* head = sexp->data.list;
-	ENSURE(
-		head->type == LIP_SEXP_LIST || head->type == LIP_SEXP_SYMBOL,
-		"term cannot be applied"
-	);
-
-	return lip_compile_application(compiler, sexp);
-}
-
-static inline lip_compile_status_t lip_compile_sexp(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
-{
-	switch(sexp->type)
+	switch(lip_ast_type(sexp))
 	{
-		case LIP_SEXP_LIST:
-			return lip_compile_list(compiler, sexp);
-		case LIP_SEXP_SYMBOL:
+		case LIP_AST_IDENTIFIER:
 			return lip_compile_identifier(compiler, sexp);
-		case LIP_SEXP_STRING:
+		case LIP_AST_STRING:
 			return lip_compile_string(compiler, sexp);
-		case LIP_SEXP_NUMBER:
+		case LIP_AST_NUMBER:
 			return lip_compile_number(compiler, sexp);
+		case LIP_AST_IF:
+			return lip_compile_if(compiler, sexp);
+		case LIP_AST_LET:
+			return lip_compile_let(compiler, sexp);
+		case LIP_AST_APPLICATION:
+			return lip_compile_application(compiler, sexp);
+		case LIP_AST_LAMBDA:
+			return lip_compile_lambda(compiler, sexp);
+		case LIP_AST_ERROR:
+			return lip_compile_error(compiler, "unrecognized form", sexp);
 	}
 
 	return lip_compile_error(compiler, "not implemented", sexp);
 }
 
-lip_compile_status_t lip_compiler_add_sexp(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
+bool lip_compiler_add_sexp(lip_compiler_t* compiler, lip_sexp_t* sexp)
 {
+	CHECK(lip_check_syntax(compiler, sexp));
+
 	if(compiler->mode == LIP_COMPILE_MODE_REPL)
 	{
 		LASM(compiler, LIP_OP_POP, 1);
@@ -562,7 +720,7 @@ lip_compile_status_t lip_compiler_add_sexp(
 	}
 	else
 	{
-		return LIP_COMPILE_ERROR;
+		return lip_compile_error(compiler, "not implemented", sexp);
 	}
 }
 
@@ -581,7 +739,7 @@ lip_module_t* lip_compiler_end(lip_compiler_t* compiler)
 	}
 	else
 	{
-		return NULL;
+		return lip_bundler_end(&compiler->bundler);
 	}
 }
 

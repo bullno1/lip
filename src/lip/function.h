@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "value.h"
+#include "types.h"
 #include "opcode.h"
 #include "enum.h"
 

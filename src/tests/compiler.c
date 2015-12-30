@@ -127,9 +127,7 @@ int main(int argc, char* argv[])
 			printf("\n");
 
 			lip_compiler_begin(&compiler, LIP_COMPILE_MODE_REPL);
-			lip_compile_status_t compile_status =
-				lip_compiler_add_sexp(&compiler, &parse_result.sexp);
-			if(compile_status == LIP_COMPILE_OK)
+			if(lip_compiler_add_sexp(&compiler, &parse_result.sexp))
 			{
 				lip_module_t* module = lip_compiler_end(&compiler);
 				lip_module_print(module);

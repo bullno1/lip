@@ -26,12 +26,6 @@ typedef struct lip_value_t
 	} data;
 } lip_value_t;
 
-typedef struct lip_string_t
-{
-	uint32_t length;
-	char ptr[];
-} lip_string_t;
-
 typedef struct lip_cons_t
 {
 	lip_value_t car;
