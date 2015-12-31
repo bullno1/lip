@@ -169,20 +169,8 @@ static inline bool lip_compile_error(
 	lip_compiler_t* compiler, const char* msg, lip_sexp_t* sexp
 )
 {
-	char buff[2048];
-	int num_chars = snprintf(
-		buff, 2048,
-		"%d:%d - %d:%d: %s\n",
-		sexp->start.line, sexp->start.column,
-		sexp->end.line, sexp->end.column,
-		msg
-	);
-
-	if(num_chars > 0)
-	{
-		compiler->error_fn(buff, num_chars, compiler->error_ctx);
-	}
-
+	compiler->error->msg = msg;
+	compiler->error->sexp = sexp;
 	return false;
 }
 
@@ -320,9 +308,7 @@ static inline bool lip_check_syntax(
 
 void lip_compiler_init(
 	lip_compiler_t* compiler,
-	lip_allocator_t* allocator,
-	lip_write_fn_t error_fn,
-	void* error_ctx
+	lip_allocator_t* allocator
 )
 {
 	compiler->allocator = allocator;
@@ -331,8 +317,6 @@ void lip_compiler_init(
 	compiler->free_scopes = NULL;
 	compiler->free_var_names = lip_array_new(allocator);
 	compiler->free_var_indices = lip_array_new(allocator);
-	compiler->error_fn = error_fn;
-	compiler->error_ctx = error_ctx;
 }
 
 static inline void lip_compiler_reset(lip_compiler_t* compiler)
@@ -876,8 +860,11 @@ static inline bool lip_compile_sexp(
 	return lip_compile_error(compiler, "not implemented", sexp);
 }
 
-bool lip_compiler_add_sexp(lip_compiler_t* compiler, lip_sexp_t* sexp)
+bool lip_compiler_add_sexp(
+	lip_compiler_t* compiler, lip_sexp_t* sexp, lip_compile_error_t* error
+)
 {
+	compiler->error = error;
 	CHECK(lip_check_syntax(compiler, sexp));
 
 	if(compiler->mode == LIP_COMPILE_MODE_REPL)

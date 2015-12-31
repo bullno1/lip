@@ -54,7 +54,13 @@ typedef struct lip_function_t
 	lip_value_t* import_values;
 } lip_function_t;
 
-void lip_function_print(lip_function_t* function, int indent, int max_depth);
-void lip_closure_print(lip_closure_t* function, int indent, int max_depth);
+void lip_function_print(
+	lip_write_fn_t write_fn, void* ctx,
+	lip_function_t* function, int max_depth, int indent
+);
+void lip_closure_print(
+	lip_write_fn_t write_fn, void* ctx,
+	lip_closure_t* closure, int max_depth, int indent
+);
 
 #endif

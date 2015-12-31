@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include "types.h"
 
+#define LIP_PRINTF_BUFF_SIZE 2048
+
 static inline lip_string_ref_t lip_string_ref(const char* string)
 {
 	lip_string_ref_t result = { strlen(string), string };
@@ -28,5 +30,17 @@ static inline bool lip_string_ref_equal(
 {
 	return lhs.length == rhs.length && memcmp(lhs.ptr, rhs.ptr, lhs.length) == 0;
 }
+
+size_t lip_fread(void* ptr, size_t size, void* file);
+
+size_t lip_fwrite(const void* ptr, size_t size, void* file);
+
+void lip_printf(
+	lip_write_fn_t write_fn, void* ctx, const char* format, ...
+)
+#ifdef __GNUC__
+__attribute__((format(printf, 3, 4)))
+#endif
+;
 
 #endif

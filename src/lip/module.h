@@ -11,7 +11,10 @@ typedef struct lip_module_t
 	lip_value_t* values;
 } lip_module_t;
 
-void lip_module_print(lip_module_t* module, int max_depth);
+void lip_module_print(
+	lip_write_fn_t write_fn, void* ctx,
+	lip_module_t* module, int max_depth
+);
 void lip_module_free(lip_allocator_t* allocator, lip_module_t* module);
 
 #endif

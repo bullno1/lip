@@ -16,6 +16,9 @@ typedef struct lip_allocator_t lip_allocator_t;
 #define lip_array_end(ARRAY) ((ARRAY) + lip_array_len(ARRAY))
 #define lip_array_foreach(TYPE, VAR, ARRAY) \
 	for(TYPE* VAR = lip_array_begin(ARRAY); VAR != lip_array_end(ARRAY); ++(VAR))
+#define lip_array_quick_remove(ARRAY, INDEX) \
+	((ARRAY)[(INDEX)] = (ARRAY)[lip_array_len(ARRAY) - 1], \
+	 lip_array_resize((ARRAY), lip_array_len(ARRAY) - 1))
 
 void* lip_array_new(lip_allocator_t* allocator);
 void lip_array_delete(void* array);

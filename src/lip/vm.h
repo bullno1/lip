@@ -19,10 +19,18 @@ typedef struct lip_vm_context_t
 	bool is_native;
 } lip_vm_context_t;
 
+typedef struct lip_vm_config_t
+{
+	lip_allocator_t* allocator;
+	unsigned int operand_stack_length;
+	unsigned int environment_length;
+	unsigned int call_stack_length;
+} lip_vm_config_t;
+
 typedef struct lip_vm_t
 {
+	lip_vm_config_t config;
 	lip_vm_context_t ctx;
-	lip_allocator_t* allocator;
 
 	lip_value_t* min_sp;
 	lip_value_t* max_sp;
@@ -38,13 +46,7 @@ typedef struct lip_vm_t
 	void* hook_ctx;
 } lip_vm_t;
 
-size_t lip_vm_config(
-	lip_vm_t* vm,
-	lip_allocator_t* allocator,
-	unsigned int operand_stack_size,
-	unsigned int environment_size,
-	unsigned int call_stack_size
-);
+size_t lip_vm_config(lip_vm_t* vm, lip_vm_config_t* config);
 void lip_vm_init(lip_vm_t* vm, void* mem);
 
 void lip_vm_push_nil(lip_vm_t* vm);
@@ -52,6 +54,7 @@ void lip_vm_push_number(lip_vm_t* vm, double number);
 void lip_vm_push_boolean(lip_vm_t* vm, bool boolean);
 void lip_vm_push_value(lip_vm_t* vm, lip_value_t* value);
 lip_exec_status_t lip_vm_call(lip_vm_t* vm, uint8_t num_args);
+
 lip_value_t* lip_vm_pop(lip_vm_t* vm);
 lip_value_t* lip_vm_get_arg(lip_vm_t* vm, uint8_t index);
 

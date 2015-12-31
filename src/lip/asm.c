@@ -2,9 +2,9 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
-#include "utils.h"
 #include "array.h"
 #include "allocator.h"
+#include "utils.h"
 
 lip_instruction_t lip_asm(lip_opcode_t opcode, int32_t operand)
 {
@@ -19,7 +19,9 @@ void lip_disasm(
 	*operand = (instruction << 8) >> 8;
 }
 
-void lip_asm_print(lip_instruction_t instruction)
+void lip_asm_print(
+	lip_write_fn_t write_fn, void* ctx, lip_instruction_t instruction
+)
 {
 	lip_opcode_t opcode;
 	int32_t operand;
@@ -32,14 +34,14 @@ void lip_asm_print(lip_instruction_t instruction)
 		case LIP_OP_NIL:
 		case LIP_OP_RET:
 		case LIP_OP_LT:
-			printf(
+			lip_printf(write_fn, ctx,
 				"%-9s (0x%08x)",
 				lip_opcode_t_to_str(opcode) + sizeof("LIP_OP_") - 1,
 				instruction
 			);
 			break;
 		case LIP_OP_CLS:
-			printf(
+			lip_printf(write_fn, ctx,
 				"%-4s %d, %d (0x%08x)",
 				lip_opcode_t_to_str(opcode) + sizeof("LIP_OP_") - 1,
 				hi_operand, lo_operand,
@@ -47,7 +49,7 @@ void lip_asm_print(lip_instruction_t instruction)
 			);
 			break;
 		default:
-			printf(
+			lip_printf(write_fn, ctx,
 				"%-4s %4d (0x%08x)",
 				lip_opcode_t_to_str(opcode) + sizeof("LIP_OP_") - 1,
 				operand,

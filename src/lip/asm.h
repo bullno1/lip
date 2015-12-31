@@ -27,7 +27,9 @@ lip_instruction_t lip_asm(lip_opcode_t opcode, int32_t operand);
 void lip_disasm(
 	lip_instruction_t instruction, lip_opcode_t* opcode, int32_t* operand
 );
-void lip_asm_print(lip_instruction_t instruction);
+void lip_asm_print(
+	lip_write_fn_t write_fn, void* ctx, lip_instruction_t instruction
+);
 
 void lip_asm_init(lip_asm_t* lasm, lip_allocator_t* allocator);
 void lip_asm_begin(lip_asm_t* lasm);

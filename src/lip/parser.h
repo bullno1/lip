@@ -46,6 +46,7 @@ lip_parse_status_t lip_parser_next_sexp(
 	lip_parser_t* parser, lip_parse_result_t* result
 );
 void lip_parser_print_status(
+	lip_write_fn_t write_fn, void* ctx,
 	lip_parse_status_t status, lip_parse_result_t* result
 );
 

@@ -9,10 +9,12 @@ typedef struct lip_module_t lip_module_t;
 typedef struct lip_linker_t
 {
 	lip_array(lip_module_t*) modules;
+	bool linked;
 } lip_linker_t;
 
 void lip_linker_init(lip_linker_t* linker, lip_allocator_t* allocator);
 void lip_linker_add_module(lip_linker_t* linker, lip_module_t* module);
+void lip_linker_remove_module(lip_linker_t* linker, lip_module_t* module);
 void lip_linker_find_symbol(
 	lip_linker_t* linker, lip_string_ref_t symbol, lip_value_t* result
 );

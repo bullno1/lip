@@ -159,7 +159,7 @@ BEGIN_LOOP
 		unsigned int num_captures = (operand >> 12) & 0xFFF;
 		size_t environment_size = num_captures * sizeof(lip_value_t);
 		size_t closure_size = sizeof(lip_closure_t) + environment_size;
-		lip_closure_t* closure = lip_malloc(vm->allocator, closure_size);
+		lip_closure_t* closure = lip_malloc(vm->config.allocator, closure_size);
 		closure->info.is_native = false;
 		closure->function_ptr.lip = fn->functions[function_index];
 		closure->environment_size = environment_size / sizeof(lip_value_t);

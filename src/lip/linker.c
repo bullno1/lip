@@ -3,20 +3,38 @@
 #include "array.h"
 #include "module.h"
 #include "function.h"
+#include "utils.h"
 
 void lip_linker_init(lip_linker_t* linker, lip_allocator_t* allocator)
 {
 	linker->modules = lip_array_new(allocator);
+	linker->linked = false;
 }
 
 void lip_linker_add_module(lip_linker_t* linker, lip_module_t* module)
 {
 	lip_array_push(linker->modules, module);
+	linker->linked = false;
+}
+
+void lip_linker_remove_module(lip_linker_t* linker, lip_module_t* module)
+{
+	for(unsigned int i = 0; i < lip_array_len(linker->modules); ++i)
+	{
+		if(linker->modules[i] == module)
+		{
+			lip_array_quick_remove(linker->modules, i);
+			break;
+		}
+	}
+
+	linker->linked = false;
 }
 
 void lip_linker_reset(lip_linker_t* linker)
 {
 	lip_array_clear(linker->modules);
+	linker->linked = true;
 }
 
 static inline void lip_linker_find_symbol_common(
@@ -91,10 +109,14 @@ static void lip_linker_link_module(lip_linker_t* linker, lip_module_t* module)
 
 void lip_linker_link_modules(lip_linker_t* linker)
 {
+	if(linker->linked) { return; }
+
 	lip_array_foreach(lip_module_t*, itr, linker->modules)
 	{
 		lip_linker_link_module(linker, *itr);
 	}
+
+	linker->linked = true;
 }
 
 void lip_linker_find_symbol(

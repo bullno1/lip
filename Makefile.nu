@@ -1,9 +1,10 @@
 C_FLAGS ?= -g -Wall -Werror -pedantic
 CPP_FLAGS ?= -Wall -Werror -pedantic
+LINKER ?= cc
 
 -import cpp.nu
 
-all: tests ! live
+all: tests bin/lip ! live
 
 tests: ! live
 	for file in `find src/tests -name '*.c' -or -name '*.cpp'`
@@ -21,6 +22,13 @@ bin/tests/%: << C_FLAGS CPP_FLAGS
 		cpp_flags="${CPP_FLAGS} -Isrc" \
 		libs="bin/liblip.a"
 
+bin/lip: << C_FLAGS CPP_FLAGS
+	${NUMAKE} exe:$@ \
+		sources="`find src/repl -name '*.cpp' -or -name '*.c'`" \
+		c_flags="${C_FLAGS} -Isrc" \
+		cpp_flags="${CPP_FLAGS} -Isrc" \
+		libs="bin/liblip.a"
+
 bin/liblip.a:
 	${NUMAKE} static-lib:$@ \
 		sources="`find src/lip -name '*.cpp' -or -name '*.c'`"
@@ -28,7 +36,6 @@ bin/liblip.a:
 exec:%: % ! live
 	echo "-------------------------------------"
 	valgrind --leak-check=full ${m}
-	echo "-------------------------------------"
 
 $BUILD_DIR/src/lip/vm_dispatch.c.o: src/lip/vm_dispatch.c << COMPILE c_compiler C_COMPILER c_flags C_FLAGS
 	${NUMAKE} --depend ${COMPILE} # Compilation depends on the compile script too

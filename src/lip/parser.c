@@ -4,6 +4,7 @@
 #include "lexer.h"
 #include "token.h"
 #include "array.h"
+#include "utils.h"
 
 static lip_parse_status_t lip_parser_switch_error(
 	lip_parser_t* parser,
@@ -137,32 +138,34 @@ lip_parse_status_t lip_parser_next_sexp(
 }
 
 void lip_parser_print_status(
+	lip_write_fn_t write_fn, void* ctx,
 	lip_parse_status_t status, lip_parse_result_t* result
 )
 {
-	printf("%s", lip_parse_status_t_to_str(status));
+	lip_printf(write_fn, ctx, "%s", lip_parse_status_t_to_str(status));
 	switch(status)
 	{
 		case LIP_PARSE_OK:
-			printf(" ");
-			lip_sexp_print(&(result->sexp), 0);
+			lip_printf(write_fn, ctx, " ");
+			lip_sexp_print(write_fn, ctx, &(result->sexp), 0);
 			break;
 		case LIP_PARSE_LEX_ERROR:
-			printf(" ");
+			lip_printf(write_fn, ctx, " ");
 			lip_lexer_print_status(
+				write_fn, ctx,
 				result->error.lex_error.status,
 				&(result->error.lex_error.token)
 			);
 			break;
 		case LIP_PARSE_UNTERMINATED_LIST:
-			printf(
+			lip_printf(write_fn, ctx,
 				" %u:%u",
 				result->error.location.line, result->error.location.column
 			);
 			break;
 		case LIP_PARSE_UNEXPECTED_TOKEN:
-			printf(" ");
-			lip_token_print(&(result->error.unexpected_token));
+			lip_printf(write_fn, ctx, " ");
+			lip_token_print(write_fn, ctx, &(result->error.unexpected_token));
 			break;
 		case LIP_PARSE_EOS:
 			break;

@@ -2,14 +2,21 @@
 #include <stdio.h>
 #include "function.h"
 #include "allocator.h"
+#include "utils.h"
 
-void lip_module_print(lip_module_t* module, int max_depth)
+void lip_module_print(
+	lip_write_fn_t write_fn, void* ctx,
+	lip_module_t* module, int max_depth
+)
 {
 	for(unsigned int i = 0; i < module->num_symbols; ++i)
 	{
-		printf("%.*s:\n", module->symbols[i]->length, module->symbols[i]->ptr);
-		lip_value_print(&module->values[i], 1, max_depth);
-		printf("\n");
+		lip_printf(
+			write_fn, ctx,
+			"%.*s:\n", module->symbols[i]->length, module->symbols[i]->ptr
+		);
+		lip_value_print(write_fn, ctx, &module->values[i], max_depth, 1);
+		lip_printf(write_fn, ctx, "\n");
 	}
 }
 

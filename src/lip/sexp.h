@@ -24,7 +24,10 @@ typedef struct lip_sexp_t
 	} data;
 } lip_sexp_t;
 
-void lip_sexp_print(lip_sexp_t* sexp, int indent);
+void lip_sexp_print(
+	lip_write_fn_t write_fn, void* ctx,
+	lip_sexp_t* sexp, int indent
+);
 void lip_sexp_cleanup(lip_sexp_t* sexp);
 
 #endif

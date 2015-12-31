@@ -1,24 +1,21 @@
 #include "lexer.h"
-#include "token.h"
-#include "array.h"
-#include "allocator.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
+#include "token.h"
+#include "array.h"
+#include "allocator.h"
+#include "utils.h"
 
 void lip_lexer_init(
 	lip_lexer_t* lexer,
-	lip_allocator_t* allocator,
-	lip_read_fn_t read_fn,
-	void* read_ctx
+	lip_allocator_t* allocator
 )
 {
+	lexer->allocator = allocator;
 	lexer->capture_buff = lip_array_new(allocator);
 	lexer->strings = lip_array_new(allocator);
-	lexer->read_fn = read_fn;
-	lexer->read_ctx = read_ctx;
-	lexer->allocator = allocator;
-	lip_lexer_reset(lexer);
+	lip_lexer_reset(lexer, NULL, NULL);
 }
 
 static inline void lip_lexer_release_strings(lip_lexer_t* lexer)
@@ -30,7 +27,7 @@ static inline void lip_lexer_release_strings(lip_lexer_t* lexer)
 	lip_array_clear(lexer->strings);
 }
 
-void lip_lexer_reset(lip_lexer_t* lexer)
+void lip_lexer_reset(lip_lexer_t* lexer, lip_read_fn_t read_fn, void* read_ctx)
 {
 	lip_array_clear(lexer->capture_buff);
 	lip_lexer_release_strings(lexer);
@@ -40,6 +37,8 @@ void lip_lexer_reset(lip_lexer_t* lexer)
 	lexer->capturing = false;
 	lexer->buffered = false;
 	lexer->eos = false;
+	lexer->read_fn = read_fn;
+	lexer->read_ctx = read_ctx;
 }
 
 void lip_lexer_cleanup(lip_lexer_t* lexer)
@@ -269,20 +268,23 @@ lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 	return LIP_LEX_EOS;
 }
 
-void lip_lexer_print_status(lip_lex_status_t status, lip_token_t* token)
+void lip_lexer_print_status(
+	lip_write_fn_t write_fn, void* ctx,
+	lip_lex_status_t status, lip_token_t* token
+)
 {
-	printf("%s", lip_lex_status_t_to_str(status));
+	lip_printf(write_fn, ctx, "%s", lip_lex_status_t_to_str(status));
 
 	switch(status)
 	{
 		case LIP_LEX_OK:
-			printf(" ");
-			lip_token_print(token);
+			lip_printf(write_fn, ctx, " ");
+			lip_token_print(write_fn, ctx, token);
 		case LIP_LEX_EOS:
 			break;
 		case LIP_LEX_BAD_NUMBER:
 		case LIP_LEX_BAD_STRING:
-			printf(
+			lip_printf(write_fn, ctx,
 				" '%.*s' %u:%u - %u:%u",
 				(int)token->lexeme.length, token->lexeme.ptr,
 				token->start.line, token->start.column,

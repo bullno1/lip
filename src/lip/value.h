@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "enum.h"
+#include "types.h"
 
 #define LIP_VAL(F) \
 	F(LIP_VAL_NIL) \
@@ -34,6 +35,9 @@ typedef struct lip_cons_t
 	lip_value_t cdr;
 } lip_cons_t;
 
-void lip_value_print(lip_value_t* value, int max_depth, int indent);
+void lip_value_print(
+	lip_write_fn_t write_fn, void* ctx,
+	lip_value_t* value, int max_depth, int indent
+);
 
 #endif

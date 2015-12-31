@@ -21,6 +21,9 @@ typedef struct lip_token_t
 	lip_loc_t end;
 } lip_token_t;
 
-void lip_token_print(lip_token_t* token);
+void lip_token_print(
+	lip_write_fn_t write_fn, void* ctx,
+	lip_token_t* token
+);
 
 #endif

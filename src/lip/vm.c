@@ -2,23 +2,14 @@
 #include <string.h>
 #include "vm_dispatch.h"
 
-size_t lip_vm_config(
-	lip_vm_t* vm,
-	lip_allocator_t* allocator,
-	unsigned int operand_stack_size,
-	unsigned int environment_size,
-	unsigned int call_stack_size
-)
+size_t lip_vm_config(lip_vm_t* vm, lip_vm_config_t* config)
 {
-	vm->allocator = allocator;
-	vm->max_sp = (void*)(uintptr_t)operand_stack_size;
-	vm->max_ep = (void*)(uintptr_t)environment_size;
-	vm->max_fp = (void*)(uintptr_t)call_stack_size;
+	vm->config = *config;
 
 	return
-		  sizeof(lip_value_t) * operand_stack_size
-		+ sizeof(lip_value_t) * environment_size
-		+ sizeof(lip_vm_context_t) * call_stack_size;
+		  sizeof(lip_value_t) * config->operand_stack_length
+		+ sizeof(lip_value_t) * config->environment_length
+		+ sizeof(lip_vm_context_t) * config->call_stack_length;
 }
 
 void lip_vm_init(lip_vm_t* vm, void* mem)
@@ -30,13 +21,13 @@ void lip_vm_init(lip_vm_t* vm, void* mem)
 	char* ptr = (char*)mem;
 	vm->sp = vm->min_sp = (lip_value_t*)ptr;
 
-	ptr += sizeof(lip_value_t*) * (uintptr_t)vm->max_sp;
+	ptr += sizeof(lip_value_t*) * vm->config.operand_stack_length;
 	vm->ctx.ep = vm->min_ep = vm->max_sp = (void*)ptr;
 
-	ptr += sizeof(lip_value_t*) * (uintptr_t)vm->max_ep;
+	ptr += sizeof(lip_value_t*) * vm->config.environment_length;
 	vm->max_ep = (void*)ptr;
 	vm->fp = vm->min_fp = (void*)ptr;
-	vm->max_fp = (void*)(ptr + (uintptr_t)vm->max_fp);
+	vm->max_fp = (void*)(ptr + vm->config.call_stack_length);
 }
 
 void lip_vm_push_nil(lip_vm_t* vm)
