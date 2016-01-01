@@ -275,6 +275,14 @@ void lip_runtime_exec_stream(
 
 		if(parse_status == LIP_PARSE_OK)
 		{
+			if(runtime->config.dump_ast)
+			{
+				lip_sexp_print(
+					runtime->config.error_fn, runtime->config.error_ctx,
+					&parse_result.sexp, 0
+				);
+			}
+
 			lip_compile_error_t compile_error;
 			lip_compiler_begin(&runtime->compiler, LIP_COMPILE_MODE_REPL);
 			bool compile_status = lip_compiler_add_sexp(
@@ -306,6 +314,14 @@ void lip_runtime_exec_stream(
 
 			lip_module_t* module = lip_compiler_end(&runtime->compiler);
 			lip_sexp_cleanup(&parse_result.sexp);
+
+			if(runtime->config.dump_code)
+			{
+				lip_module_print(
+					runtime->config.error_fn, runtime->config.error_ctx,
+					module, 4
+				);
+			}
 
 			lip_runtime_load_module(runtime, module);
 			lip_value_t result;

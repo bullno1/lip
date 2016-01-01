@@ -95,6 +95,8 @@ int main(int argc, const char** argv)
 	lip_runtime_config_t config = {
 		.error_fn = lip_fwrite,
 		.error_ctx = stderr,
+		.dump_ast = dump_ast,
+		.dump_code = dump_code,
 		.vm_config = {
 			.allocator = vm_allocator,
 			.operand_stack_length = 256,

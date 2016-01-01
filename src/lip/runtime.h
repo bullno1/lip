@@ -15,6 +15,8 @@ typedef struct lip_runtime_config_t {
 	lip_write_fn_t error_fn;
 	void* error_ctx;
 
+	bool dump_ast;
+	bool dump_code;
 	lip_vm_config_t vm_config;
 	lip_allocator_t* allocator;
 } lip_runtime_config_t;
