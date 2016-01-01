@@ -40,10 +40,10 @@ void vm_hook(lip_vm_t* vm, void* context)
 	printf("\n");
 }
 
-bool exec_handler(lip_exec_status_t status, lip_value_t* result)
+bool exec_handler(void* context, lip_exec_status_t status, lip_value_t* result)
 {
-	lip_value_print(lip_fwrite, stdout, result, 4, 0);
-	lip_printf(lip_fwrite, stdout, "\n");
+	lip_value_print(lip_fwrite, stderr, result, 5, 0);
+	lip_printf(lip_fwrite, stderr, "\n");
 	return true;
 }
 
@@ -59,8 +59,8 @@ int main(int argc, const char** argv)
 	flagset_t* fs = flagset_new();
 	flagset_int(fs, &heap_size, "heap-size", "Set vm's heap size");
 	flagset_bool(fs, &no_repl, "no-repl", "Suppress the Read-Eval-Print-Loop");
-	flagset_bool(fs, &dump_ast, "dump-ast", "Dump ast to stdout after parsing");
-	flagset_bool(fs, &dump_code, "dump-code", "Dump bytecode to stdout after compilation");
+	flagset_bool(fs, &dump_ast, "dump-ast", "Dump ast to stderr after parsing");
+	flagset_bool(fs, &dump_code, "dump-code", "Dump bytecode to stderr after compilation");
 	flagset_bool(fs, &hook, "hook", "Install a vm hook to trace execution");
 	flagset_bool(fs, &show_help, "help", "Print this message");
 
@@ -121,6 +121,7 @@ int main(int argc, const char** argv)
 	lip_runtime_exec_fileh(
 		runtime,
 		exec_handler,
+		NULL,
 		"<stdin>",
 		stdin
 	);

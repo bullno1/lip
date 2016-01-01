@@ -225,6 +225,7 @@ void lip_runtime_free_module(lip_runtime_t* runtime, lip_module_t* module)
 void lip_runtime_exec_filen(
 	lip_runtime_t* runtime,
 	lip_runtime_exec_handler_t handler,
+	void* context,
 	const char* filename
 )
 {
@@ -235,7 +236,7 @@ void lip_runtime_exec_filen(
 	}
 	else
 	{
-		lip_runtime_exec_fileh(runtime, handler, filename, file);
+		lip_runtime_exec_fileh(runtime, handler, context, filename, file);
 		fclose(file);
 	}
 }
@@ -243,16 +244,18 @@ void lip_runtime_exec_filen(
 void lip_runtime_exec_fileh(
 	lip_runtime_t* runtime,
 	lip_runtime_exec_handler_t handler,
+	void* context,
 	const char* filename,
 	FILE* file
 )
 {
-	lip_runtime_exec_stream(runtime, handler, filename, lip_fread, file);
+	lip_runtime_exec_stream(runtime, handler, context, filename, lip_fread, file);
 }
 
 void lip_runtime_exec_stream(
 	lip_runtime_t* runtime,
 	lip_runtime_exec_handler_t handler,
+	void* context,
 	const char* filename,
 	lip_read_fn_t read_fn,
 	void* stream
@@ -288,7 +291,7 @@ void lip_runtime_exec_stream(
 				);
 				lip_sexp_cleanup(&parse_result.sexp);
 
-				if(handler(LIP_EXEC_ERROR, &error))
+				if(handler(context, LIP_EXEC_ERROR, &error))
 				{
 					continue;
 				}
@@ -306,9 +309,10 @@ void lip_runtime_exec_stream(
 			lip_exec_status_t status = lip_runtime_exec_symbol(
 				runtime, "main", &result
 			);
+			bool should_continue = handler(context, status, &result);
 			lip_runtime_unload_module(runtime, module);
 			lip_runtime_free_module(runtime, module);
-			if(handler(status, &result))
+			if(should_continue)
 			{
 				continue;
 			}
@@ -331,7 +335,7 @@ void lip_runtime_exec_stream(
 			lip_printf(
 				runtime->config.error_fn, runtime->config.error_ctx, "\n"
 			);
-			handler(LIP_EXEC_ERROR, &error);
+			handler(context, LIP_EXEC_ERROR, &error);
 			return;
 		}
 	}

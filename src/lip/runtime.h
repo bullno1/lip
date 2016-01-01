@@ -60,23 +60,26 @@ void lip_runtime_unload_module(lip_runtime_t* runtime, lip_module_t* module);
 void lip_runtime_free_module(lip_runtime_t* runtime, lip_module_t* module);
 
 typedef bool (*lip_runtime_exec_handler_t)(
-	lip_exec_status_t status, lip_value_t* result
+	void* context, lip_exec_status_t status, lip_value_t* result
 );
 
 void lip_runtime_exec_filen(
 	lip_runtime_t* runtime,
 	lip_runtime_exec_handler_t handler,
+	void* context,
 	const char* filename
 );
 void lip_runtime_exec_fileh(
 	lip_runtime_t* runtime,
 	lip_runtime_exec_handler_t handler,
+	void* context,
 	const char* filename,
 	FILE* file
 );
 void lip_runtime_exec_stream(
 	lip_runtime_t* runtime,
 	lip_runtime_exec_handler_t handler,
+	void* context,
 	const char* filename,
 	lip_read_fn_t read_fn,
 	void* stream
