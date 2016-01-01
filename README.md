@@ -25,9 +25,9 @@ To build the interpreter, add all files under `src/repl` into your build tool/ID
 
 ## What works currently
 
-- The interpreter can execute simple scripts (see [examples](tree/master/examples)).
+- The interpreter can execute simple scripts (see [examples](examples)).
 - The current speed is around that of interpreted Lua and sometimes slightly faster.
-- A simple interface to bind C functions to the runtime (see [src/repl/main.c](blob/master/src/repl/main.c)).
+- A simple interface to bind C functions to the runtime (see [src/repl/main.c](src/repl/main.c)).
 
 ## What is planned?
 
@@ -66,7 +66,7 @@ There are also areas I want to experiment with:
   To target the Lua VM, one would have to read [a document written by a third-party](http://luaforge.net/docman/83/98/ANoFrillsIntroToLua51VMInstructions.pdf).
   Making languages which compile to Lua but have line information and source files map nicely to the source language for ease of debugging is a challenging task as there is no simple way to access Lua's compiler or AST.
   lip is designed to be modular and hackable from the start.
-  There is API (albeit undocumented for now) for [codegen](blob/master/src/lip/asm.h), [ast](blob/master/src/lip/ast.h), [parser](https://github.com/bullno1/lip/blob/master/src/lip/parser.h) and [compiler](https://github.com/bullno1/lip/blob/master/src/lip/compiler.h).
+  There is API (albeit undocumented for now) for [codegen](src/lip/asm.h), [ast](src/lip/ast.h), [parser](src/lip/parser.h) and [compiler](src/lip/compiler.h).
   In fact, every part of it can be used independently (e.g: one can use lip's sexp parser to build their own language in their own runtime).
 - *Type system*: Even in a dynamic environment, there are several type inference and checking techniques that can improve performances (by removing type checks) and improve correctness (by catching error at compile-time instead of runtime).
   lip is an attempt to explore type system in an embedded and dynamic environment.
