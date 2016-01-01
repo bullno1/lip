@@ -26,6 +26,8 @@ To build the interpreter, add all files under `src/repl` into your build tool/ID
 ## What works currently
 
 - The interpreter can execute simple scripts (see [examples](examples)).
+  To run a script, pipe it into the interpreter (e.g: `bin/lip < examples/fib.lip`).
+  Run `bin/lip --help` for some options (not all are implemented).
 - The current speed is around that of interpreted Lua and sometimes slightly faster.
 - A simple interface to bind C functions to the runtime (see [src/repl/main.c](src/repl/main.c)).
 
@@ -64,10 +66,11 @@ There are also areas I want to experiment with:
 
 - *Hackable runtime for scripting languages*: Many scripting languages such as Lua does not expose its underlying infrastructure enough for language hackers.
   To target the Lua VM, one would have to read [a document written by a third-party](http://luaforge.net/docman/83/98/ANoFrillsIntroToLua51VMInstructions.pdf).
-  Making languages which compile to Lua but have line information and source files map nicely to the source language for ease of debugging is a challenging task as there is no simple way to access Lua's compiler or AST.
+  Making languages which compile to Lua but have line information and source name map nicely to the source language for ease of debugging is a challenging task
+  There is no simple way to access Lua's compiler or AST.
   lip is designed to be modular and hackable from the start.
   There is API (albeit undocumented for now) for [codegen](src/lip/asm.h), [ast](src/lip/ast.h), [parser](src/lip/parser.h) and [compiler](src/lip/compiler.h).
-  In fact, every part of it can be used independently (e.g: one can use lip's sexp parser to build their own language in their own runtime).
+  In fact, every part of it can be used independently (e.g: one can use lip's sexp parser to build their own language in their own runtime or parse their own language and generate corresponding s-expressions to feed into lip's compiler).
 - *Type system*: Even in a dynamic environment, there are several type inference and checking techniques that can improve performances (by removing type checks) and improve correctness (by catching error at compile-time instead of runtime).
   lip is an attempt to explore type system in an embedded and dynamic environment.
 - *Hot code reloading*: Among one of the many things which [GOAL](https://en.wikipedia.org/wiki/Game_Oriented_Assembly_Lisp) is famous for is its ability to reload code on-the-fly.
