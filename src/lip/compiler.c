@@ -24,6 +24,7 @@
 	F(LIP_AST_LET) \
 	F(LIP_AST_LETREC) \
 	F(LIP_AST_LAMBDA) \
+	F(LIP_AST_BEGIN) \
 	F(LIP_AST_ERROR)
 
 LIP_ENUM(lip_ast_type_t, LIP_AST)
@@ -145,6 +146,10 @@ static inline lip_ast_type_t lip_ast_type(lip_sexp_t* sexp)
 				{
 					return LIP_AST_LAMBDA;
 				}
+				else if(lip_string_ref_equal(symbol, lip_string_ref("begin")))
+				{
+					return LIP_AST_BEGIN;
+				}
 				else
 				{
 					return LIP_AST_APPLICATION;
@@ -260,6 +265,21 @@ static inline bool lip_check_lambda_syntax(
 	return true;
 }
 
+static inline bool lip_check_begin_syntax(
+	lip_compiler_t* compiler, lip_sexp_t* sexp
+)
+{
+	lip_sexp_t* list = sexp->data.list;
+	unsigned int length = lip_array_len(list);
+
+	for(unsigned int i = 1; i < length; ++i)
+	{
+		CHECK(lip_check_syntax(compiler, &list[i]));
+	}
+
+	return true;
+}
+
 static inline bool lip_check_application_syntax(
 	lip_compiler_t* compiler, lip_sexp_t* sexp
 )
@@ -295,6 +315,8 @@ static inline bool lip_check_syntax(
 			return lip_check_let_syntax(compiler, sexp, true);
 		case LIP_AST_LAMBDA:
 			return lip_check_lambda_syntax(compiler, sexp);
+		case LIP_AST_BEGIN:
+			return lip_check_begin_syntax(compiler, sexp);
 		case LIP_AST_IDENTIFIER:
 		case LIP_AST_STRING:
 		case LIP_AST_NUMBER:
@@ -702,6 +724,12 @@ static inline void lip_find_free_vars(
 				lip_remove_var(free_vars, param->data.string);
 			}
 			break;
+		case LIP_AST_BEGIN:
+			for(unsigned int i = 1; i < lip_array_len(sexp->data.list); ++i)
+			{
+				lip_find_free_vars(&sexp->data.list[i], free_vars);
+			}
+			break;
 		case LIP_AST_LET:
 			{
 				lip_find_free_vars(&sexp->data.list[2], free_vars);
@@ -791,6 +819,25 @@ static inline bool lip_compile_lambda(
 	return true;
 }
 
+static inline bool lip_compile_begin(
+	lip_compiler_t* compiler, lip_sexp_t* sexp
+)
+{
+	lip_sexp_t* list = sexp->data.list;
+	unsigned int length = lip_array_len(list);
+
+	// TODO: pop in the pen-ultimate expression instead
+	// Must handle many edge cases like empty begin
+	LASM(compiler, LIP_OP_NIL, 0);
+	for(unsigned int i = 1; i < length; ++i)
+	{
+		LASM(compiler, LIP_OP_POP, 1);
+		CHECK(lip_compile_sexp(compiler, &list[i]));
+	}
+
+	return true;
+}
+
 static inline bool lip_compile_application(
 	lip_compiler_t* compiler, lip_sexp_t* sexp
 )
@@ -853,6 +900,8 @@ static inline bool lip_compile_sexp(
 			return lip_compile_application(compiler, sexp);
 		case LIP_AST_LAMBDA:
 			return lip_compile_lambda(compiler, sexp);
+		case LIP_AST_BEGIN:
+			return lip_compile_begin(compiler, sexp);
 		case LIP_AST_ERROR:
 			return lip_compile_error(compiler, "unrecognized form", sexp);
 	}

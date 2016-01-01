@@ -1,0 +1,12 @@
+(letrec ((hello-2016
+           (lambda ()
+             (begin
+               (print "Hello 2016")
+               (print "And the value of fib(20) is:")
+               (fib 20))))
+         (fib
+           (lambda (n)
+             (if (< n 2)
+               1
+               (+ (fib (+ n -1)) (fib (+ n -2)))))))
+  (hello-2016))
