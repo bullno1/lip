@@ -14,6 +14,8 @@ From the project folder, run: `./numake bin/lip` and an interpreter will be crea
 
 `numake` is my own custom build tool: https://github.com/bullno1/numake
 
+`./watch bin/lip` will watch all dependencies of `bin/lip` and rebuild if needed.
+
 ### Using your own tools
 
 It is also possible to build using other build tools although it's untested.
