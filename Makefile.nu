@@ -1,6 +1,7 @@
-C_FLAGS ?= -g -Wall -Werror -pedantic
+C_FLAGS ?= -O3 -flto -Wall -Werror -pedantic
 CPP_FLAGS ?= -Wall -Werror -pedantic
 LINKER ?= cc
+LINK_FLAGS ?= -O3 -flto
 
 -import cpp.nu
 

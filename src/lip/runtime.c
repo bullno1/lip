@@ -11,7 +11,10 @@
 #include "module.h"
 #include "utils.h"
 
-#define log_error(RUNTIME, FORMAT, ...) lip_printf((RUNTIME)->config.error_fn, (RUNTIME)->config.error_ctx, (FORMAT), __VA_ARGS__)
+#define log_error(RUNTIME, FORMAT, ...) \
+	lip_printf(\
+		(RUNTIME)->config.error_fn, (RUNTIME)->config.error_ctx,\
+		(FORMAT), __VA_ARGS__)
 
 typedef struct lip_runtime_t {
 	lip_runtime_config_t config;

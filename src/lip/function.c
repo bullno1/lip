@@ -20,8 +20,16 @@ void lip_closure_print(
 	}
 	else
 	{
+		lip_printf(write_fn, ctx, "%*sfunction: 0x", indent * 2, "");
+		unsigned char* p = (unsigned char*)&closure->function_ptr.lip;
+		for(int i = 0; i < sizeof(lip_function_t*); ++i)
+		{
+			lip_printf(write_fn, ctx, "%02x", p[i]);
+		}
+
 		if(max_depth > 1)
 		{
+			lip_printf(write_fn, ctx, "\n");
 			lip_function_print(
 				write_fn, ctx,
 				closure->function_ptr.lip, max_depth - 1, indent
@@ -37,21 +45,12 @@ void lip_closure_print(
 				lip_printf(write_fn, ctx, "\n");
 			}
 		}
-		else
-		{
-			lip_printf(write_fn, ctx, "%*sfunction: 0x", indent * 2, "");
-			unsigned char* p = (unsigned char*)&closure->function_ptr.lip;
-			for(int i = 0; i < sizeof(lip_function_t*); ++i)
-			{
-				lip_printf(write_fn, ctx, "%02x", p[i]);
-			}
-		}
 	}
 }
 
 void lip_function_print(
 	lip_write_fn_t write_fn, void* ctx,
-	lip_function_t* function, int indent, int max_depth
+	lip_function_t* function, int max_depth, int indent
 )
 {
 	lip_printf(write_fn, ctx, "%*s.TEXT:\n", indent * 2, "");
