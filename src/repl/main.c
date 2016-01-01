@@ -18,8 +18,8 @@ static lip_exec_status_t print(lip_vm_t* vm)
 
 void vm_hook(lip_vm_t* vm, void* context)
 {
-	printf("stack:\n");
-	printf("================\n");
+	lip_printf(lip_fwrite, stderr, "stack:\n");
+	lip_printf(lip_fwrite, stderr, "================\n");
 	bool first = true;
 	for(lip_value_t* itr = vm->min_sp; itr < vm->sp; ++itr)
 	{
@@ -29,14 +29,14 @@ void vm_hook(lip_vm_t* vm, void* context)
 		}
 		else
 		{
-			printf("\n----------------\n");
+			printf("----------------\n");
 		}
-		lip_value_print(lip_fwrite, stdout, itr, 4, 0);
+		lip_printf(lip_fwrite, stderr, "> ");
+		lip_value_print(lip_fwrite, stderr, itr, 5, 0);
+		lip_printf(lip_fwrite, stderr, "\n");
 	}
-	printf("\n================\n");
-
-	printf("\n");
-	lip_asm_print(lip_fwrite, stdout, *(vm->ctx.pc));
+	printf("================\n");
+	lip_asm_print(lip_fwrite, stderr, *(vm->ctx.pc));
 	printf("\n");
 }
 
@@ -109,6 +109,12 @@ int main(int argc, const char** argv)
 	};
 
 	lip_runtime_t* runtime = lip_runtime_new(&config);
+
+	if(hook)
+	{
+		lip_runtime_get_vm(runtime)->hook = vm_hook;
+	}
+
 	lip_runtime_register_native_module(
 		runtime, sizeof(builtins) / sizeof(lip_native_module_entry_t), builtins
 	);
