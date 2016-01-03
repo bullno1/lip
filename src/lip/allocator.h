@@ -2,6 +2,7 @@
 #define LIP_ALLOCATOR_H
 
 #include <stddef.h>
+#include "fuck_msvc.h"
 
 typedef struct lip_allocator_t
 {

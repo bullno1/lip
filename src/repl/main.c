@@ -18,6 +18,7 @@ static lip_exec_status_t print(lip_vm_t* vm)
 
 void vm_hook(lip_vm_t* vm, void* context)
 {
+	(void)context;
 	lip_printf(lip_fwrite, stderr, "stack:\n");
 	lip_printf(lip_fwrite, stderr, "================\n");
 	bool first = true;
@@ -42,6 +43,8 @@ void vm_hook(lip_vm_t* vm, void* context)
 
 bool exec_handler(void* context, lip_exec_status_t status, lip_value_t* result)
 {
+	(void)status;
+	(void)context;
 	lip_value_print(lip_fwrite, stderr, result, 5, 0);
 	lip_printf(lip_fwrite, stderr, "\n");
 	return true;

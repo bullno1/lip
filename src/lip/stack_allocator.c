@@ -47,6 +47,8 @@ static void* stack_realloc(void* self, void* old, size_t size)
 
 static void stack_free(void* self, void* ptr)
 {
+	(void)self;
+	(void)ptr;
 }
 
 lip_allocator_t* lip_stack_allocator_new(

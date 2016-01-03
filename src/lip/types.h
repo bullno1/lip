@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "fuck_msvc.h"
 
 typedef struct lip_loc_t
 {

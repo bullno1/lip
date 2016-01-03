@@ -3,10 +3,15 @@
 
 void* lip_crt_realloc(void* context, void* old, size_t size)
 {
+	(void)context;
 	return realloc(old, size);
 }
 
-void lip_crt_free(void* context, void* mem) { free(mem); }
+void lip_crt_free(void* context, void* mem)
+{
+	(void)context;
+	free(mem);
+}
 
 static lip_allocator_t lip_crt_allocator = {
 	lip_crt_realloc, lip_crt_free

@@ -1,9 +1,16 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include "flag.h"
+
+#ifdef _MSC_VER
+#	pragma warning(disable: 4204)
+#	pragma warning(disable: 4267)
+#	pragma warning(disable: 4090)
+#endif
 
 /*
  * Singleton like a boss.

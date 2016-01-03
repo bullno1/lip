@@ -13,6 +13,7 @@ static lip_parse_status_t lip_parser_switch_error(
 	lip_parse_result_t* alt_result
 )
 {
+	(void)parser;
 	lip_sexp_cleanup(&result->sexp);
 	*result = *alt_result;
 	return alt_status;
@@ -66,6 +67,7 @@ static lip_parse_status_t lip_parser_make_string(
 	lip_parser_t* parser, lip_token_t* token, lip_parse_result_t* result
 )
 {
+	(void)parser;
 	switch(token->type)
 	{
 	case LIP_TOKEN_STRING:
