@@ -16,6 +16,16 @@ From the project folder, run: `./numake bin/lip` and an interpreter will be crea
 
 `./watch bin/lip` will watch all dependencies of `bin/lip` and rebuild if needed.
 
+### Using Visual Studio 2015
+
+Visual Studio 2015 is the only Visual Studio version that has proper C99 supports, anything earlier probably will not work.
+Run `vs2015.bat` and a solution will be created in the `vs2015` folder.
+
+### Using GENie
+
+[GENie](https://github.com/bkaradzic/genie) is a project generator for XCode, Visual Studio and Makefile.
+Run it on `genie.lua` to create a project for your tool.
+
 ### Using your own tools
 
 It is also possible to build using other build tools although it's untested.
