@@ -3,7 +3,8 @@
 #include "greatest.h"
 
 #define FOREACH_SUITE(F) \
-	F(array)
+	F(array) \
+	F(hash)
 
 #define DECLARE_SUITE(S) extern SUITE(S);
 #define EXEC_SUITE(S) RUN_SUITE(S);
