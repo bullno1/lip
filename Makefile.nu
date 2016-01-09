@@ -9,11 +9,11 @@ all: tests bin/lip ! live
 
 tests: bin/tests ! live
 	echo "-------------------------------------"
-	valgrind --leak-check=full bin/tests -v
+	valgrind --leak-check=full bin/tests -v | tools/greenest
 
 test:%: bin/tests ! live
 	echo "-------------------------------------"
-	valgrind --leak-check=full bin/tests -v -s ${m}
+	valgrind --leak-check=full bin/tests -v -s ${m} | tools/greenest
 
 bin/tests: << C_FLAGS CPP_FLAGS
 	${NUMAKE} exe:$@ \
