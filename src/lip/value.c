@@ -42,7 +42,7 @@ void lip_value_print(
 			{
 				lip_printf(write_fn, ctx, "%*scons: 0x", indent * 2, "");
 				unsigned char* p = (unsigned char*)value->data.reference;
-				for(int i = 0; i < sizeof(lip_native_function_t); ++i)
+				for(size_t i = 0; i < sizeof(lip_native_function_t); ++i)
 				{
 					lip_printf(write_fn, ctx, "%02x", p[i]);
 				}

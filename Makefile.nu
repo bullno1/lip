@@ -1,5 +1,5 @@
-C_FLAGS ?= -O3 -flto -Wall -Werror -pedantic
-CPP_FLAGS ?= -Wall -Werror -pedantic
+C_FLAGS ?= -O3 -flto -Wall -Wextra -Werror -pedantic
+CPP_FLAGS ?= -Wall -Werror -Wextra -pedantic
 LINKER ?= cc
 LINK_FLAGS ?= -O3 -flto
 

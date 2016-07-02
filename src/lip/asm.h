@@ -8,7 +8,7 @@
 #define LIP_ASM_END 0xFE
 #define LIP_OP_LABEL 0xFF
 
-typedef int32_t lip_asm_index_t;
+typedef uint32_t lip_asm_index_t;
 
 typedef struct lip_asm_t
 {

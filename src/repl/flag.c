@@ -96,7 +96,7 @@ is_negated(const char *s) {
 
 static int
 largest_flag_name(flagset_t *self) {
-  int max = 0;
+  unsigned int max = 0;
   for (int i = 0; i < self->nflags; ++i) {
     flag_t *flag = &self->flags[i];
     size_t len = strlen(flag->name);

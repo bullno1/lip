@@ -354,7 +354,7 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 	ptr += import_table_size;
 
 	// Write symbol section
-	for(int i = 0; i < lip_array_len(lasm->import_symbols); ++i)
+	for(size_t i = 0; i < lip_array_len(lasm->import_symbols); ++i)
 	{
 		lip_string_ref_t* symbol = lasm->import_symbols + i;
 		lip_string_t* entry = (lip_string_t*)ptr;

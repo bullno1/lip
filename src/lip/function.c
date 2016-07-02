@@ -13,7 +13,7 @@ void lip_closure_print(
 	{
 		lip_printf(write_fn, ctx, "%*snative: 0x", indent * 2, "");
 		unsigned char* p = (unsigned char*)&closure->function_ptr.native;
-		for(int i = 0; i < sizeof(lip_native_function_t); ++i)
+		for(size_t i = 0; i < sizeof(lip_native_function_t); ++i)
 		{
 			lip_printf(write_fn, ctx, "%02x", p[i]);
 		}
@@ -22,7 +22,7 @@ void lip_closure_print(
 	{
 		lip_printf(write_fn, ctx, "%*sfunction: 0x", indent * 2, "");
 		unsigned char* p = (unsigned char*)&closure->function_ptr.lip;
-		for(int i = 0; i < sizeof(lip_function_t*); ++i)
+		for(size_t i = 0; i < sizeof(lip_function_t*); ++i)
 		{
 			lip_printf(write_fn, ctx, "%02x", p[i]);
 		}
