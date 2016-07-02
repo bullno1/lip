@@ -1,4 +1,4 @@
-#if defined(__GNUC__) || defined(__GNUG__)
+#if defined(__GNUC__) || defined(__GNUG__) || defined(__clang__)
 #	define HAS_COMPUTED_GOTO 1
 #else
 #	define HAS_COMPUTED_GOTO 0

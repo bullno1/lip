@@ -6,6 +6,7 @@
 #include "types.h"
 
 #define LIP_PRINTF_BUFF_SIZE 2048
+#define LIP_ALIGN_OF(TYPE) offsetof(struct { char c; TYPE t;}, t)
 
 static inline lip_string_ref_t lip_string_ref(const char* string)
 {
@@ -13,9 +14,9 @@ static inline lip_string_ref_t lip_string_ref(const char* string)
 	return result;
 }
 
-struct lip__str_align_helper { char c; struct{ uint32_t len; char ptr[2];} s; };
+struct lip__str_align_helper { uint32_t len; char ptr[1]; };
 static const uint32_t lip_string_t_align_size =
-	offsetof(struct lip__str_align_helper, s);
+	LIP_ALIGN_OF(struct lip__str_align_helper);
 
 static inline size_t lip_string_align(uint32_t len)
 {

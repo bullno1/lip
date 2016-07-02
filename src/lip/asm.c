@@ -89,7 +89,7 @@ void lip_asm_add(lip_asm_t* lasm, ...)
 	while(true)
 	{
 		lip_opcode_t opcode = va_arg(args, lip_opcode_t);
-		if(opcode == LIP_ASM_END) { break; }
+		if((int)opcode == LIP_ASM_END) { break; }
 
 		int32_t operand = va_arg(args, int32_t);
 		lip_array_push(lasm->instructions, lip_asm(opcode, operand));
@@ -209,7 +209,7 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 				lip_disasm(lasm->instructions[i + 2], &opcode3, &operand3);
 
 				if(opcode1 == LIP_OP_CALL
-				&& opcode2 == LIP_OP_LABEL
+				&& (int)opcode2 == LIP_OP_LABEL
 				&& opcode3 == LIP_OP_RET)
 				{
 					lasm->instructions[i] = lip_asm(LIP_OP_TAIL, operand1);
@@ -273,7 +273,7 @@ lip_function_t* lip_asm_end(lip_asm_t* lasm)
 
 			// Overwrite a label with the next instruction if needed
 			lasm->instructions[out_index] = lasm->instructions[index];
-			if(opcode != LIP_OP_LABEL) { ++out_index; }
+			if((int)opcode != LIP_OP_LABEL) { ++out_index; }
 		}
 		lip_array_resize(lasm->instructions, out_index);
 
