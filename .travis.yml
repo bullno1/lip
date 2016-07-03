@@ -3,6 +3,8 @@ language: c
 compiler:
   - gcc
   - clang
+install:
+  - DEBIAN_FRONTEND=noninteractive sudo apt-get install -y valgrind
 script:
   - ./numake info
   - ./numake tests
