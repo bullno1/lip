@@ -1,7 +1,0 @@
-#!/bin/sh -e
-
-export CC=clang
-export CXX=clang++
-export AR=llvm-ar
-
-$*

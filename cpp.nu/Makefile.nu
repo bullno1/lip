@@ -1,7 +1,12 @@
 BUILD_DIR ?= .build
-CC ?= cc
-CXX ?= c++
-AR ?= ar
+CC ?= $(basename $(readlink -f $(which cc)))
+CXX_gcc = c++
+CXX_cc = c++
+CXX_clang = clang++
+CXX ?= $(eval echo \${CXX_$CC})
+AR_gcc = ar
+AR_clang = llvm-ar
+AR ?= $(eval echo \${AR_$CC})
 LINKER ?= ${CXX}
 C_FLAGS ?= -Wall
 CPP_FLAGS ?= -Wall
