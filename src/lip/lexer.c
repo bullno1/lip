@@ -136,7 +136,7 @@ static inline bool lip_lexer_is_separator(char ch)
 }
 
 static lip_stream_status_t
-lip_lexer_error(lip_lexer_t* lexer, lip_lexer_error_t error)
+lip_lexer_error(lip_lexer_t* lexer, lip_lex_error_t error)
 {
 	lexer->error.code = error;
 	lexer->error.location.end = lexer->location;
@@ -160,7 +160,7 @@ lip_lexer_scan_number(lip_lexer_t* lexer, lip_token_t* token)
 		else if(!lip_lexer_is_separator(ch))
 		{
 			lip_lexer_consume_char(lexer);
-			return lip_lexer_error(lexer, LIP_LEXER_BAD_NUMBER);
+			return lip_lexer_error(lexer, LIP_LEX_BAD_NUMBER);
 		}
 		else
 		{
@@ -261,7 +261,7 @@ lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 					}
 				}
 
-				return lip_lexer_error(lexer, LIP_LEXER_BAD_STRING);
+				return lip_lexer_error(lexer, LIP_LEX_BAD_STRING);
 			case '-':
 				lip_lexer_peek_char(lexer, &ch);
 				if(isdigit(ch))

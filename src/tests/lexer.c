@@ -152,7 +152,7 @@ bad_string(const MunitParameter params[], void* fixture)
 	lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, lip_lexer_next_token(lexer, &token));
 
 	lip_error_t error = {
-		.code = LIP_LEXER_BAD_STRING,
+		.code = LIP_LEX_BAD_STRING,
 		.location = {
 			.start = { .line = 1, .column = 2},
 			.end = { .line = 1, .column = 4}
@@ -181,7 +181,7 @@ bad_number(const MunitParameter params[], void* fixture)
 	lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, lip_lexer_next_token(lexer, &token));
 
 	lip_error_t error = {
-		.code = LIP_LEXER_BAD_NUMBER,
+		.code = LIP_LEX_BAD_NUMBER,
 		.location = {
 			.start = { .line = 1, .column = 2},
 			.end = { .line = 1, .column = 3}

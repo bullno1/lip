@@ -4,12 +4,12 @@
 #include "common.h"
 #include "token.h"
 
-#define LIP_LEXER_ERROR(F) \
-	F(LIP_LEXER_OK) \
-	F(LIP_LEXER_BAD_STRING) \
-	F(LIP_LEXER_BAD_NUMBER)
+#define LIP_LEX_ERROR(F) \
+	F(LIP_LEX_OK) \
+	F(LIP_LEX_BAD_STRING) \
+	F(LIP_LEX_BAD_NUMBER)
 
-LIP_ENUM(lip_lexer_error_t, LIP_LEXER_ERROR)
+LIP_ENUM(lip_lex_error_t, LIP_LEX_ERROR)
 
 typedef struct lip_lexer_s lip_lexer_t;
 
