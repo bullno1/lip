@@ -6,3 +6,5 @@ compiler:
 script:
   - ./numake info
   - ./numake tests
+sudo: required
+dist: trusty
