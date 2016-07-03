@@ -1,8 +1,7 @@
 #ifndef LIP_TOKEN_H
 #define LIP_TOKEN_H
 
-#include "types.h"
-#include "enum.h"
+#include "common.h"
 
 #define LIP_TOKEN(F) \
 	F(LIP_TOKEN_LPAREN) \
@@ -13,17 +12,13 @@
 
 LIP_ENUM(lip_token_type_t, LIP_TOKEN)
 
-typedef struct lip_token_t
+typedef struct lip_token_s lip_token_t;
+
+struct lip_token_s
 {
 	lip_token_type_t type;
 	lip_string_ref_t lexeme;
-	lip_loc_t start;
-	lip_loc_t end;
-} lip_token_t;
-
-void lip_token_print(
-	lip_write_fn_t write_fn, void* ctx,
-	lip_token_t* token
-);
+	lip_loc_range_t location;
+};
 
 #endif

@@ -1,9 +1,7 @@
 #ifndef LIP_ARRAY_H
 #define LIP_ARRAY_H
 
-#include <stddef.h>
-
-typedef struct lip_allocator_t lip_allocator_t;
+#include "common.h"
 
 //TODO: convert all use of array to lip_array(type) instead of type*
 //TODO: two kinds of resize: one exact and one double

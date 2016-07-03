@@ -23,7 +23,7 @@ def parse_args(args, env):
     parsed_args = []
     for arg in args:
         if "=" in arg:
-            var_tokens = arg.split("=")
+            var_tokens = arg.split("=", 1)
             env[var_tokens[0]] = var_tokens[1]
         else:
             parsed_args.append(arg)

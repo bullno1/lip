@@ -1,65 +1,78 @@
-#include "lexer.h"
+#include "ex/lexer.h"
 #include <ctype.h>
-#include <stdio.h>
 #include <string.h>
 #include "token.h"
 #include "array.h"
-#include "allocator.h"
-#include "utils.h"
+#include "memory.h"
+#include "io.h"
 
-void lip_lexer_init(
-	lip_lexer_t* lexer,
-	lip_allocator_t* allocator
-)
+lip_lexer_t*
+lip_lexer_create(lip_allocator_t* allocator)
+{
+	lip_lexer_t* lexer = lip_new(allocator, lip_lexer_t);
+	lip_lexer_init(lexer, allocator);
+	return lexer;
+}
+
+void
+lip_lexer_destroy(lip_lexer_t* lexer)
+{
+	lip_lexer_cleanup(lexer);
+	lip_free(lexer->allocator, lexer);
+}
+
+void
+lip_lexer_init(lip_lexer_t* lexer, lip_allocator_t* allocator)
 {
 	lexer->allocator = allocator;
 	lexer->capture_buff = lip_array_new(allocator);
 	lexer->strings = lip_array_new(allocator);
-	lip_lexer_reset(lexer, NULL, NULL);
+	lip_lexer_reset(lexer, NULL);
 }
 
-static inline void lip_lexer_release_strings(lip_lexer_t* lexer)
+void
+lip_lexer_cleanup(lip_lexer_t* lexer)
 {
+	lip_lexer_reset(lexer, NULL);
+	lip_array_delete(lexer->capture_buff);
+	lip_array_delete(lexer->strings);
+}
+
+void
+lip_lexer_reset(lip_lexer_t* lexer, lip_in_t* input)
+{
+	lexer->location.line = 1;
+	lexer->location.column = 1;
+	memset(&lexer->error, 0, sizeof(lexer->error));
+	lexer->buff = 0;
+	lexer->capturing = false;
+	lexer->buffered = false;
+	lexer->eos = false;
+	lexer->input = input;
+	lip_array_clear(lexer->capture_buff);
 	lip_array_foreach(char*, string, lexer->strings)
 	{
 		lip_free(lexer->allocator, *string);
 	}
 	lip_array_clear(lexer->strings);
+
 }
 
-void lip_lexer_reset(lip_lexer_t* lexer, lip_read_fn_t read_fn, void* read_ctx)
-{
-	lip_array_clear(lexer->capture_buff);
-	lip_lexer_release_strings(lexer);
-	lexer->location.line = 1;
-	lexer->location.column = 1;
-	lexer->buff = 0;
-	lexer->capturing = false;
-	lexer->buffered = false;
-	lexer->eos = false;
-	lexer->read_fn = read_fn;
-	lexer->read_ctx = read_ctx;
-}
-
-void lip_lexer_cleanup(lip_lexer_t* lexer)
-{
-	lip_lexer_release_strings(lexer);
-	lip_array_delete(lexer->capture_buff);
-	lip_array_delete(lexer->strings);
-}
-
-static inline void lip_lexer_begin_capture(lip_lexer_t* lexer)
+static void
+lip_lexer_begin_capture(lip_lexer_t* lexer)
 {
 	lexer->capturing = true;
 }
 
-static inline void lip_lexer_reset_capture(lip_lexer_t* lexer)
+static void
+lip_lexer_reset_capture(lip_lexer_t* lexer)
 {
 	lip_array_clear(lexer->capture_buff);
 	lexer->capturing = false;
 }
 
-static inline lip_string_ref_t lip_lexer_end_capture(lip_lexer_t* lexer)
+static lip_string_ref_t
+lip_lexer_end_capture(lip_lexer_t* lexer)
 {
 	lip_array_push(lexer->capture_buff, 0); // null-terminate
 	unsigned int len = lip_array_len(lexer->capture_buff);
@@ -73,7 +86,8 @@ static inline lip_string_ref_t lip_lexer_end_capture(lip_lexer_t* lexer)
 	return ref;
 }
 
-static inline lip_lex_status_t lip_lexer_make_token(
+static lip_stream_status_t
+lip_lexer_make_token(
 	lip_lexer_t* lexer,
 	lip_token_t* token,
 	lip_token_type_t type
@@ -81,17 +95,18 @@ static inline lip_lex_status_t lip_lexer_make_token(
 {
 	token->type = type;
 	token->lexeme = lip_lexer_end_capture(lexer);
-	token->end = lexer->location;
-	--token->end.column;
+	token->location.end = lexer->location;
+	--token->location.end.column;
 
-	return LIP_LEX_OK;
+	return LIP_STREAM_OK;
 }
 
-static inline bool lip_lexer_peek_char(lip_lexer_t* lexer, char* ch)
+static bool
+lip_lexer_peek_char(lip_lexer_t* lexer, char* ch)
 {
 	if(lexer->buffered) { *ch = lexer->buff; return true; }
 
-	if(lexer->read_fn(&lexer->buff, 1, lexer->read_ctx))
+	if(lip_read(&lexer->buff, 1, lexer->input))
 	{
 		lexer->buffered = true;
 		*ch = lexer->buff;
@@ -104,7 +119,8 @@ static inline bool lip_lexer_peek_char(lip_lexer_t* lexer, char* ch)
 	}
 }
 
-static inline void lip_lexer_consume_char(lip_lexer_t* lexer)
+static void
+lip_lexer_consume_char(lip_lexer_t* lexer)
 {
 	lexer->buffered = false;
 	if(lexer->capturing)
@@ -119,9 +135,19 @@ static inline bool lip_lexer_is_separator(char ch)
 	return isspace(ch) || ch == ')' || ch == '(' || ch == ';' || ch == '"';
 }
 
-static inline lip_lex_status_t lip_lexer_lex_number(
-	lip_lexer_t* lexer, lip_token_t* token
-)
+static lip_stream_status_t
+lip_lexer_error(lip_lexer_t* lexer, lip_lexer_error_t error)
+{
+	lexer->error.code = error;
+	lexer->error.location.end = lexer->location;
+	--lexer->error.location.end.column;
+	lip_lexer_reset_capture(lexer);
+
+	return LIP_STREAM_ERROR;
+}
+
+static lip_stream_status_t
+lip_lexer_scan_number(lip_lexer_t* lexer, lip_token_t* token)
 {
 	char ch;
 	while(lip_lexer_peek_char(lexer, &ch))
@@ -134,12 +160,7 @@ static inline lip_lex_status_t lip_lexer_lex_number(
 		else if(!lip_lexer_is_separator(ch))
 		{
 			lip_lexer_consume_char(lexer);
-			lip_lexer_make_token(
-				lexer,
-				token,
-				LIP_TOKEN_NUMBER
-			);
-			return LIP_LEX_BAD_NUMBER;
+			return lip_lexer_error(lexer, LIP_LEXER_BAD_NUMBER);
 		}
 		else
 		{
@@ -150,9 +171,8 @@ static inline lip_lex_status_t lip_lexer_lex_number(
 	return lip_lexer_make_token(lexer, token, LIP_TOKEN_NUMBER);
 }
 
-static inline lip_lex_status_t lip_lexer_lex_symbol(
-	lip_lexer_t* lexer, lip_token_t* token
-)
+static lip_stream_status_t
+lip_lexer_scan_symbol(lip_lexer_t* lexer, lip_token_t* token)
 {
 	char ch;
 	while(lip_lexer_peek_char(lexer, &ch))
@@ -170,14 +190,17 @@ static inline lip_lex_status_t lip_lexer_lex_symbol(
 	return lip_lexer_make_token(lexer, token, LIP_TOKEN_SYMBOL);
 }
 
-lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
+lip_stream_status_t
+lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 {
-	if(lexer->eos) { return LIP_LEX_EOS; }
+	if(lexer->eos) { return LIP_STREAM_END; }
+
+	memset(&lexer->error, 0, sizeof(lexer->error));
 
 	char ch;
 	while(lip_lexer_peek_char(lexer, &ch))
 	{
-		token->start = lexer->location;
+		lexer->error.location.start = token->location.start = lexer->location;
 		lip_lexer_begin_capture(lexer);
 		lip_lexer_consume_char(lexer);
 
@@ -220,7 +243,6 @@ lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 				}
 				continue;
 			case '"':
-				token->start = lexer->location;
 				lip_lexer_reset_capture(lexer);
 				lip_lexer_begin_capture(lexer);
 				while(lip_lexer_peek_char(lexer, &ch))
@@ -229,21 +251,22 @@ lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 					if(ch == '"')
 					{
 						lip_lexer_make_token(lexer, token, LIP_TOKEN_STRING);
+						++token->location.end.column; // include '"'
 						lip_lexer_consume_char(lexer);
-						return LIP_LEX_OK;
+						return LIP_STREAM_OK;
 					}
 					else
 					{
 						lip_lexer_consume_char(lexer);
 					}
 				}
-				lip_lexer_make_token(lexer, token, LIP_TOKEN_STRING);
-				return LIP_LEX_BAD_STRING;
+
+				return lip_lexer_error(lexer, LIP_LEXER_BAD_STRING);
 			case '-':
 				lip_lexer_peek_char(lexer, &ch);
 				if(isdigit(ch))
 				{
-					return lip_lexer_lex_number(lexer, token);
+					return lip_lexer_scan_number(lexer, token);
 				}
 				else if(lip_lexer_is_separator(ch))
 				{
@@ -251,45 +274,25 @@ lip_lex_status_t lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 				}
 				else
 				{
-					return lip_lexer_lex_symbol(lexer, token);
+					return lip_lexer_scan_symbol(lexer, token);
 				}
 			default:
 				if(isdigit(ch))
 				{
-					return lip_lexer_lex_number(lexer, token);
+					return lip_lexer_scan_number(lexer, token);
 				}
 				else
 				{
-					return lip_lexer_lex_symbol(lexer, token);
+					return lip_lexer_scan_symbol(lexer, token);
 				}
 		}
 	}
 
-	return LIP_LEX_EOS;
+	return LIP_STREAM_END;
 }
 
-void lip_lexer_print_status(
-	lip_write_fn_t write_fn, void* ctx,
-	lip_lex_status_t status, lip_token_t* token
-)
+const lip_error_t*
+lip_lexer_last_error(lip_lexer_t* lexer)
 {
-	lip_printf(write_fn, ctx, "%s", lip_lex_status_t_to_str(status));
-
-	switch(status)
-	{
-		case LIP_LEX_OK:
-			lip_printf(write_fn, ctx, " ");
-			lip_token_print(write_fn, ctx, token);
-		case LIP_LEX_EOS:
-			break;
-		case LIP_LEX_BAD_NUMBER:
-		case LIP_LEX_BAD_STRING:
-			lip_printf(write_fn, ctx,
-				" '%.*s' %u:%u - %u:%u",
-				(int)token->lexeme.length, token->lexeme.ptr,
-				token->start.line, token->start.column,
-				token->end.line, token->end.column
-			);
-			break;
-	}
+	return &lexer->error;
 }

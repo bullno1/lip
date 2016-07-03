@@ -1,24 +1,27 @@
 #include "array.h"
-#include "allocator.h"
+#include "memory.h"
 
-typedef struct
+typedef struct lip_array_s
 {
 	lip_allocator_t* allocator;
 	size_t length;
 	size_t capacity;
 } lip_array_t;
 
-static inline lip_array_t* lip_array_head(void* ptr)
+static inline lip_array_t*
+lip_array_head(void* ptr)
 {
 	return (lip_array_t*)((char*)ptr - sizeof(lip_array_t));
 }
 
-static inline void* lip_array_body(lip_array_t* head)
+static inline void*
+lip_array_body(lip_array_t* head)
 {
 	return (char*)head + sizeof(lip_array_t);
 }
 
-void* lip_array_new(lip_allocator_t* allocator)
+void*
+lip_array_new(lip_allocator_t* allocator)
 {
 	lip_array_t* head = lip_new(allocator, lip_array_t);
 	head->allocator = allocator;
@@ -27,13 +30,15 @@ void* lip_array_new(lip_allocator_t* allocator)
 	return lip_array_body(head);
 }
 
-void lip_array_delete(void* array)
+void
+lip_array_delete(void* array)
 {
 	lip_array_t* head = lip_array_head(array);
 	lip_free(head->allocator, head);
 }
 
-void* lip_array__resize(void* array, size_t new_length, size_t item_size)
+void*
+lip_array__resize(void* array, size_t new_length, size_t item_size)
 {
 	lip_array_t* head = lip_array_head(array);
 	size_t required_size = new_length * item_size + sizeof(lip_array_t);
@@ -47,12 +52,14 @@ void* lip_array__resize(void* array, size_t new_length, size_t item_size)
 	return lip_array_body(head);
 }
 
-size_t lip_array_len(void* array)
+size_t
+lip_array_len(void* array)
 {
 	return lip_array_head(array)->length;
 }
 
-void lip_array_clear(void* array)
+void
+lip_array_clear(void* array)
 {
 	lip_array_head(array)->length = 0;
 }

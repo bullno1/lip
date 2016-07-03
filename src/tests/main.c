@@ -1,21 +1,29 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "greatest.h"
+#include "munit.h"
 
 #define FOREACH_SUITE(F) \
-	F(array)
+	F(io) \
+	F(lexer)
 
-#define DECLARE_SUITE(S) extern SUITE(S);
-#define EXEC_SUITE(S) RUN_SUITE(S);
+#define DECLARE_SUITE(S) extern MunitSuite S;
+
+#define IMPORT_SUITE(S) S,
 
 FOREACH_SUITE(DECLARE_SUITE)
 
-GREATEST_MAIN_DEFS();
-
-int main(int argc, char* argv[])
+int
+main(int argc, char* argv[])
 {
-	GREATEST_MAIN_BEGIN();
-	FOREACH_SUITE(EXEC_SUITE);
-	GREATEST_MAIN_END();
-	return EXIT_SUCCESS;
+	MunitSuite all_suites[] = {
+		FOREACH_SUITE(IMPORT_SUITE)
+		{ .tests = NULL, .suites = NULL }
+	};
+
+	MunitSuite main_suite = {
+		.prefix = "",
+		.suites = all_suites
+	};
+
+	return munit_suite_main(&main_suite, NULL, argc, argv);
 }
