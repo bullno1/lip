@@ -1,4 +1,4 @@
-# lip - An embeddable LISP [![Build Status](https://travis-ci.org/bullno1/lip.svg?branch=master)](https://travis-ci.org/bullno1/lip)
+# lip - An embeddable LISP [![Build Status](https://travis-ci.org/bullno1/lip.svg?branch=master)](https://travis-ci.org/bullno1/lip) [![Coverage Status](https://coveralls.io/repos/github/bullno1/lip/badge.svg?branch=master)](https://coveralls.io/github/bullno1/lip?branch=master)
 
 `lip` is my own implementation of a LISP language, designed to be embedded in a host program (similar to Lua).
 It is written using C99.

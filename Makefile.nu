@@ -1,6 +1,6 @@
 WITH_COVERAGE ?= 0
 COVERAGE_0 =
-COVERAGE_1 = -fprofile-arcs -ftest-coverage
+COVERAGE_1 = --coverage
 COVERAGE_FLAGS = $(eval echo \${COVERAGE_$WITH_COVERAGE})
 OPTIMIZATION_0 = -O3
 OPTIMIZATION_1 = -O0

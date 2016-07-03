@@ -5,9 +5,12 @@ compiler:
   - clang
 install:
   - sudo apt-get install -y valgrind
+  - pip install --user cpp-coveralls
 script:
   - ./numake tests
+after_success:
+  - coveralls --root . --build-root . --exclude .build/src/tests
 env:
-  - WITH_LTO=0
+  - WITH_LTO=0 WITH_COVERAGE=1
 sudo: required
 dist: trusty
