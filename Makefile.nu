@@ -5,16 +5,15 @@ COVERAGE_FLAGS = $(eval echo \${COVERAGE_$WITH_COVERAGE})
 OPTIMIZATION_0 = -O3
 OPTIMIZATION_1 = -O0
 OPTIMIZATION_FLAGS = $(eval echo \${OPTIMIZATION_$WITH_COVERAGE})
-C_FLAGS ?= -g -std=c99 -flto -Wall -Wextra -Werror -pedantic ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS}
-CPP_FLAGS ?= -g -Wall -Werror -Wextra -pedantic ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS}
-LINK_FLAGS ?= -g -flto ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS}
+WITH_LTO ?= 1
+LTO_0 =
+LTO_1 = -flto
+LTO_FLAGS = $(eval echo \${LTO_$WITH_LTO})
+C_FLAGS ?= -g -std=c99 -Wall -Wextra -Werror -pedantic ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
+CPP_FLAGS ?= -g -Wall -Werror -Wextra -pedantic ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
+LINK_FLAGS ?= -g ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
 
 -import cpp.nu
-
-info: << CC CXX AR ! live
-	echo CC=${CC}
-	echo CXX=${CXX}
-	echo AR=${AR}
 
 all: tests bin/lip ! live
 

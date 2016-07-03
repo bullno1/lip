@@ -6,7 +6,8 @@ compiler:
 install:
   - sudo apt-get install -y valgrind
 script:
-  - ./numake info
   - ./numake tests
+env:
+  - WITH_LTO=0
 sudo: required
 dist: trusty
