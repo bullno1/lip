@@ -28,9 +28,9 @@ normal(const MunitParameter params[], void* fixture)
 		"(\n"
 		"  )\n"
 		"50.6 \"hi hi \" \r\n"
-		"\r\n"
+		"; comment 12 \"hi\" \r\n"
 		"\n"
-		"test-23 -3 -ve\r\n"
+		"test-23 -3 -ve -\r\n"
 		"\n"
 	);
 
@@ -95,6 +95,14 @@ normal(const MunitParameter params[], void* fixture)
 			.location = {
 				.start = {.line = 6, .column = 12},
 				.end = {.line = 6, .column = 14}
+			}
+		},
+		{
+			.type = LIP_TOKEN_SYMBOL,
+			.lexeme = lip_string_ref("-"),
+			.location = {
+				.start = {.line = 6, .column = 16},
+				.end = {.line = 6, .column = 16}
 			}
 		},
 	};

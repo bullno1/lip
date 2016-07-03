@@ -3,3 +3,5 @@
 /.build
 /vs2015
 /.ycm_extra_conf.pyc
+/cover
+*.gcno

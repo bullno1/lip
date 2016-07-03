@@ -1,7 +1,14 @@
-C_FLAGS ?= -O3 -std=c99 -flto -Wall -Wextra -Werror -pedantic
-CPP_FLAGS ?= -Wall -Werror -Wextra -pedantic
+WITH_COVERAGE ?= 0
+COVERAGE_0 =
+COVERAGE_1 = -fprofile-arcs -ftest-coverage
+COVERAGE_FLAGS = $(eval echo \${COVERAGE_$WITH_COVERAGE})
+OPTIMIZATION_0 = -O3
+OPTIMIZATION_1 = -O0
+OPTIMIZATION_FLAGS = $(eval echo \${OPTIMIZATION_$WITH_COVERAGE})
+C_FLAGS ?= -g -std=c99 -flto -Wall -Wextra -Werror -pedantic ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS}
+CPP_FLAGS ?= -g -Wall -Werror -Wextra -pedantic ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS}
 LINKER ?= cc
-LINK_FLAGS ?= -g -O3 -flto
+LINK_FLAGS ?= -g -flto ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS}
 
 -import cpp.nu
 
@@ -14,6 +21,10 @@ tests: bin/tests ! live
 test:%: bin/tests ! live
 	echo "-------------------------------------"
 	valgrind --leak-check=full bin/tests --no-fork ${m}
+
+cover: tests
+	mkdir -p $@
+	gcovr -r . -d -f '.*src/lip/.*' --html --html-details -o $@/index.html
 
 bin/tests: << C_FLAGS CPP_FLAGS
 	${NUMAKE} exe:$@ \
