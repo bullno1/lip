@@ -6,6 +6,7 @@
 
 # Compile source to object file
 mkdir -p $(dirname $2)
+echo $3 -c $1 -o $2 $4 -MMD -MF $2.d
 $3 -c $1 -o $2 $4 -MMD -MF $2.d
 
 # Add headers dependency

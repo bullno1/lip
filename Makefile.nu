@@ -7,10 +7,14 @@ OPTIMIZATION_1 = -O0
 OPTIMIZATION_FLAGS = $(eval echo \${OPTIMIZATION_$WITH_COVERAGE})
 C_FLAGS ?= -g -std=c99 -flto -Wall -Wextra -Werror -pedantic ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS}
 CPP_FLAGS ?= -g -Wall -Werror -Wextra -pedantic ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS}
-LINKER ?= cc
 LINK_FLAGS ?= -g -flto ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS}
 
 -import cpp.nu
+
+info: << CC CXX AR ! live
+	echo CC=${CC}
+	echo CXX=${CXX}
+	echo AR=${AR}
 
 all: tests bin/lip ! live
 
@@ -26,18 +30,20 @@ cover: tests
 	mkdir -p $@
 	gcovr -r . -d -f '.*src/lip/.*' --html --html-details -o $@/index.html
 
-bin/tests: << C_FLAGS CPP_FLAGS
+bin/tests: << C_FLAGS CPP_FLAGS CC
 	${NUMAKE} exe:$@ \
 		sources="`find src/tests -name '*.cpp' -or -name '*.c'`" \
 		c_flags="${C_FLAGS} -g -Isrc" \
 		cpp_flags="${CPP_FLAGS} -Isrc" \
+		linker="${CC}" \
 		libs="bin/liblip.a"
 
-bin/lip: << C_FLAGS CPP_FLAGS
+bin/lip: << C_FLAGS CPP_FLAGS CC
 	${NUMAKE} exe:$@ \
 		sources="`find src/repl -name '*.cpp' -or -name '*.c'`" \
 		c_flags="${C_FLAGS} -Isrc" \
 		cpp_flags="${CPP_FLAGS} -Isrc" \
+		linker="${CC}" \
 		libs="bin/liblip.a"
 
 bin/liblip.a:

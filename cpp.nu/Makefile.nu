@@ -1,8 +1,8 @@
 BUILD_DIR ?= .build
-C_COMPILER ?= cc
-CPP_COMPILER ?= c++
+CC ?= cc
+CXX ?= c++
 AR ?= ar
-LINKER ?= c++
+LINKER ?= ${CXX}
 C_FLAGS ?= -Wall
 CPP_FLAGS ?= -Wall
 LINK_FLAGS ?=
@@ -28,6 +28,7 @@ $BUILD_DIR/%.exe: << sources BUILD_DIR linker LINKER link_flags LINK_FLAGS libs
 	)
 	${NUMAKE} --depend ${objs} ${libs}
 	mkdir -p $(dirname $@)
+	echo ${linker:-${LINKER}} -o $@ ${link_flags:-${LINK_FLAGS}} ${objs} ${libs}
 	${linker:-${LINKER}} -o $@ ${link_flags:-${LINK_FLAGS}} ${objs} ${libs}
 
 $BUILD_DIR/%.lib: << sources BUILD_DIR ar AR
@@ -38,6 +39,7 @@ $BUILD_DIR/%.lib: << sources BUILD_DIR ar AR
 	)
 	${NUMAKE} --depend ${objs}
 	mkdir -p $(dirname $@)
+	echo ${ar:-${AR}} rcs $@ ${objs}
 	${ar:-${AR}} rcs $@ ${objs}
 
 # Compiling *.cpp and compiling *.c are pretty similar so we extract the common
@@ -45,10 +47,10 @@ $BUILD_DIR/%.lib: << sources BUILD_DIR ar AR
 
 COMPILE = $(readlink -f compile.sh)
 
-$BUILD_DIR/%.c.o: %.c << COMPILE c_compiler C_COMPILER c_flags C_FLAGS
+$BUILD_DIR/%.c.o: %.c << COMPILE cc CC c_flags C_FLAGS
 	${NUMAKE} --depend ${COMPILE} # Compilation depends on the compile script too
-	${COMPILE} "${deps}" "$@" "${c_compiler:-${C_COMPILER}}" "${c_flags:-${C_FLAGS}}"
+	${COMPILE} "${deps}" "$@" "${cc:-${CC}}" "${c_flags:-${C_FLAGS}}"
 
-$BUILD_DIR/%.cpp.o: %.cpp << COMPILE compile cpp_compiler CPP_COMPILER cpp_flags CPP_FLAGS
+$BUILD_DIR/%.cpp.o: %.cpp << COMPILE compile cxx CXX cpp_flags CPP_FLAGS
 	${NUMAKE} --depend ${COMPILE}
-	${COMPILE} "${deps}" "$@" "${cpp_compiler:-${CPP_COMPILER}}" "${cpp_flags:-${C_FLAGS}}"
+	${COMPILE} "${deps}" "$@" "${cxx:-${CXX}}" "${cpp_flags:-${C_FLAGS}}"

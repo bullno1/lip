@@ -1,8 +1,7 @@
 #!/bin/sh -e
 
-export C_COMPILER=clang
-export CPP_COMPILER=clang++
+export CC=clang
+export CXX=clang++
 export AR=llvm-ar
-export LINKER=clang++
 
 $*
