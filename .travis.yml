@@ -9,7 +9,7 @@ install:
 script:
   - ./numake tests
 after_success:
-  - coveralls --root . --build-root . --exclude .build/src/tests
+  - if [ "$CC" = "gcc" ]; then coveralls --root . --build-root . --exclude .build/src/tests; fi
 env:
   - WITH_LTO=0 WITH_COVERAGE=1
 sudo: required
