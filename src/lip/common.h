@@ -36,7 +36,6 @@
 #define LIP_MAX(A, B) ((A) > (B) ? (A) : (B))
 
 #define lip_array(T) T*
-#define lip_static_array(T) T* const
 
 #define LIP_STREAM(F) \
 	F(LIP_STREAM_OK) \

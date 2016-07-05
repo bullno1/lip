@@ -19,6 +19,14 @@ teardown(void* data)
 	lip_lexer_destroy(data);
 }
 
+static void
+lip_assert_token_equal(lip_token_t lhs, lip_token_t rhs)
+{
+	lip_assert_enum(lip_token_type_t, lhs.type, ==, rhs.type);
+	lip_assert_loc_range_equal(lhs.location, rhs.location);
+	lip_assert_string_ref_equal(lhs.lexeme, rhs.lexeme);
+}
+
 static MunitResult
 normal(const MunitParameter params[], void* fixture)
 {

@@ -45,14 +45,6 @@ lip_assert_loc_range_equal(lip_loc_range_t lhs, lip_loc_range_t rhs)
 }
 
 LIP_MAYBE_UNUSED static inline void
-lip_assert_token_equal(lip_token_t lhs, lip_token_t rhs)
-{
-	lip_assert_enum(lip_token_type_t, lhs.type, ==, rhs.type);
-	lip_assert_loc_range_equal(lhs.location, rhs.location);
-	lip_assert_string_ref_equal(lhs.lexeme, rhs.lexeme);
-}
-
-LIP_MAYBE_UNUSED static inline void
 lip_assert_error_equal(lip_error_t lhs, lip_error_t rhs)
 {
 	munit_assert_uint(lhs.code, ==, rhs.code);

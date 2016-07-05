@@ -4,7 +4,8 @@
 
 #define FOREACH_SUITE(F) \
 	F(io) \
-	F(lexer)
+	F(lexer) \
+	F(parser)
 
 #define DECLARE_SUITE(S) extern MunitSuite S;
 

@@ -18,17 +18,19 @@ C_FLAGS ?= -std=c99 ${COMPILATION_FLAGS} ${COMMON_FLAGS}
 CPP_FLAGS ?= ${COMPILATION_FLAGS} ${COMMON_FLAGS}
 LINK_FLAGS ?= -g ${COMMON_FLAGS}
 
+VALGRIND ?= valgrind
+
 -import cpp.nu
 
 all: tests bin/lip ! live
 
-tests: bin/tests ! live
+tests: bin/tests ! live << VALGRIND
 	echo "-------------------------------------"
-	valgrind --leak-check=full bin/tests --no-fork
+	${VALGRIND} bin/tests
 
-test:%: bin/tests ! live
+test:%: bin/tests ! live << VALGRIND
 	echo "-------------------------------------"
-	valgrind --leak-check=full bin/tests --no-fork ${m}
+	${VALGRIND} bin/tests ${m}
 
 cover: tests
 	mkdir -p $@
@@ -52,7 +54,7 @@ bin/lip: << C_FLAGS CPP_FLAGS CC
 
 bin/liblip.a:
 	${NUMAKE} static-lib:$@ \
-		sources="src/lip/lexer.c src/lip/array.c src/lip/memory.c src/lip/io.c"
+		sources="src/lip/lexer.c src/lip/array.c src/lip/memory.c src/lip/io.c src/lip/parser.c"
 
 # Only for vm_dispatch.c, remove -pedantic because we will be using a
 # non-standard extension (computed goto) if it is available

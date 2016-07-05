@@ -1,33 +1,27 @@
 #ifndef LIP_SEXP_H
 #define LIP_SEXP_H
 
-#include "types.h"
-#include "enum.h"
+#include "common.h"
 
-#define LIP_SEXP(F) \
+#define LIP_SEXP_TYPE(F) \
 	F(LIP_SEXP_LIST) \
 	F(LIP_SEXP_SYMBOL) \
 	F(LIP_SEXP_STRING) \
 	F(LIP_SEXP_NUMBER)
 
-LIP_ENUM(lip_sexp_type_t, LIP_SEXP)
+LIP_ENUM(lip_sexp_type_t, LIP_SEXP_TYPE)
 
-typedef struct lip_sexp_t
+typedef struct lip_sexp_s lip_sexp_t;
+
+struct lip_sexp_s
 {
 	lip_sexp_type_t type;
-	lip_loc_t start;
-	lip_loc_t end;
+	lip_loc_range_t location;
 	union
 	{
-		struct lip_sexp_t* list;
+		lip_array(lip_sexp_t) list;
 		lip_string_ref_t string;
 	} data;
-} lip_sexp_t;
-
-void lip_sexp_print(
-	lip_write_fn_t write_fn, void* ctx,
-	lip_sexp_t* sexp, int indent
-);
-void lip_sexp_cleanup(lip_sexp_t* sexp);
+};
 
 #endif
