@@ -168,3 +168,9 @@ lip_parser_next_sexp(lip_parser_t* parser, lip_sexp_t* sexp)
 	// Impossibru!!
 	return LIP_STREAM_ERROR;
 }
+
+lip_error_t*
+lip_parser_last_error(lip_parser_t* parser)
+{
+	return &parser->error;
+}

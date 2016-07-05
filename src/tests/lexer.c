@@ -198,6 +198,20 @@ bad_number(const MunitParameter params[], void* fixture)
 
 	lip_assert_error_equal(error, *lip_lexer_last_error(lexer));
 
+	text = lip_string_ref(" 5..4");
+	input = lip_make_sstream(text, &sstream);
+	lip_lexer_reset(lexer, input);
+
+	lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, lip_lexer_next_token(lexer, &token));
+	error = (lip_error_t){
+		.code = LIP_LEX_BAD_NUMBER,
+		.location = {
+			.start = { .line = 1, .column = 2},
+			.end = { .line = 1, .column = 4}
+		}
+	};
+	lip_assert_error_equal(error, *lip_lexer_last_error(lexer));
+
 	return MUNIT_OK;
 }
 

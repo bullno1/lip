@@ -1,4 +1,5 @@
 #include <lip/parser.h>
+#include <lip/lexer.h>
 #include <lip/memory.h>
 #include <lip/io.h>
 #include <lip/array.h>
@@ -220,10 +221,128 @@ normal(const MunitParameter params[], void* fixture)
 	return MUNIT_OK;
 }
 
+static MunitResult
+unterminated_list(const MunitParameter params[], void* fixture)
+{
+	(void)params;
+
+	lip_string_ref_t text = lip_string_ref("((");
+
+	struct lip_sstream_s sstream;
+	lip_in_t* input = lip_make_sstream(text, &sstream);
+
+	lip_parser_t* parser = fixture;
+	lip_parser_reset(parser, input);
+
+	lip_sexp_t sexp;
+	lip_stream_status_t status = lip_parser_next_sexp(parser, &sexp);
+	lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, status);
+	lip_error_t* error = lip_parser_last_error(parser);
+	lip_assert_enum(lip_parse_error_t, LIP_PARSE_UNTERMINATED_LIST, ==, error->code);
+	lip_assert_loc_range_equal(error->location, ((lip_loc_range_t){
+		.start = { .line = 1, .column = 2 },
+		.end = { .line = 1, .column = 2 }
+	}));
+
+	text = lip_string_ref("a (()");
+	input = lip_make_sstream(text, &sstream);
+	lip_parser_reset(parser, input);
+
+	status = lip_parser_next_sexp(parser, &sexp);
+	lip_assert_enum(lip_stream_status_t, LIP_STREAM_OK, ==, status);
+	status = lip_parser_next_sexp(parser, &sexp);
+	lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, status);
+	error = lip_parser_last_error(parser);
+	lip_assert_enum(lip_parse_error_t, LIP_PARSE_UNTERMINATED_LIST, ==, error->code);
+	lip_assert_loc_range_equal(error->location, ((lip_loc_range_t){
+		.start = { .line = 1, .column = 3 },
+		.end = { .line = 1, .column = 3 }
+	}));
+
+	return MUNIT_OK;
+}
+
+static MunitResult
+unexpected_token(const MunitParameter params[], void* fixture)
+{
+	(void)params;
+
+	lip_string_ref_t text = lip_string_ref(")");
+
+	struct lip_sstream_s sstream;
+	lip_in_t* input = lip_make_sstream(text, &sstream);
+
+	lip_parser_t* parser = fixture;
+	lip_parser_reset(parser, input);
+
+	lip_sexp_t sexp;
+	lip_stream_status_t status = lip_parser_next_sexp(parser, &sexp);
+	lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, status);
+	lip_error_t* error = lip_parser_last_error(parser);
+	lip_assert_enum(lip_parse_error_t, LIP_PARSE_UNEXPECTED_TOKEN, ==, error->code);
+	const lip_token_t* token = error->extra;
+	lip_assert_enum(lip_token_type_t, LIP_TOKEN_RPAREN, ==, token->type);
+	lip_assert_string_ref_equal(lip_string_ref(")"), token->lexeme);
+	lip_assert_loc_range_equal(error->location, token->location);
+	lip_assert_loc_range_equal(error->location, ((lip_loc_range_t){
+		.start = { .line = 1, .column = 1 },
+		.end = { .line = 1, .column = 1 }
+	}));
+
+	return MUNIT_OK;
+}
+
+static MunitResult
+lex_error(const MunitParameter params[], void* fixture)
+{
+	(void)params;
+
+	lip_string_ref_t text = lip_string_ref("5..6");
+
+	struct lip_sstream_s sstream;
+	lip_in_t* input = lip_make_sstream(text, &sstream);
+
+	lip_parser_t* parser = fixture;
+	lip_parser_reset(parser, input);
+
+	lip_sexp_t sexp;
+	lip_stream_status_t status = lip_parser_next_sexp(parser, &sexp);
+	lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, status);
+	lip_error_t* error = lip_parser_last_error(parser);
+	lip_assert_enum(lip_parse_error_t, LIP_PARSE_LEX_ERROR, ==, error->code);
+	const lip_error_t* lex_error = error->extra;
+	lip_assert_enum(lip_lex_error_t, LIP_LEX_BAD_NUMBER, ==, lex_error->code);
+	lip_assert_loc_range_equal(error->location, lex_error->location);
+	lip_assert_loc_range_equal(error->location, ((lip_loc_range_t){
+		.start = { .line = 1, .column = 1 },
+		.end = { .line = 1, .column = 3 }
+	}));
+
+	return MUNIT_OK;
+}
+
 static MunitTest tests[] = {
 	{
 		.name = "/normal",
 		.test = normal,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/unterminated_list",
+		.test = unterminated_list,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/unexpected_token",
+		.test = unexpected_token,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/lex_error",
+		.test = lex_error,
 		.setup = setup,
 		.tear_down = teardown
 	},

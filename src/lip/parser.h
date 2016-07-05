@@ -27,4 +27,7 @@ lip_parser_reset(lip_parser_t* parser, lip_in_t* input);
 lip_stream_status_t
 lip_parser_next_sexp(lip_parser_t* parser, lip_sexp_t* sexp);
 
+lip_error_t*
+lip_parser_last_error(lip_parser_t* parser);
+
 #endif

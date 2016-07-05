@@ -150,9 +150,25 @@ static lip_stream_status_t
 lip_lexer_scan_number(lip_lexer_t* lexer, lip_token_t* token)
 {
 	char ch;
+	bool found_point = false;
+
 	while(lip_lexer_peek_char(lexer, &ch))
 	{
-		if(ch == '.' || isdigit(ch))
+		if(ch == '.')
+		{
+			lip_lexer_consume_char(lexer);
+
+			if(found_point)
+			{
+				return lip_lexer_error(lexer, LIP_LEX_BAD_NUMBER);
+			}
+			else
+			{
+				found_point = true;
+				continue;
+			}
+		}
+		else if(isdigit(ch))
 		{
 			lip_lexer_consume_char(lexer);
 			continue;
