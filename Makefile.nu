@@ -12,7 +12,12 @@ LTO_0 =
 LTO_1 = -flto
 LTO_FLAGS = $(eval echo \${LTO_$WITH_LTO})
 
-COMMON_FLAGS = -g ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
+WITH_UB_SAN ?= 0
+UB_FLAGS_0 =
+UB_FLAGS_1 = -fsanitize=undefined
+UB_FLAGS = $(eval echo \${UB_FLAGS_$WITH_UB_SAN})
+
+COMMON_FLAGS = -g ${UB_FLAGS} ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
 COMPILATION_FLAGS = -Wall -Wextra -Werror -pedantic
 C_FLAGS ?= -std=c99 ${COMPILATION_FLAGS} ${COMMON_FLAGS}
 CPP_FLAGS ?= ${COMPILATION_FLAGS} ${COMMON_FLAGS}
@@ -24,7 +29,7 @@ VALGRIND ?= valgrind
 
 all: tests bin/lip ! live
 
-tests: bin/tests ! live << VALGRIND
+tests: bin/tests ! live << VALGRIND UB_FLAGS
 	echo "-------------------------------------"
 	${VALGRIND} bin/tests
 

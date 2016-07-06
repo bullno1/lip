@@ -4,6 +4,7 @@
 
 #define FOREACH_SUITE(F) \
 	F(io) \
+	F(array) \
 	F(lexer) \
 	F(parser)
 

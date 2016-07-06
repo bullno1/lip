@@ -33,4 +33,12 @@ lip_free(lip_allocator_t* allocator, void* ptr)
 	allocator->free(allocator, ptr);
 }
 
+static inline void*
+lip_align_ptr(void* ptr, size_t alignment)
+{
+	uintptr_t rem = (uintptr_t)ptr % alignment;
+	uintptr_t shift = alignment - rem;
+	return (char*)ptr + (rem == 0 ? 0 : shift);
+}
+
 #endif

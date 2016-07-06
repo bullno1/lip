@@ -9,7 +9,7 @@ lip_parser_parse_list(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp
 {
 	sexp->location.start = token->location.start;
 	sexp->type = LIP_SEXP_LIST;
-	lip_sexp_t* list = lip_array_new(parser->allocator);
+	lip_array(lip_sexp_t) list = lip_array_create(parser->allocator, lip_sexp_t, 1);
 	lip_sexp_t element;
 
 	while(true)
@@ -25,7 +25,7 @@ lip_parser_parse_list(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp
 				{
 					case LIP_PARSE_LEX_ERROR:
 					case LIP_PARSE_UNTERMINATED_LIST:
-						lip_array_delete(list);
+						lip_array_destroy(list);
 						return LIP_STREAM_ERROR;
 					case LIP_PARSE_UNEXPECTED_TOKEN:
 						if(parser->error_token.type == LIP_TOKEN_RPAREN)
@@ -37,12 +37,12 @@ lip_parser_parse_list(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp
 						}
 						else
 						{
-							lip_array_delete(list);
+							lip_array_destroy(list);
 							return LIP_STREAM_ERROR;
 						}
 				}
 			case LIP_STREAM_END:
-				lip_array_delete(list);
+				lip_array_destroy(list);
 				parser->error.code = LIP_PARSE_UNTERMINATED_LIST;
 				parser->error.location = token->location;
 				return LIP_STREAM_ERROR;
@@ -121,7 +121,7 @@ lip_parser_init(lip_parser_t* parser, lip_allocator_t* allocator)
 {
 	parser->allocator = allocator;
 	lip_lexer_init(&parser->lexer, allocator);
-	parser->lists = lip_array_new(allocator);
+	parser->lists = lip_array_create(allocator, lip_array(lip_sexp_t), 1);
 	lip_parser_reset(parser, NULL);
 }
 
@@ -129,7 +129,7 @@ void
 lip_parser_cleanup(lip_parser_t* parser)
 {
 	lip_parser_reset(parser, NULL);
-	lip_array_delete(parser->lists);
+	lip_array_destroy(parser->lists);
 	lip_lexer_cleanup(&parser->lexer);
 }
 
@@ -139,7 +139,7 @@ lip_parser_reset(lip_parser_t* parser, lip_in_t* input)
 	memset(&parser->error, 0, sizeof(parser->error));
 	lip_array_foreach(lip_array(lip_sexp_t), list, parser->lists)
 	{
-		lip_array_delete(*list);
+		lip_array_destroy(*list);
 	}
 	lip_array_clear(parser->lists);
 	lip_lexer_reset(&parser->lexer, input);

@@ -25,8 +25,8 @@ void
 lip_lexer_init(lip_lexer_t* lexer, lip_allocator_t* allocator)
 {
 	lexer->allocator = allocator;
-	lexer->capture_buff = lip_array_new(allocator);
-	lexer->strings = lip_array_new(allocator);
+	lexer->capture_buff = lip_array_create(allocator, char, 1);
+	lexer->strings = lip_array_create(allocator, char*, 1);
 	lip_lexer_reset(lexer, NULL);
 }
 
@@ -34,8 +34,8 @@ void
 lip_lexer_cleanup(lip_lexer_t* lexer)
 {
 	lip_lexer_reset(lexer, NULL);
-	lip_array_delete(lexer->capture_buff);
-	lip_array_delete(lexer->strings);
+	lip_array_destroy(lexer->capture_buff);
+	lip_array_destroy(lexer->strings);
 }
 
 void
