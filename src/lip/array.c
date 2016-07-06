@@ -92,7 +92,7 @@ lip_array__prepare_push(void* array)
 	}
 	else
 	{
-		void* new_array = lip_array__realloc(array, head->capacity * 2);
+		void* new_array = lip_array__realloc(array, LIP_MAX(head->capacity * 2, new_length));
 		lip_array_head(new_array)->length = new_length;
 		return new_array;
 	}

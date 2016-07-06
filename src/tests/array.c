@@ -76,6 +76,54 @@ alignment_long_double(const MunitParameter params[], void* fixture)
 	return MUNIT_OK;
 }
 
+static MunitResult
+quick_remove(const MunitParameter params[], void* fixture)
+{
+	(void)params;
+	(void)fixture;
+
+	uint32_t num_elements = munit_rand_uint32() % 1000;
+	uint32_t deleted_element = munit_rand_uint32() % num_elements;
+
+	lip_array(uint32_t) array = lip_array_create(lip_default_allocator, uint32_t, 0);
+
+	for(uint32_t i = 0; i < num_elements; ++i)
+	{
+		lip_array_push(array, i);
+	}
+
+	munit_assert_size(num_elements, ==, lip_array_len(array));
+	lip_array_quick_remove(array, deleted_element);
+	munit_assert_size(num_elements - 1, ==, lip_array_len(array));
+
+	for(uint32_t i = 0; i < num_elements; ++i)
+	{
+		bool present = false;
+
+		for(uint32_t j = 0; j < lip_array_len(array); ++j)
+		{
+			if(array[j] == i)
+			{
+				present = true;
+				break;
+			}
+		}
+
+		if(i == deleted_element)
+		{
+			munit_assert_false(present);
+		}
+		else
+		{
+			munit_assert_true(present);
+		}
+	}
+
+	lip_array_destroy(array);
+
+	return MUNIT_OK;
+}
+
 static MunitTest tests[] = {
 	{
 		.name = "/retention",
@@ -88,6 +136,10 @@ static MunitTest tests[] = {
 	{
 		.name = "/alignment/long_double",
 		.test = alignment_long_double
+	},
+	{
+		.name = "/quick_remove",
+		.test = quick_remove,
 	},
 	{ .test = NULL }
 };

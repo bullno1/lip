@@ -4,7 +4,7 @@
 #include "common.h"
 
 #define lip_array_create(ALLOCATOR, TYPE, CAPACITY) \
-	((lip_array__create(\
+	((TYPE*)(lip_array__create(\
 		(ALLOCATOR), \
 		sizeof(TYPE), \
 		LIP_ALIGN_OF(TYPE), \
