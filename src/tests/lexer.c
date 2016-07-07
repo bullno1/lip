@@ -116,7 +116,7 @@ normal(const MunitParameter params[], void* fixture)
 	};
 
 	lip_token_t token;
-	unsigned int num_tokens = sizeof(expected_tokens) / sizeof(lip_token_t);
+	unsigned int num_tokens = LIP_STATIC_ARRAY_LEN(expected_tokens);
 	for(unsigned int i = 0; i < num_tokens; ++i)
 	{
 		lip_token_t* expected_token = &expected_tokens[i];

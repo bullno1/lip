@@ -1,7 +1,7 @@
 #ifndef LIP_OPCODE_H
 #define LIP_OPCODE_H
 
-#include "enum.h"
+#include "common.h"
 
 #define LIP_OP(F) \
 	F(LIP_OP_NOP) \
@@ -26,5 +26,6 @@
 LIP_ENUM(lip_opcode_t, LIP_OP)
 
 typedef int32_t lip_instruction_t;
+typedef int32_t lip_operand_t;
 
 #endif

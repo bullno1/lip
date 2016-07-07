@@ -44,6 +44,22 @@
 
 LIP_ENUM(lip_stream_status_t, LIP_STREAM)
 
+#define LIP_VAL(F) \
+	F(LIP_VAL_NIL) \
+	F(LIP_VAL_NUMBER) \
+	F(LIP_VAL_BOOLEAN) \
+	F(LIP_VAL_STRING) \
+	F(LIP_VAL_CLOSURE) \
+	F(LIP_VAL_PLACEHOLDER)
+
+LIP_ENUM(lip_value_type_t, LIP_VAL)
+
+#define LIP_EXEC(F) \
+	F(LIP_EXEC_OK) \
+	F(LIP_EXEC_ERROR)
+
+LIP_ENUM(lip_exec_status_t, LIP_EXEC)
+
 typedef struct lip_loc_s lip_loc_t;
 typedef struct lip_loc_range_s lip_loc_range_t;
 typedef struct lip_string_ref_s lip_string_ref_t;
@@ -52,6 +68,12 @@ typedef struct lip_error_s lip_error_t;
 typedef struct lip_in_s lip_in_t;
 typedef struct lip_out_s lip_out_t;
 typedef struct lip_allocator_s lip_allocator_t;
+typedef struct lip_value_s lip_value_t;
+typedef struct lip_function_s lip_function_t;
+typedef struct lip_closure_s lip_closure_t;
+typedef struct lip_module_s lip_module_t;
+typedef struct lip_vm_s lip_vm_t;
+typedef lip_exec_status_t(*lip_native_fn_t)(lip_vm_t*);
 
 struct lip_loc_s
 {

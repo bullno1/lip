@@ -4,6 +4,16 @@
 #include "common.h"
 
 #define LIP_ALIGN_OF(TYPE) offsetof(struct { char c; TYPE t;}, t)
+#define lip_new(ALLOCATOR, TYPE) (TYPE*)(lip_malloc(ALLOCATOR, sizeof(TYPE)))
+#define LIP_ARRAY_BLOCK(TYPE, LENGTH) \
+	{ \
+		.element_size = sizeof(TYPE), \
+		.num_elements = LENGTH, \
+		.alignment = LIP_ALIGN_OF(TYPE) \
+	}
+#define LIP_STATIC_ARRAY_LEN(ARRAY) (sizeof((ARRAY)) / sizeof((ARRAY)[0]));
+
+typedef struct lip_memblock_info_s lip_memblock_info_t;
 
 struct lip_allocator_s
 {
@@ -11,9 +21,24 @@ struct lip_allocator_s
 	void(*free)(void* self, void* mem);
 };
 
+struct lip_memblock_info_s
+{
+	size_t element_size;
+	size_t num_elements;
+	uint8_t alignment;
+	ptrdiff_t offset;
+};
+
 extern lip_allocator_t* lip_default_allocator;
 
-#define lip_new(ALLOCATOR, TYPE) (TYPE*)(lip_malloc(ALLOCATOR, sizeof(TYPE)))
+lip_memblock_info_t
+lip_align_memblocks(unsigned int num_blocks, lip_memblock_info_t* blocks);
+
+static inline void*
+lip_locate_memblock(void* base, lip_memblock_info_t* block)
+{
+	return (char*)base + block->offset;
+}
 
 static inline void*
 lip_realloc(lip_allocator_t* allocator, void* ptr, size_t size)

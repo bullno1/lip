@@ -1,46 +1,54 @@
 #ifndef LIP_ASM_H
 #define LIP_ASM_H
 
-#include <stdint.h>
-#include "types.h"
-#include "function.h"
+#include "common.h"
+#include "opcode.h"
 
-#define LIP_ASM_END 0xFE
 #define LIP_OP_LABEL 0xFF
 
 typedef uint32_t lip_asm_index_t;
+typedef struct lip_asm_s lip_asm_t;
 
-typedef struct lip_asm_t
+lip_asm_t*
+lip_asm_create(lip_allocator_t* allocator);
+
+void
+lip_asm_destroy(lip_asm_t* lasm);
+
+void
+lip_asm_begin(lip_asm_t* lasm);
+
+void
+lip_asm_add(
+	lip_asm_t* lasm,
+	lip_opcode_t opcode,
+	lip_operand_t operand,
+	lip_loc_range_t location
+);
+
+lip_asm_index_t
+lip_asm_new_label(lip_asm_t* lasm);
+
+lip_asm_index_t
+lip_asm_new_local(lip_asm_t* lasm);
+
+lip_asm_index_t
+lip_asm_new_function(lip_asm_t* lasm, lip_function_t* function);
+
+lip_function_t*
+lip_asm_end(lip_asm_t* lasm);
+
+static inline lip_instruction_t
+lip_asm(lip_opcode_t opcode, lip_operand_t operand)
 {
-	lip_allocator_t* allocator;
-	lip_array(lip_asm_index_t) labels;
-	lip_array(lip_asm_index_t) jumps;
-	lip_array(lip_instruction_t) instructions;
-	lip_array(lip_value_t) constants;
-	lip_array(lip_function_t*) functions;
-	lip_array(lip_string_ref_t) import_symbols;
-	lip_array(char) string_pool;
-	lip_asm_index_t num_locals;
-} lip_asm_t;
+	return (((int32_t)opcode & 0xFF) << 24) | (operand & 0x00FFFFFF);
+}
 
-lip_instruction_t lip_asm(lip_opcode_t opcode, int32_t operand);
-void lip_disasm(
-	lip_instruction_t instruction, lip_opcode_t* opcode, int32_t* operand
-);
-void lip_asm_print(
-	lip_write_fn_t write_fn, void* ctx, lip_instruction_t instruction
-);
-
-void lip_asm_init(lip_asm_t* lasm, lip_allocator_t* allocator);
-void lip_asm_begin(lip_asm_t* lasm);
-void lip_asm_add(lip_asm_t* lasm, ...);
-lip_asm_index_t lip_asm_new_label(lip_asm_t* lasm);
-lip_asm_index_t lip_asm_new_local(lip_asm_t* lasm);
-lip_asm_index_t lip_asm_new_number_const(lip_asm_t* lasm, double number);
-lip_asm_index_t lip_asm_new_string_const(lip_asm_t* lasm, lip_string_ref_t value);
-lip_asm_index_t lip_asm_new_function(lip_asm_t* lasm, lip_function_t* function);
-lip_asm_index_t lip_asm_new_import(lip_asm_t* lasm, lip_string_ref_t symbol);
-lip_function_t* lip_asm_end(lip_asm_t* lasm);
-void lip_asm_cleanup(lip_asm_t* lasm);
+static inline void
+lip_disasm(lip_instruction_t instr, lip_opcode_t* opcode, lip_operand_t* operand)
+{
+	*opcode = (instr >> 24) & 0xFF;
+	*operand = (instr << 8) >> 8;
+}
 
 #endif

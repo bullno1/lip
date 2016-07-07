@@ -205,7 +205,7 @@ normal(const MunitParameter params[], void* fixture)
 	};
 
 	lip_sexp_t sexp;
-	unsigned int num_sexps = sizeof(expected_sexps) / sizeof(expected_sexps[0]);
+	unsigned int num_sexps = LIP_STATIC_ARRAY_LEN(expected_sexps);
 	for(unsigned int i = 0; i < num_sexps; ++i)
 	{
 		lip_sexp_t* expected_sexp = &expected_sexps[i];
