@@ -67,6 +67,21 @@ class Commands(object):
 
             nodes, edges = context.db.get_build_graph()
 
+            groups = {}
+            for node_name, node_type in nodes:
+                parts = node_name.rsplit(os.path.sep, 1)
+                if len(parts) == 2:
+                    group = groups.get(parts[0], [])
+                    groups[parts[0]] = group
+                    group.append(node_name)
+
+            for group_name in groups:
+                print("\tsubgraph \"cluster_{0}\" {{".format(group_name))
+                print("\t\tgraph[style=dotted];")
+                for node_name in groups[group_name]:
+                    print("\t\t\"{0}\";".format(node_name))
+                print("\t}")
+
             for node_name, node_type in nodes:
                 if node_type == FileTypes.SOURCE:
                     attrs = "[ shape = box ]"
