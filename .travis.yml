@@ -12,6 +12,6 @@ script:
 after_success:
   - if [ "$CC" = "gcc" ]; then coveralls --root . --build-root . --exclude .build/src/tests; fi
 env:
-  - WITH_LTO=0 WITH_COVERAGE=1
+  - WITH_LTO=0 WITH_COVERAGE=1 VALGRIND='valgrind --leak-check=full'
 sudo: required
 dist: trusty
