@@ -1,47 +1,23 @@
 #ifndef LIP_UTILS_H
 #define LIP_UTILS_H
 
-#include <string.h>
-#include <stddef.h>
-#include "types.h"
+#include "memory.h"
 
-#define LIP_PRINTF_BUFF_SIZE 2048
-#define LIP_ALIGN_OF(TYPE) offsetof(struct { char c; TYPE t;}, t)
+#define LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(TYPE) \
+	LIP_IMPLEMENT_CONSTRUCTOR(TYPE) \
+	LIP_IMPLEMENT_DESTRUCTOR(TYPE)
 
-static inline lip_string_ref_t lip_string_ref(const char* string)
-{
-	lip_string_ref_t result = { strlen(string), string };
-	return result;
-}
+#define LIP_IMPLEMENT_CONSTRUCTOR(TYPE) \
+	TYPE##_t* TYPE##_create(lip_allocator_t* allocator) { \
+		TYPE##_t* instance = lip_new(allocator, TYPE##_t); \
+		TYPE##_init(instance, allocator); \
+		return instance; \
+	}
 
-struct lip__str_align_helper { uint32_t len; char ptr[1]; };
-static const uint32_t lip_string_t_align_size =
-	LIP_ALIGN_OF(struct lip__str_align_helper);
-
-static inline size_t lip_string_align(uint32_t len)
-{
-	size_t entry_size = sizeof(lip_string_t) + len;
-	return (entry_size + lip_string_t_align_size - 1) / lip_string_t_align_size * lip_string_t_align_size;
-}
-
-static inline bool lip_string_ref_equal(
-	lip_string_ref_t lhs,
-	lip_string_ref_t rhs
-)
-{
-	return lhs.length == rhs.length && memcmp(lhs.ptr, rhs.ptr, lhs.length) == 0;
-}
-
-size_t lip_fread(void* ptr, size_t size, void* file);
-
-size_t lip_fwrite(const void* ptr, size_t size, void* file);
-
-void lip_printf(
-	lip_write_fn_t write_fn, void* ctx, const char* format, ...
-)
-#ifdef __GNUC__
-__attribute__((format(printf, 3, 4)))
-#endif
-;
+#define LIP_IMPLEMENT_DESTRUCTOR(TYPE) \
+	void TYPE##_destroy(TYPE##_t* instance) { \
+		TYPE##_cleanup(instance); \
+		lip_free(instance->allocator, instance); \
+	}
 
 #endif

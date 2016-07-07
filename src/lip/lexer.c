@@ -3,23 +3,10 @@
 #include <string.h>
 #include "token.h"
 #include "array.h"
-#include "memory.h"
 #include "io.h"
+#include "utils.h"
 
-lip_lexer_t*
-lip_lexer_create(lip_allocator_t* allocator)
-{
-	lip_lexer_t* lexer = lip_new(allocator, lip_lexer_t);
-	lip_lexer_init(lexer, allocator);
-	return lexer;
-}
-
-void
-lip_lexer_destroy(lip_lexer_t* lexer)
-{
-	lip_lexer_cleanup(lexer);
-	lip_free(lexer->allocator, lexer);
-}
+LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(lip_lexer)
 
 void
 lip_lexer_init(lip_lexer_t* lexer, lip_allocator_t* allocator)
