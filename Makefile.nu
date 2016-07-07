@@ -39,7 +39,15 @@ test:%: bin/tests ! live << VALGRIND
 
 cover: tests
 	mkdir -p $@
-	gcovr -r . -d -f '.*src/lip/.*' --html --html-details -o $@/index.html
+	gcovr \
+		--root . \
+		--branches \
+		--exclude-unreachable-branches \
+		--sort-percentage \
+		--delete \
+		--filter '.*src/lip/.*' \
+		--html --html-details \
+		--output $@/index.html
 
 bin/tests: << C_FLAGS CPP_FLAGS CC
 	${NUMAKE} exe:$@ \
