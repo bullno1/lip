@@ -168,7 +168,6 @@ lip_asm_end(lip_asm_t* lasm)
 	{
 		// Remove all labels and record jump addresses
 		lip_asm_index_t num_instructions = lip_array_len(lasm->instructions);
-		lip_array_clear(lasm->jumps);
 		lip_asm_index_t out_index = 0;
 		for(lip_asm_index_t index = 0; index < num_instructions; ++index)
 		{
@@ -183,7 +182,7 @@ lip_asm_end(lip_asm_t* lasm)
 					break;
 				case LIP_OP_JMP:
 				case LIP_OP_JOF:
-					lip_array_push(lasm->jumps, index);
+					lip_array_push(lasm->jumps, out_index);
 					break;
 			}
 

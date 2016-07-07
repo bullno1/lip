@@ -109,6 +109,56 @@ normal(const MunitParameter params[], void* fixture)
 	return MUNIT_OK;
 }
 
+static MunitResult
+jump(const MunitParameter params[], void* fixture)
+{
+	(void)params;
+
+	lip_asm_t* lasm = fixture;
+	lip_asm_begin(lasm);
+
+	lip_loc_range_t location;
+	memset(&location, 0, sizeof(lip_loc_range_t));
+	lip_asm_index_t label = lip_asm_new_label(lasm);
+	lip_asm_index_t label2 = lip_asm_new_label(lasm);
+
+	lip_asm_add(lasm, LIP_OP_LDI, 7, location);
+	lip_asm_add(lasm, LIP_OP_JOF, label, location);
+	lip_asm_add(lasm, LIP_OP_NOP, 0, location);
+	lip_asm_add(lasm, LIP_OP_NOP, 1, location);
+	lip_asm_add(lasm, LIP_OP_LABEL, label2, location);
+	lip_asm_add(lasm, LIP_OP_NOP, 2, location);
+	lip_asm_add(lasm, LIP_OP_LABEL, label, location);
+	lip_asm_add(lasm, LIP_OP_JMP, label2, location);
+
+	lip_function_t* function = lip_asm_end(lasm);
+
+	lip_instruction_t expected_instructions[] = {
+		lip_asm(LIP_OP_LDI, 7),
+		lip_asm(LIP_OP_JOF, 5),
+		lip_asm(LIP_OP_NOP, 0),
+		lip_asm(LIP_OP_NOP, 1),
+		lip_asm(LIP_OP_NOP, 2),
+		lip_asm(LIP_OP_JMP, 4)
+	};
+	munit_assert_size(LIP_STATIC_ARRAY_LEN(expected_instructions), ==, function->num_instructions);
+	for(lip_asm_index_t i = 0; i < function->num_instructions; ++i)
+	{
+		lip_opcode_t opcode1, opcode2;
+		lip_operand_t operand1, operand2;
+
+		lip_disasm(expected_instructions[i], &opcode1, &operand1);
+		lip_disasm(function->instructions[i], &opcode2, &operand2);
+
+		lip_assert_enum(lip_opcode_t, opcode1, ==, opcode2);
+		munit_assert_int32(operand1, ==, operand2);
+	}
+
+	lip_free(lip_default_allocator, function);
+
+	return MUNIT_OK;
+}
+
 static MunitTest tests[] = {
 	{
 		.name = "/empty",
@@ -119,6 +169,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/normal",
 		.test = normal,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/jump",
+		.test = jump,
 		.setup = setup,
 		.tear_down = teardown
 	},
