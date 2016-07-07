@@ -109,6 +109,49 @@ normal(const MunitParameter params[], void* fixture)
 	return MUNIT_OK;
 }
 
+#define lip_assert_asm(LASM, BEFORE, AFTER) \
+	lip_assert_asm_( \
+		LASM, \
+		LIP_STATIC_ARRAY_LEN(BEFORE), BEFORE, \
+		LIP_STATIC_ARRAY_LEN(AFTER), AFTER \
+	)
+
+static lip_function_t*
+lip_assert_asm_(
+	lip_asm_t* lasm,
+	size_t num_instr_before, lip_instruction_t* instr_before,
+	size_t num_instr_after, lip_instruction_t* instr_after
+)
+{
+	lip_loc_range_t location;
+	memset(&location, 0, sizeof(lip_loc_range_t));
+
+	for(size_t i = 0; i < num_instr_before; ++i)
+	{
+		lip_opcode_t opcode;
+		lip_operand_t operand;
+		lip_disasm(instr_before[i], &opcode, &operand);
+		lip_asm_add(lasm, opcode, operand, location);
+	}
+
+	lip_function_t* function = lip_asm_end(lasm);
+
+	munit_assert_size(num_instr_after, ==, function->num_instructions);
+	for(lip_asm_index_t i = 0; i < function->num_instructions; ++i)
+	{
+		lip_opcode_t opcode1, opcode2;
+		lip_operand_t operand1, operand2;
+
+		lip_disasm(instr_after[i], &opcode1, &operand1);
+		lip_disasm(function->instructions[i], &opcode2, &operand2);
+
+		lip_assert_enum(lip_opcode_t, opcode1, ==, opcode2);
+		munit_assert_int32(operand1, ==, operand2);
+	}
+
+	return function;
+}
+
 static MunitResult
 jump(const MunitParameter params[], void* fixture)
 {
@@ -117,23 +160,21 @@ jump(const MunitParameter params[], void* fixture)
 	lip_asm_t* lasm = fixture;
 	lip_asm_begin(lasm);
 
-	lip_loc_range_t location;
-	memset(&location, 0, sizeof(lip_loc_range_t));
 	lip_asm_index_t label = lip_asm_new_label(lasm);
 	lip_asm_index_t label2 = lip_asm_new_label(lasm);
 
-	lip_asm_add(lasm, LIP_OP_LDI, 7, location);
-	lip_asm_add(lasm, LIP_OP_JOF, label, location);
-	lip_asm_add(lasm, LIP_OP_NOP, 0, location);
-	lip_asm_add(lasm, LIP_OP_NOP, 1, location);
-	lip_asm_add(lasm, LIP_OP_LABEL, label2, location);
-	lip_asm_add(lasm, LIP_OP_NOP, 2, location);
-	lip_asm_add(lasm, LIP_OP_LABEL, label, location);
-	lip_asm_add(lasm, LIP_OP_JMP, label2, location);
+	lip_instruction_t before[] = {
+		lip_asm(LIP_OP_LDI, 7),
+		lip_asm(LIP_OP_JOF, label),
+		lip_asm(LIP_OP_NOP, 0),
+		lip_asm(LIP_OP_NOP, 1),
+		lip_asm(LIP_OP_LABEL, label2),
+		lip_asm(LIP_OP_NOP, 2),
+		lip_asm(LIP_OP_LABEL, label),
+		lip_asm(LIP_OP_JMP, label2)
+	};
 
-	lip_function_t* function = lip_asm_end(lasm);
-
-	lip_instruction_t expected_instructions[] = {
+	lip_instruction_t after[] = {
 		lip_asm(LIP_OP_LDI, 7),
 		lip_asm(LIP_OP_JOF, 5),
 		lip_asm(LIP_OP_NOP, 0),
@@ -141,19 +182,39 @@ jump(const MunitParameter params[], void* fixture)
 		lip_asm(LIP_OP_NOP, 2),
 		lip_asm(LIP_OP_JMP, 4)
 	};
-	munit_assert_size(LIP_STATIC_ARRAY_LEN(expected_instructions), ==, function->num_instructions);
-	for(lip_asm_index_t i = 0; i < function->num_instructions; ++i)
-	{
-		lip_opcode_t opcode1, opcode2;
-		lip_operand_t operand1, operand2;
 
-		lip_disasm(expected_instructions[i], &opcode1, &operand1);
-		lip_disasm(function->instructions[i], &opcode2, &operand2);
+	lip_function_t* function = lip_assert_asm(lasm, before, after);
+	lip_free(lip_default_allocator, function);
 
-		lip_assert_enum(lip_opcode_t, opcode1, ==, opcode2);
-		munit_assert_int32(operand1, ==, operand2);
-	}
+	return MUNIT_OK;
+}
 
+static MunitResult
+short_circuit(const MunitParameter params[], void* fixture)
+{
+	(void)params;
+
+	lip_asm_t* lasm = fixture;
+	lip_asm_begin(lasm);
+
+	lip_asm_index_t label = lip_asm_new_label(lasm);
+
+	lip_instruction_t before[] = {
+		lip_asm(LIP_OP_JOF, label),
+		lip_asm(LIP_OP_JMP, label),
+		lip_asm(LIP_OP_NOP, 0),
+		lip_asm(LIP_OP_LABEL, label),
+		lip_asm(LIP_OP_RET, 0),
+	};
+
+	lip_instruction_t after[] = {
+		lip_asm(LIP_OP_JOF, 3),
+		lip_asm(LIP_OP_RET, 0),
+		lip_asm(LIP_OP_NOP, 0),
+		lip_asm(LIP_OP_RET, 0)
+	};
+
+	lip_function_t* function = lip_assert_asm(lasm, before, after);
 	lip_free(lip_default_allocator, function);
 
 	return MUNIT_OK;
@@ -175,6 +236,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/jump",
 		.test = jump,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/short_circuit",
+		.test = short_circuit,
 		.setup = setup,
 		.tear_down = teardown
 	},

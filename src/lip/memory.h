@@ -11,7 +11,7 @@
 		.num_elements = LENGTH, \
 		.alignment = LIP_ALIGN_OF(TYPE) \
 	}
-#define LIP_STATIC_ARRAY_LEN(ARRAY) (sizeof((ARRAY)) / sizeof((ARRAY)[0]));
+#define LIP_STATIC_ARRAY_LEN(ARRAY) (sizeof((ARRAY)) / sizeof((ARRAY)[0]))
 
 typedef struct lip_memblock_info_s lip_memblock_info_t;
 
