@@ -152,6 +152,8 @@ lip_assert_asm_(
 		munit_assert_int32(operand1, ==, operand2);
 		munit_assert_uint(locations[i], ==, function->locations[i].start.line);
 	}
+
+	lip_free(lip_default_allocator, function);
 }
 
 static MunitResult
