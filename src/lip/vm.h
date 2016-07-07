@@ -1,61 +1,79 @@
 #ifndef LIP_VM_H
 #define LIP_VM_H
 
-#include <stdint.h>
-#include <stdbool.h>
-#include "types.h"
-#include "value.h"
-#include "function.h"
+#include "common.h"
 
-typedef struct lip_vm_t lip_vm_t;
+typedef struct lip_vm_config_s lip_vm_config_t;
+typedef struct lip_vm_hook_s lip_vm_hook_t;
+typedef void(*lip_vm_hook_fn_t)(lip_vm_hook_t* hook, lip_vm_t* vm);
 
-typedef void(*lip_vm_hook_t)(lip_vm_t* vm, void* ctx);
-
-typedef struct lip_vm_context_t
+struct lip_value_s
 {
-	lip_closure_t* closure;
-	lip_instruction_t* pc;
-	lip_value_t* ep;
-	bool is_native;
-} lip_vm_context_t;
+	lip_value_type_t type;
+	union
+	{
+		int64_t index;
+		void* reference;
+		bool boolean;
+		double number;
+	} data;
+};
 
-typedef struct lip_vm_config_t
+struct lip_vm_config_s
 {
 	lip_allocator_t* allocator;
-	unsigned int operand_stack_length;
-	unsigned int environment_length;
-	unsigned int call_stack_length;
-} lip_vm_config_t;
+	uint32_t operand_stack_length;
+	uint32_t call_stack_length;
+	uint32_t environment_length;
+};
 
-typedef struct lip_vm_t
+struct lip_vm_hook_t
 {
-	lip_vm_config_t config;
-	lip_vm_context_t ctx;
+	lip_vm_hook_fn_t hook_fn;
+};
 
-	lip_value_t* min_sp;
-	lip_value_t* max_sp;
-	lip_value_t* min_ep;
-	lip_value_t* max_ep;
-	lip_vm_context_t* min_fp;
-	lip_vm_context_t* max_fp;
+lip_vm_t*
+lip_vm_create(lip_allocator_t* allocator, lip_vm_config_t* config);
 
-	lip_value_t* sp;
-	lip_vm_context_t* fp;
+void
+lip_vm_destroy(lip_vm_t* vm);
 
-	lip_vm_hook_t hook;
-	void* hook_ctx;
-} lip_vm_t;
+lip_vm_hook_t*
+lip_vm_set_hook(lip_vm_t* vm, lip_vm_hook_t* hook);
 
-size_t lip_vm_config(lip_vm_t* vm, lip_vm_config_t* config);
-void lip_vm_init(lip_vm_t* vm, void* mem);
+void
+lip_vm_push_value(lip_vm_t* vm, lip_value_t value);
 
-void lip_vm_push_nil(lip_vm_t* vm);
-void lip_vm_push_number(lip_vm_t* vm, double number);
-void lip_vm_push_boolean(lip_vm_t* vm, bool boolean);
-void lip_vm_push_value(lip_vm_t* vm, lip_value_t* value);
-lip_exec_status_t lip_vm_call(lip_vm_t* vm, uint8_t num_args);
+lip_exec_status_t
+lip_vm_call(lip_vm_t* vm, uint8_t num_args, lip_value_t* result);
 
-lip_value_t* lip_vm_pop(lip_vm_t* vm);
-lip_value_t* lip_vm_get_arg(lip_vm_t* vm, uint8_t index);
+lip_value_t
+lip_vm_get_arg(lip_vm_t* vm, uint8_t index);
+
+static inline void
+lip_vm_push_nil(lip_vm_t* vm)
+{
+	lip_vm_push_value(vm, (lip_value_t){
+		.type = LIP_VAL_NIL
+	});
+}
+
+static inline void
+lip_vm_push_number(lip_vm_t* vm, double number)
+{
+	lip_vm_push_value(vm, (lip_value_t){
+		.type = LIP_VAL_NUMBER,
+		.data = { .number = number }
+	});
+}
+
+static inline void
+lip_vm_push_boolean(lip_vm_t* vm, bool boolean)
+{
+	lip_vm_push_value(vm, (lip_value_t){
+		.type = LIP_VAL_BOOLEAN,
+		.data = { .boolean = boolean }
+	});
+}
 
 #endif
