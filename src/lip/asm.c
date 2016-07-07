@@ -147,6 +147,7 @@ lip_asm_end(lip_asm_t* lasm)
 				{
 					lip_instruction_t tailcall = lip_asm(LIP_OP_TAIL, operand1);
 					lasm->instructions[out_index].instruction = tailcall;
+					lasm->instructions[out_index].location = lasm->instructions[i].location;
 					++i;
 				}
 				else

@@ -109,18 +109,20 @@ normal(const MunitParameter params[], void* fixture)
 	return MUNIT_OK;
 }
 
-#define lip_assert_asm(LASM, BEFORE, AFTER) \
+#define lip_assert_asm(LASM, BEFORE, AFTER, LOCATIONS) \
 	lip_assert_asm_( \
 		LASM, \
 		LIP_STATIC_ARRAY_LEN(BEFORE), BEFORE, \
-		LIP_STATIC_ARRAY_LEN(AFTER), AFTER \
+		LIP_STATIC_ARRAY_LEN(AFTER), AFTER, \
+		LOCATIONS \
 	)
 
-static lip_function_t*
+static void
 lip_assert_asm_(
 	lip_asm_t* lasm,
 	size_t num_instr_before, lip_instruction_t* instr_before,
-	size_t num_instr_after, lip_instruction_t* instr_after
+	size_t num_instr_after, lip_instruction_t* instr_after,
+	lip_asm_index_t* locations
 )
 {
 	lip_loc_range_t location;
@@ -131,6 +133,7 @@ lip_assert_asm_(
 		lip_opcode_t opcode;
 		lip_operand_t operand;
 		lip_disasm(instr_before[i], &opcode, &operand);
+		location.start.line = i;
 		lip_asm_add(lasm, opcode, operand, location);
 	}
 
@@ -147,9 +150,8 @@ lip_assert_asm_(
 
 		lip_assert_enum(lip_opcode_t, opcode1, ==, opcode2);
 		munit_assert_int32(operand1, ==, operand2);
+		munit_assert_uint(locations[i], ==, function->locations[i].start.line);
 	}
-
-	return function;
 }
 
 static MunitResult
@@ -183,8 +185,16 @@ jump(const MunitParameter params[], void* fixture)
 		lip_asm(LIP_OP_JMP, 4)
 	};
 
-	lip_function_t* function = lip_assert_asm(lasm, before, after);
-	lip_free(lip_default_allocator, function);
+	lip_asm_index_t locations[] = {
+		0,
+		1,
+		2,
+		3,
+		5,
+		7
+	};
+
+	lip_assert_asm(lasm, before, after, locations);
 
 	return MUNIT_OK;
 }
@@ -214,8 +224,53 @@ short_circuit(const MunitParameter params[], void* fixture)
 		lip_asm(LIP_OP_RET, 0)
 	};
 
-	lip_function_t* function = lip_assert_asm(lasm, before, after);
-	lip_free(lip_default_allocator, function);
+	lip_asm_index_t locations[] = {
+		0,
+		1,
+		2,
+		4
+	};
+
+	lip_assert_asm(lasm, before, after, locations);
+
+	return MUNIT_OK;
+}
+
+static MunitResult
+tail_call(const MunitParameter params[], void* fixture)
+{
+	(void)params;
+
+	lip_asm_t* lasm = fixture;
+	lip_asm_begin(lasm);
+
+	lip_asm_index_t label = lip_asm_new_label(lasm);
+
+	lip_instruction_t before[] = {
+		lip_asm(LIP_OP_CALL, 1),
+		lip_asm(LIP_OP_JMP, label),
+		lip_asm(LIP_OP_CALL, 2),
+		lip_asm(LIP_OP_RET, 0),
+		lip_asm(LIP_OP_CALL, 3),
+		lip_asm(LIP_OP_LABEL, label),
+		lip_asm(LIP_OP_RET, 0)
+	};
+
+	lip_instruction_t after[] = {
+		lip_asm(LIP_OP_TAIL, 1),
+		lip_asm(LIP_OP_TAIL, 2),
+		lip_asm(LIP_OP_TAIL, 3),
+		lip_asm(LIP_OP_RET, 0)
+	};
+
+	lip_asm_index_t locations[] = {
+		0,
+		2,
+		4,
+		6
+	};
+
+	lip_assert_asm(lasm, before, after, locations);
 
 	return MUNIT_OK;
 }
@@ -242,6 +297,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/short_circuit",
 		.test = short_circuit,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/tail_call",
+		.test = tail_call,
 		.setup = setup,
 		.tear_down = teardown
 	},
