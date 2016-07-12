@@ -136,6 +136,8 @@ lip_asm_end(lip_asm_t* lasm)
 		lip_asm_index_t out_index = 0;
 		for(lip_asm_index_t i = 0; i < num_instructions; ++i)
 		{
+			lasm->instructions[out_index] = lasm->instructions[i];
+
 			if(i + 1 < num_instructions)
 			{
 				lip_opcode_t opcode1, opcode2;
@@ -147,17 +149,8 @@ lip_asm_end(lip_asm_t* lasm)
 				{
 					lip_instruction_t tailcall = lip_asm(LIP_OP_TAIL, operand1);
 					lasm->instructions[out_index].instruction = tailcall;
-					lasm->instructions[out_index].location = lasm->instructions[i].location;
 					++i;
 				}
-				else
-				{
-					lasm->instructions[out_index] = lasm->instructions[i];
-				}
-			}
-			else
-			{
-				lasm->instructions[out_index] = lasm->instructions[i];
 			}
 
 			++out_index;
@@ -209,10 +202,14 @@ lip_asm_end(lip_asm_t* lasm)
 	size_t num_functions = lip_array_len(lasm->functions);
 	size_t num_instructions = lip_array_len(lasm->instructions);
 
-	lip_memblock_info_t layout[] = {
-		LIP_ARRAY_BLOCK(lip_function_t*, num_functions),
-		LIP_ARRAY_BLOCK(lip_instruction_t, num_instructions),
-		LIP_ARRAY_BLOCK(lip_loc_range_t, num_instructions)
+	lip_memblock_info_t function_block =
+		LIP_ARRAY_BLOCK(lip_function_t*, num_functions);
+	lip_memblock_info_t instruction_block =
+		LIP_ARRAY_BLOCK(lip_instruction_t, num_instructions);
+	lip_memblock_info_t location_block =
+		LIP_ARRAY_BLOCK(lip_loc_range_t, num_instructions);
+	lip_memblock_info_t* layout[] = {
+		&function_block, &instruction_block, &location_block
 	};
 	size_t num_blocks = LIP_STATIC_ARRAY_LEN(layout);
 	lip_memblock_info_t block_info = lip_align_memblocks(num_blocks, layout);
@@ -230,11 +227,11 @@ lip_asm_end(lip_asm_t* lasm)
 
 	ptr = lip_align_ptr(ptr, block_info.alignment);
 
-	lip_function_t** functions = lip_locate_memblock(ptr, &layout[0]);
+	lip_function_t** functions = lip_locate_memblock(ptr, &function_block);
 	memcpy(functions, lasm->functions, num_functions * sizeof(lip_function_t*));
 
-	lip_instruction_t* instructions = lip_locate_memblock(ptr, &layout[1]);
-	lip_loc_range_t* locations = lip_locate_memblock(ptr, &layout[2]);
+	lip_instruction_t* instructions = lip_locate_memblock(ptr, &instruction_block);
+	lip_loc_range_t* locations = lip_locate_memblock(ptr, &location_block);
 	for(size_t i = 0; i < num_instructions; ++i)
 	{
 		instructions[i] = lasm->instructions[i].instruction;
@@ -246,26 +243,4 @@ lip_asm_end(lip_asm_t* lasm)
 	function->locations = locations;
 
 	return function;
-}
-
-lip_memblock_info_t
-lip_function_layout(lip_function_t* function)
-{
-	lip_memblock_info_t layout[] = {
-		LIP_ARRAY_BLOCK(lip_function_t*, function->num_functions),
-		LIP_ARRAY_BLOCK(lip_instruction_t, function->num_instructions),
-		LIP_ARRAY_BLOCK(lip_loc_range_t, function->num_instructions)
-	};
-	size_t num_blocks = LIP_STATIC_ARRAY_LEN(layout);
-	lip_memblock_info_t block_info = lip_align_memblocks(num_blocks, layout);
-	size_t block_size = 0
-		+ sizeof(lip_function_t)
-		+ block_info.alignment - 1
-		+ block_info.num_elements;
-
-	return (lip_memblock_info_t) {
-		.element_size = 1,
-		.num_elements = block_size,
-		.alignment = LIP_ALIGN_OF(lip_function_t)
-	};
 }

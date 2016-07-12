@@ -94,16 +94,6 @@ normal(const MunitParameter params[], void* fixture)
 		lip_assert_loc_range_equal(location, function->locations[i]);
 	}
 
-	munit_assert_ptr(function, <=, function->functions);
-	munit_assert_ptr(function, <=, function->instructions);
-	munit_assert_ptr(function, <=, function->locations);
-
-	lip_memblock_info_t layout = lip_function_layout(function);
-	void* function_end = (char*)function + layout.num_elements;
-	munit_assert_ptr(function->functions + num_functions, <=, function_end);
-	munit_assert_ptr(function->instructions + num_instructions, <=, function_end);
-	munit_assert_ptr(function->locations + num_instructions, <=, function_end);
-
 	lip_free(lip_default_allocator, function);
 
 	return MUNIT_OK;

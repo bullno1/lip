@@ -28,7 +28,4 @@ lip_asm_init(lip_asm_t* lasm, lip_allocator_t* allocator);
 void
 lip_asm_cleanup(lip_asm_t* lasm);
 
-lip_memblock_info_t
-lip_function_layout(lip_function_t* function);
-
 #endif

@@ -32,7 +32,7 @@ struct lip_memblock_info_s
 extern lip_allocator_t* lip_default_allocator;
 
 lip_memblock_info_t
-lip_align_memblocks(unsigned int num_blocks, lip_memblock_info_t* blocks);
+lip_align_memblocks(unsigned int num_blocks, lip_memblock_info_t** blocks);
 
 static inline void*
 lip_locate_memblock(void* base, lip_memblock_info_t* block)
