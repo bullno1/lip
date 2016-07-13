@@ -1,5 +1,6 @@
 #include <lip/asm.h>
 #include <lip/memory.h>
+#include <lip/array.h>
 #include <lip/ex/vm.h>
 #include <lip/ex/asm.h>
 #include "munit.h"
@@ -53,10 +54,20 @@ normal(const MunitParameter params[], void* fixture)
 	}
 
 	lip_asm_index_t num_functions = munit_rand_uint32() % 20;
+	lip_asm_t* lasm2 = lip_asm_create(lip_default_allocator);
+	lip_loc_range_t dummy_loc;
+	lip_array(lip_function_t*) nested_functions =
+		lip_array_create(lip_default_allocator, lip_function_t*, num_functions);
+	memset(&dummy_loc, 0, sizeof(lip_loc_range_t));
 	for(lip_asm_index_t i = 0; i < num_functions; ++i)
 	{
-		munit_assert_uint(i, ==, lip_asm_new_function(lasm, (void*)(uintptr_t)i));
+		lip_asm_begin(lasm2);
+		lip_asm_add(lasm2, LIP_OP_NOP, i, dummy_loc);
+		lip_function_t* nested_function = lip_asm_end(lasm2);
+		lip_array_push(nested_functions, nested_function);
+		munit_assert_uint(i, ==, lip_asm_new_function(lasm, nested_function));
 	}
+	lip_asm_destroy(lasm2);
 
 	lip_asm_index_t num_instructions = munit_rand_uint32() % 2000;
 	for(lip_asm_index_t i = 0; i < num_instructions; ++i)
@@ -68,6 +79,11 @@ normal(const MunitParameter params[], void* fixture)
 	}
 
 	lip_function_t* function = lip_asm_end(lasm);
+	lip_array_foreach(lip_function_t*, function, nested_functions)
+	{
+		lip_free(lip_default_allocator, *function);
+	}
+	lip_array_destroy(nested_functions);
 
 	munit_assert_size(num_locals, ==, function->num_locals);
 	munit_assert_size(num_functions, ==, function->num_functions);
@@ -75,14 +91,44 @@ normal(const MunitParameter params[], void* fixture)
 
 	for(lip_asm_index_t i = 0; i < num_functions; ++i)
 	{
-		munit_assert_ptr((void*)(uintptr_t)i, ==, function->functions[i]);
+		lip_function_t* nested_function = lip_function_get_nested_function(function, i);
+		munit_assert_ptr(function, <, nested_function);
+		munit_assert_ptr((char*)nested_function + nested_function->size, <=, (char*)function + function->size);
+		uint32_t rem = (uintptr_t)nested_function % lip_function_t_alignment;
+		munit_assert_uint32(0, ==, rem);
+
+		munit_assert_size(1, ==, nested_function->num_instructions);
+		munit_assert_size(0, ==, nested_function->num_locals);
+		munit_assert_size(0, ==, nested_function->num_functions);
+
+		lip_instruction_t* instructions = lip_function_get_instructions(nested_function);
+		lip_opcode_t opcode;
+		lip_operand_t operand;
+		lip_disasm(instructions[0], &opcode, &operand);
+		rem = (uintptr_t)instructions % LIP_ALIGN_OF(lip_instruction_t);
+		munit_assert_uint32(rem, ==, 0);
+
+		lip_assert_enum(lip_opcode_t, LIP_OP_NOP, ==, opcode);
+		munit_assert_int32(i, ==, operand);
 	}
+
+	lip_instruction_t* instructions = lip_function_get_instructions(function);
+	munit_assert_ptr(function, <, instructions);
+	munit_assert_ptr(instructions + function->num_instructions, <=, (char*)function + function->size);
+	uint32_t rem = (uintptr_t)instructions % LIP_ALIGN_OF(lip_instruction_t);
+	munit_assert_uint32(0, ==, rem);
+
+	lip_loc_range_t* locations = lip_function_get_locations(function);
+	munit_assert_ptr(function, <, locations);
+	munit_assert_ptr(locations + function->num_instructions, <=, (char*)function + function->size);
+	rem = (uintptr_t)locations % LIP_ALIGN_OF(lip_loc_range_t);
+	munit_assert_uint32(0, ==, rem);
 
 	for(lip_asm_index_t i = 0; i < num_instructions; ++i)
 	{
 		lip_opcode_t opcode;
 		lip_operand_t operand;
-		lip_disasm(function->instructions[i], &opcode, &operand);
+		lip_disasm(instructions[i], &opcode, &operand);
 
 		munit_assert_uint(i, ==, operand);
 		lip_assert_enum(lip_opcode_t, LIP_OP_NOP, ==, opcode);
@@ -91,7 +137,7 @@ normal(const MunitParameter params[], void* fixture)
 			.start = { .line = i, .column = i},
 			.end = { .line = i, .column = i + 1}
 		};
-		lip_assert_loc_range_equal(location, function->locations[i]);
+		lip_assert_loc_range_equal(location, locations[i]);
 	}
 
 	lip_free(lip_default_allocator, function);
@@ -112,7 +158,7 @@ lip_assert_asm_(
 	lip_asm_t* lasm,
 	size_t num_instr_before, lip_instruction_t* instr_before,
 	size_t num_instr_after, lip_instruction_t* instr_after,
-	lip_asm_index_t* locations
+	lip_asm_index_t* expected_locations
 )
 {
 	lip_loc_range_t location;
@@ -130,17 +176,19 @@ lip_assert_asm_(
 	lip_function_t* function = lip_asm_end(lasm);
 
 	munit_assert_size(num_instr_after, ==, function->num_instructions);
+	lip_instruction_t* instructions = lip_function_get_instructions(function);
+	lip_loc_range_t* locations = lip_function_get_locations(function);
 	for(lip_asm_index_t i = 0; i < function->num_instructions; ++i)
 	{
 		lip_opcode_t opcode1, opcode2;
 		lip_operand_t operand1, operand2;
 
 		lip_disasm(instr_after[i], &opcode1, &operand1);
-		lip_disasm(function->instructions[i], &opcode2, &operand2);
+		lip_disasm(instructions[i], &opcode2, &operand2);
 
 		lip_assert_enum(lip_opcode_t, opcode1, ==, opcode2);
 		munit_assert_int32(operand1, ==, operand2);
-		munit_assert_uint(locations[i], ==, function->locations[i].start.line);
+		munit_assert_uint(expected_locations[i], ==, locations[i].start.line);
 	}
 
 	lip_free(lip_default_allocator, function);

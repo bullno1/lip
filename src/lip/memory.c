@@ -36,7 +36,7 @@ lip_align_memblocks(unsigned int num_blocks, lip_memblock_info_t** blocks)
 	{
 		lip_memblock_info_t* block = blocks[i];
 
-		size_t rem = result.num_elements % result.alignment;
+		size_t rem = result.num_elements % block->alignment;
 		size_t shift = result.alignment - rem;
 		result.num_elements += rem == 0 ? 0 : shift;
 		block->offset = result.num_elements;

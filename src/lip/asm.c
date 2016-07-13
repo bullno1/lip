@@ -14,23 +14,29 @@ lip_asm_init(lip_asm_t* lasm, lip_allocator_t* allocator)
 	lasm->jumps = lip_array_create(allocator, lip_asm_index_t, 0);
 	lasm->instructions = lip_array_create(allocator, lip_tagged_instruction_t, 0);
 	lasm->functions = lip_array_create(allocator, lip_function_t*, 0);
+	lasm->nested_layout = lip_array_create(allocator, lip_memblock_info_t, 0);
+	lasm->function_layout = lip_array_create(allocator, lip_memblock_info_t*, 0);
 }
 
 void lip_asm_cleanup(lip_asm_t* lasm)
 {
-	lip_array_destroy(lasm->labels);
-	lip_array_destroy(lasm->jumps);
-	lip_array_destroy(lasm->instructions);
+	lip_array_destroy(lasm->function_layout);
+	lip_array_destroy(lasm->nested_layout);
 	lip_array_destroy(lasm->functions);
+	lip_array_destroy(lasm->instructions);
+	lip_array_destroy(lasm->jumps);
+	lip_array_destroy(lasm->labels);
 }
 
 void lip_asm_begin(lip_asm_t* lasm)
 {
+	lasm->num_locals = 0;
 	lip_array_clear(lasm->labels);
 	lip_array_clear(lasm->jumps);
 	lip_array_clear(lasm->instructions);
 	lip_array_clear(lasm->functions);
-	lasm->num_locals = 0;
+	lip_array_clear(lasm->nested_layout);
+	lip_array_clear(lasm->function_layout);
 }
 
 lip_asm_index_t
@@ -52,6 +58,11 @@ lip_asm_new_function(lip_asm_t* lasm, lip_function_t* function)
 {
 	lip_asm_index_t index = lip_array_len(lasm->functions);
 	lip_array_push(lasm->functions, function);
+	lip_array_push(lasm->nested_layout, ((lip_memblock_info_t){
+		.element_size = function->size,
+		.num_elements = 1,
+		.alignment = lip_function_t_alignment
+	}));
 	return index;
 }
 
@@ -202,45 +213,51 @@ lip_asm_end(lip_asm_t* lasm)
 	size_t num_functions = lip_array_len(lasm->functions);
 	size_t num_instructions = lip_array_len(lasm->instructions);
 
-	lip_memblock_info_t function_block =
-		LIP_ARRAY_BLOCK(lip_function_t*, num_functions);
-	lip_memblock_info_t instruction_block =
-		LIP_ARRAY_BLOCK(lip_instruction_t, num_instructions);
-	lip_memblock_info_t location_block =
-		LIP_ARRAY_BLOCK(lip_loc_range_t, num_instructions);
-	lip_memblock_info_t* layout[] = {
-		&function_block, &instruction_block, &location_block
-	};
-	size_t num_blocks = LIP_STATIC_ARRAY_LEN(layout);
-	lip_memblock_info_t block_info = lip_align_memblocks(num_blocks, layout);
-	size_t block_size = 0
-		+ sizeof(lip_function_t)
-		+ block_info.alignment - 1
-		+ block_info.num_elements;
-	char* ptr = lip_malloc(lasm->allocator, block_size);
+	lip_memblock_info_t header_block = LIP_ARRAY_BLOCK(lip_function_t, 1);
+	lip_array_push(lasm->function_layout, &header_block);
 
-	lip_function_t* function = (lip_function_t*)ptr;
+	lip_memblock_info_t nested_block = LIP_ARRAY_BLOCK(uint32_t, num_functions);
+	lip_array_push(lasm->function_layout, &nested_block);
+
+	lip_memblock_info_t instruction_block = LIP_ARRAY_BLOCK(lip_instruction_t, num_instructions);
+	lip_array_push(lasm->function_layout, &instruction_block);
+
+	lip_memblock_info_t location_block = LIP_ARRAY_BLOCK(lip_loc_range_t, num_instructions);
+	lip_array_push(lasm->function_layout, &location_block);
+
+	lip_array_foreach(lip_memblock_info_t, block, lasm->nested_layout)
+	{
+		lip_array_push(lasm->function_layout, block);
+	}
+
+	lip_memblock_info_t block_info = lip_align_memblocks(
+		lip_array_len(lasm->function_layout), lasm->function_layout
+	);
+	// Only basic scalar types are used so no need to worry about alignment of
+	// header
+	lip_function_t* function =
+		lip_malloc(lasm->allocator, block_info.num_elements);
+
+	function->size = block_info.num_elements;
 	function->num_locals = lasm->num_locals;
 	function->num_instructions = num_instructions;
 	function->num_functions = num_functions;
-	ptr += sizeof(lip_function_t);
 
-	ptr = lip_align_ptr(ptr, block_info.alignment);
-
-	lip_function_t** functions = lip_locate_memblock(ptr, &function_block);
-	memcpy(functions, lasm->functions, num_functions * sizeof(lip_function_t*));
-
-	lip_instruction_t* instructions = lip_locate_memblock(ptr, &instruction_block);
-	lip_loc_range_t* locations = lip_locate_memblock(ptr, &location_block);
+	lip_instruction_t* instructions = lip_locate_memblock(function, &instruction_block);
+	lip_loc_range_t* locations = lip_locate_memblock(function, &location_block);
 	for(size_t i = 0; i < num_instructions; ++i)
 	{
 		instructions[i] = lasm->instructions[i].instruction;
 		locations[i] = lasm->instructions[i].location;
 	}
 
-	function->instructions = instructions;
-	function->functions = functions;
-	function->locations = locations;
+	uint32_t* nested_offsets = lip_locate_memblock(function, &nested_block);
+	for(uint32_t i = 0; i < num_functions; ++i)
+	{
+		void* dest = lip_locate_memblock(function, &lasm->nested_layout[i]);
+		memcpy(dest, lasm->functions[i], lasm->functions[i]->size);
+		nested_offsets[i] = lasm->nested_layout[i].offset;
+	}
 
 	return function;
 }

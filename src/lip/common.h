@@ -49,7 +49,7 @@ LIP_ENUM(lip_stream_status_t, LIP_STREAM)
 	F(LIP_VAL_NUMBER) \
 	F(LIP_VAL_BOOLEAN) \
 	F(LIP_VAL_STRING) \
-	F(LIP_VAL_CLOSURE) \
+	F(LIP_VAL_FUNCTION) \
 	F(LIP_VAL_PLACEHOLDER)
 
 LIP_ENUM(lip_value_type_t, LIP_VAL)
@@ -77,8 +77,8 @@ typedef lip_exec_status_t(*lip_native_fn_t)(lip_vm_t*);
 
 struct lip_loc_s
 {
-	unsigned int line;
-	unsigned int column;
+	uint32_t line;
+	uint32_t column;
 };
 
 struct lip_loc_range_s

@@ -34,35 +34,35 @@ extern lip_allocator_t* lip_default_allocator;
 lip_memblock_info_t
 lip_align_memblocks(unsigned int num_blocks, lip_memblock_info_t** blocks);
 
-static inline void*
+LIP_MAYBE_UNUSED static inline void*
 lip_locate_memblock(void* base, lip_memblock_info_t* block)
 {
 	return (char*)base + block->offset;
 }
 
-static inline void*
+LIP_MAYBE_UNUSED static inline void*
 lip_realloc(lip_allocator_t* allocator, void* ptr, size_t size)
 {
 	return allocator->realloc(allocator, ptr, size);
 }
 
-static inline void*
+LIP_MAYBE_UNUSED static inline void*
 lip_malloc(lip_allocator_t* allocator, size_t size)
 {
 	return lip_realloc(allocator, 0, size);
 }
 
-static inline void
+LIP_MAYBE_UNUSED static inline void
 lip_free(lip_allocator_t* allocator, void* ptr)
 {
 	allocator->free(allocator, ptr);
 }
 
-static inline void*
+LIP_MAYBE_UNUSED static inline void*
 lip_align_ptr(void* ptr, size_t alignment)
 {
-	uintptr_t rem = (uintptr_t)ptr % alignment;
-	uintptr_t shift = alignment - rem;
+	ptrdiff_t rem = (uintptr_t)ptr % alignment;
+	ptrdiff_t shift = alignment - rem;
 	return (char*)ptr + (rem == 0 ? 0 : shift);
 }
 
