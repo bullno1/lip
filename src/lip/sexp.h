@@ -3,13 +3,13 @@
 
 #include "common.h"
 
-#define LIP_SEXP_TYPE(F) \
+#define LIP_SEXP(F) \
 	F(LIP_SEXP_LIST) \
 	F(LIP_SEXP_SYMBOL) \
 	F(LIP_SEXP_STRING) \
 	F(LIP_SEXP_NUMBER)
 
-LIP_ENUM(lip_sexp_type_t, LIP_SEXP_TYPE)
+LIP_ENUM(lip_sexp_type_t, LIP_SEXP)
 
 typedef struct lip_sexp_s lip_sexp_t;
 
