@@ -7,7 +7,8 @@
 	F(array) \
 	F(lexer) \
 	F(parser) \
-	F(assembler)
+	F(assembler) \
+	F(bundler)
 
 #define DECLARE_SUITE(S) extern MunitSuite S;
 

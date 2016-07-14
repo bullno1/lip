@@ -3,6 +3,7 @@
 #include <lip/array.h>
 #include <lip/ex/vm.h>
 #include <lip/ex/asm.h>
+#include <lip/utils.h>
 #include "munit.h"
 #include "test_helpers.h"
 
@@ -94,8 +95,7 @@ normal(const MunitParameter params[], void* fixture)
 		lip_function_t* nested_function = lip_function_get_nested_function(function, i);
 		munit_assert_ptr(function, <, nested_function);
 		munit_assert_ptr((char*)nested_function + nested_function->size, <=, (char*)function + function->size);
-		uint32_t rem = (uintptr_t)nested_function % lip_function_t_alignment;
-		munit_assert_uint32(0, ==, rem);
+		lip_assert_alignment(nested_function, lip_function_t_alignment);
 
 		munit_assert_size(1, ==, nested_function->num_instructions);
 		munit_assert_size(0, ==, nested_function->num_locals);
@@ -105,8 +105,7 @@ normal(const MunitParameter params[], void* fixture)
 		lip_opcode_t opcode;
 		lip_operand_t operand;
 		lip_disasm(instructions[0], &opcode, &operand);
-		rem = (uintptr_t)instructions % LIP_ALIGN_OF(lip_instruction_t);
-		munit_assert_uint32(rem, ==, 0);
+		lip_assert_typed_alignment(instructions, lip_instruction_t);
 
 		lip_assert_enum(lip_opcode_t, LIP_OP_NOP, ==, opcode);
 		munit_assert_int32(i, ==, operand);
@@ -115,14 +114,12 @@ normal(const MunitParameter params[], void* fixture)
 	lip_instruction_t* instructions = lip_function_get_instructions(function);
 	munit_assert_ptr(function, <, instructions);
 	munit_assert_ptr(instructions + function->num_instructions, <=, (char*)function + function->size);
-	uint32_t rem = (uintptr_t)instructions % LIP_ALIGN_OF(lip_instruction_t);
-	munit_assert_uint32(0, ==, rem);
+	lip_assert_typed_alignment(instructions, lip_instruction_t);
 
 	lip_loc_range_t* locations = lip_function_get_locations(function);
 	munit_assert_ptr(function, <, locations);
 	munit_assert_ptr(locations + function->num_instructions, <=, (char*)function + function->size);
-	rem = (uintptr_t)locations % LIP_ALIGN_OF(lip_loc_range_t);
-	munit_assert_uint32(0, ==, rem);
+	lip_assert_typed_alignment(locations, lip_loc_range_t);
 
 	for(lip_asm_index_t i = 0; i < num_instructions; ++i)
 	{

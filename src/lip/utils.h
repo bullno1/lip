@@ -2,6 +2,7 @@
 #define LIP_UTILS_H
 
 #include "memory.h"
+#include "ex/vm.h"
 
 #define LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(TYPE) \
 	LIP_IMPLEMENT_CONSTRUCTOR(TYPE) \

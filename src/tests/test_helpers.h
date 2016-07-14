@@ -31,27 +31,43 @@
 	} while (0)
 
 #define lip_assert_loc_equal(EXPECTED, ACTUAL) \
-do { \
-	lip_loc_t loc_expected = (EXPECTED); \
-	lip_loc_t loc_actual = (ACTUAL); \
-	munit_assert_uint(loc_expected.column, ==, loc_actual.column); \
-	munit_assert_uint(loc_expected.line, ==, loc_actual.line); \
-} while (0)
+	do { \
+		lip_loc_t loc_expected = (EXPECTED); \
+		lip_loc_t loc_actual = (ACTUAL); \
+		munit_assert_uint(loc_expected.column, ==, loc_actual.column); \
+		munit_assert_uint(loc_expected.line, ==, loc_actual.line); \
+	} while (0)
 
 #define lip_assert_loc_range_equal(EXPECTED, ACTUAL) \
-do { \
-	lip_loc_range_t loc_range_expected = (EXPECTED); \
-	lip_loc_range_t loc_range_actual = (ACTUAL); \
-	lip_assert_loc_equal(loc_range_expected.start, loc_range_actual.start); \
-	lip_assert_loc_equal(loc_range_expected.end, loc_range_actual.end); \
-} while(0)
+	do { \
+		lip_loc_range_t loc_range_expected = (EXPECTED); \
+		lip_loc_range_t loc_range_actual = (ACTUAL); \
+		lip_assert_loc_equal(loc_range_expected.start, loc_range_actual.start); \
+		lip_assert_loc_equal(loc_range_expected.end, loc_range_actual.end); \
+	} while(0)
 
 #define lip_assert_error_equal(EXPECTED, ACTUAL) \
-do { \
-	lip_error_t error_expected = (EXPECTED); \
-	lip_error_t error_actual = (ACTUAL); \
-	munit_assert_uint(error_expected.code, ==, error_actual.code); \
-	lip_assert_loc_range_equal(error_expected.location, error_actual.location); \
-} while(0)
+	do { \
+		lip_error_t error_expected = (EXPECTED); \
+		lip_error_t error_actual = (ACTUAL); \
+		munit_assert_uint(error_expected.code, ==, error_actual.code); \
+		lip_assert_loc_range_equal(error_expected.location, error_actual.location); \
+	} while(0)
+
+#define lip_assert_typed_alignment(POINTER, TYPE) \
+	lip_assert_alignment(POINTER, LIP_ALIGN_OF(TYPE))
+
+#define lip_assert_alignment(POINTER, ALIGNMENT) \
+	do { \
+		void* ptr = (POINTER); \
+		uint32_t alignment = (ALIGNMENT); \
+		uint32_t rem = (uintptr_t)ptr % alignment; \
+		if(!(rem == 0)) { \
+			munit_errorf( \
+				"assert failed: " #POINTER " (%p) is not aligned to " #ALIGNMENT " (%d bytes), remainder: %d", \
+				ptr, alignment, rem \
+			); \
+		} \
+	} while(0)
 
 #endif

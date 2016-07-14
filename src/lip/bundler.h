@@ -1,35 +1,54 @@
 #ifndef LIP_BUNDLER_H
 #define LIP_BUNDLER_H
 
-#include "types.h"
-#include "function.h"
+#include "common.h"
+#include "asm.h"
 
-typedef struct lip_module_t lip_module_t;
+typedef struct lip_bundler_s lip_bundler_t;
 
-typedef struct lip_bundler_t
-{
-	lip_allocator_t* allocator;
-	lip_array(lip_string_ref_t) symbols;
-	lip_array(lip_closure_t) functions;
-} lip_bundler_t;
+lip_bundler_t*
+lip_bundler_create(lip_allocator_t* allocator);
 
-void lip_bundler_init(
+void
+lip_bundler_destroy(lip_bundler_t* bundler);
+
+void
+lip_bundler_begin(lip_bundler_t* bundler, lip_string_ref_t module_name);
+
+lip_asm_index_t
+lip_bundler_alloc_string_constant(lip_bundler_t* bundler, lip_string_ref_t str);
+
+lip_asm_index_t
+lip_bundler_alloc_numeric_constant(lip_bundler_t* bundler, double number);
+
+lip_asm_index_t
+lip_bundler_alloc_import(lip_bundler_t* bundler, lip_string_ref_t import);
+
+void
+lip_bundler_add_function(
 	lip_bundler_t* bundler,
-	lip_allocator_t* allocator
-);
-void lip_bundler_begin(lip_bundler_t* bundler);
-void lip_bundler_add_lip_function(
-	lip_bundler_t* bundler,
+	bool exported,
 	lip_string_ref_t name,
 	lip_function_t* function
 );
-void lip_bundler_add_native_function(
+
+void
+lip_bundler_add_number(
 	lip_bundler_t* bundler,
+	bool exported,
 	lip_string_ref_t name,
-	lip_native_function_t function,
-	uint8_t arity
+	double value
 );
-lip_module_t* lip_bundler_end(lip_bundler_t* bundler);
-void lip_bundler_cleanup(lip_bundler_t* bundler);
+
+void
+lip_bundler_add_string(
+	lip_bundler_t* bundler,
+	bool exported,
+	lip_string_ref_t name,
+	lip_string_ref_t string
+);
+
+lip_module_t*
+lip_bundler_end(lip_bundler_t* bundler);
 
 #endif

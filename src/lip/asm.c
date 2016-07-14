@@ -237,6 +237,7 @@ lip_asm_end(lip_asm_t* lasm)
 	// header
 	lip_function_t* function =
 		lip_malloc(lasm->allocator, block_info.num_elements);
+	memset(function, 0, block_info.num_elements);
 
 	function->size = block_info.num_elements;
 	function->num_locals = lasm->num_locals;

@@ -12,7 +12,7 @@ struct lip_value_s
 	lip_value_type_t type;
 	union
 	{
-		int64_t index;
+		uint32_t index;
 		void* reference;
 		bool boolean;
 		double number;
