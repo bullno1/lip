@@ -47,13 +47,13 @@ lip_asm_alloc_string_constant(lip_asm_t* lasm, lip_string_ref_t string);
 lip_function_t*
 lip_asm_end(lip_asm_t* lasm);
 
-static inline lip_instruction_t
+LIP_MAYBE_UNUSED static inline lip_instruction_t
 lip_asm(lip_opcode_t opcode, lip_operand_t operand)
 {
 	return (((int32_t)opcode & 0xFF) << 24) | (operand & 0x00FFFFFF);
 }
 
-static inline void
+LIP_MAYBE_UNUSED static inline void
 lip_disasm(lip_instruction_t instr, lip_opcode_t* opcode, lip_operand_t* operand)
 {
 	*opcode = (instr >> 24) & 0xFF;

@@ -20,13 +20,13 @@ struct lip_sstream_s
 	size_t pos;
 };
 
-static inline size_t
+LIP_MAYBE_UNUSED static inline size_t
 lip_read(void* buff, size_t size, lip_in_t* input)
 {
 	return input->read(buff, size, input);
 }
 
-static inline size_t
+LIP_MAYBE_UNUSED static inline size_t
 lip_write(const void* buff, size_t size, lip_out_t* output)
 {
 	return output->write(buff, size, output);

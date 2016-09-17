@@ -50,7 +50,7 @@ lip_vm_call(lip_vm_t* vm, uint8_t num_args, lip_value_t* result);
 lip_value_t
 lip_vm_get_arg(lip_vm_t* vm, uint8_t index);
 
-static inline void
+LIP_MAYBE_UNUSED static inline void
 lip_vm_push_nil(lip_vm_t* vm)
 {
 	lip_vm_push_value(vm, (lip_value_t){
@@ -58,7 +58,7 @@ lip_vm_push_nil(lip_vm_t* vm)
 	});
 }
 
-static inline void
+LIP_MAYBE_UNUSED static inline void
 lip_vm_push_number(lip_vm_t* vm, double number)
 {
 	lip_vm_push_value(vm, (lip_value_t){
@@ -67,7 +67,7 @@ lip_vm_push_number(lip_vm_t* vm, double number)
 	});
 }
 
-static inline void
+LIP_MAYBE_UNUSED static inline void
 lip_vm_push_boolean(lip_vm_t* vm, bool boolean)
 {
 	lip_vm_push_value(vm, (lip_value_t){

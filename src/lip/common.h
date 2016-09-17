@@ -106,14 +106,14 @@ struct lip_error_s
 	const void* extra;
 };
 
-static inline lip_string_ref_t
+LIP_MAYBE_UNUSED static inline lip_string_ref_t
 lip_string_ref(const char* string)
 {
 	lip_string_ref_t result = { strlen(string), string };
 	return result;
 }
 
-static inline bool
+LIP_MAYBE_UNUSED static inline bool
 lip_string_ref_equal(lip_string_ref_t lhs, lip_string_ref_t rhs)
 {
 	return lhs.length == rhs.length && memcmp(lhs.ptr, rhs.ptr, lhs.length) == 0;
