@@ -14,6 +14,10 @@ lip_asm_init(lip_asm_t* lasm, lip_allocator_t* allocator)
 	lasm->jumps = lip_array_create(allocator, lip_asm_index_t, 0);
 	lasm->instructions = lip_array_create(allocator, lip_tagged_instruction_t, 0);
 	lasm->functions = lip_array_create(allocator, lip_function_t*, 0);
+	lasm->imports = lip_array_create(allocator, uint32_t, 0);
+	lasm->constants = lip_array_create(allocator, lip_value_t, 0);
+	lasm->string_pool = lip_array_create(allocator, lip_string_ref_t, 0);
+	lasm->string_layout = lip_array_create(allocator, lip_memblock_info_t, 0);
 	lasm->nested_layout = lip_array_create(allocator, lip_memblock_info_t, 0);
 	lasm->function_layout = lip_array_create(allocator, lip_memblock_info_t*, 0);
 }
@@ -22,19 +26,28 @@ void lip_asm_cleanup(lip_asm_t* lasm)
 {
 	lip_array_destroy(lasm->function_layout);
 	lip_array_destroy(lasm->nested_layout);
+	lip_array_destroy(lasm->string_layout);
+	lip_array_destroy(lasm->string_pool);
+	lip_array_destroy(lasm->constants);
+	lip_array_destroy(lasm->imports);
 	lip_array_destroy(lasm->functions);
 	lip_array_destroy(lasm->instructions);
 	lip_array_destroy(lasm->jumps);
 	lip_array_destroy(lasm->labels);
 }
 
-void lip_asm_begin(lip_asm_t* lasm)
+void lip_asm_begin(lip_asm_t* lasm, lip_string_ref_t source_name)
 {
+	lasm->source_name = source_name;
 	lasm->num_locals = 0;
 	lip_array_clear(lasm->labels);
 	lip_array_clear(lasm->jumps);
 	lip_array_clear(lasm->instructions);
 	lip_array_clear(lasm->functions);
+	lip_array_clear(lasm->imports);
+	lip_array_clear(lasm->constants);
+	lip_array_clear(lasm->string_pool);
+	lip_array_clear(lasm->string_layout);
 	lip_array_clear(lasm->nested_layout);
 	lip_array_clear(lasm->function_layout);
 }
@@ -62,6 +75,89 @@ lip_asm_new_function(lip_asm_t* lasm, lip_function_t* function)
 		.element_size = function->size,
 		.num_elements = 1,
 		.alignment = lip_function_t_alignment
+	}));
+	return index;
+}
+
+uint32_t
+lip_asm_alloc_string(lip_asm_t* lasm, lip_string_ref_t string)
+{
+	uint32_t num_strings = lip_array_len(lasm->string_pool);
+	for(uint32_t i = 0; i < num_strings; ++i)
+	{
+		if(lip_string_ref_equal(lasm->string_pool[i], string))
+		{
+			return i;
+		}
+	}
+
+	uint32_t index = lip_array_len(lasm->string_pool);
+	lip_array_push(lasm->string_pool, string);
+	lip_array_push(lasm->string_layout, ((lip_memblock_info_t){
+		.element_size = sizeof(lip_string_t) + string.length,
+		.num_elements = 1,
+		.alignment = lip_string_t_alignment
+	}));
+	return index;
+}
+
+lip_asm_index_t
+lip_asm_alloc_import(lip_asm_t* lasm, lip_string_ref_t import)
+{
+	uint32_t num_imports = lip_array_len(lasm->imports);
+	for(uint32_t i = 0; i < num_imports; ++i)
+	{
+		if(lip_string_ref_equal(lasm->string_pool[lasm->imports[i]], import))
+		{
+			return i;
+		}
+	}
+
+	uint32_t index = lip_array_len(lasm->imports);
+	lip_array_push(lasm->imports, lip_asm_alloc_string(lasm, import));
+	return index;
+}
+
+lip_asm_index_t
+lip_asm_alloc_numeric_constant(lip_asm_t* lasm, double number)
+{
+	uint32_t num_constants = lip_array_len(lasm->constants);
+	for(uint32_t i = 0; i < num_constants; ++i)
+	{
+		lip_value_t constant = lasm->constants[i];
+		if(constant.type == LIP_VAL_NUMBER && constant.data.number == number)
+		{
+			return i;
+		}
+	}
+
+	uint32_t index = lip_array_len(lasm->constants);
+	lip_array_push(lasm->constants, ((lip_value_t){
+		.type = LIP_VAL_NUMBER,
+		.data = {.number = number}
+	}));
+	return index;
+}
+
+lip_asm_index_t
+lip_asm_alloc_string_constant(lip_asm_t* lasm, lip_string_ref_t string)
+{
+	uint32_t num_constants = lip_array_len(lasm->constants);
+	for(uint32_t i = 0; i < num_constants; ++i)
+	{
+		lip_value_t constant = lasm->constants[i];
+		if(true
+			&& constant.type == LIP_VAL_STRING
+			&& lip_string_ref_equal(lasm->string_pool[constant.data.index], string))
+		{
+			return i;
+		}
+	}
+
+	uint32_t index = lip_array_len(lasm->constants);
+	lip_array_push(lasm->constants, ((lip_value_t){
+		.type = LIP_VAL_STRING,
+		.data = {.index = lip_asm_alloc_string(lasm, string)}
 	}));
 	return index;
 }
@@ -210,11 +306,26 @@ lip_asm_end(lip_asm_t* lasm)
 		}
 	}
 
+	size_t num_imports = lip_array_len(lasm->imports);
+	size_t num_constants = lip_array_len(lasm->constants);
 	size_t num_functions = lip_array_len(lasm->functions);
 	size_t num_instructions = lip_array_len(lasm->instructions);
 
 	lip_memblock_info_t header_block = LIP_ARRAY_BLOCK(lip_function_t, 1);
 	lip_array_push(lasm->function_layout, &header_block);
+
+	lip_memblock_info_t source_name_block = (lip_memblock_info_t){
+		.element_size = sizeof(lip_string_t) + lasm->source_name.length,
+		.num_elements = 1,
+		.alignment = lip_string_t_alignment
+	};
+	lip_array_push(lasm->function_layout, &source_name_block);
+
+	lip_memblock_info_t import_block = LIP_ARRAY_BLOCK(lip_import_t, num_imports);
+	lip_array_push(lasm->function_layout, &import_block);
+
+	lip_memblock_info_t constant_block = LIP_ARRAY_BLOCK(lip_value_t, num_constants);
+	lip_array_push(lasm->function_layout, &constant_block);
 
 	lip_memblock_info_t nested_block = LIP_ARRAY_BLOCK(uint32_t, num_functions);
 	lip_array_push(lasm->function_layout, &nested_block);
@@ -224,6 +335,11 @@ lip_asm_end(lip_asm_t* lasm)
 
 	lip_memblock_info_t location_block = LIP_ARRAY_BLOCK(lip_loc_range_t, num_instructions);
 	lip_array_push(lasm->function_layout, &location_block);
+
+	lip_array_foreach(lip_memblock_info_t, block, lasm->string_layout)
+	{
+		lip_array_push(lasm->function_layout, block);
+	}
 
 	lip_array_foreach(lip_memblock_info_t, block, lasm->nested_layout)
 	{
@@ -240,24 +356,72 @@ lip_asm_end(lip_asm_t* lasm)
 	memset(function, 0, block_info.num_elements);
 
 	function->size = block_info.num_elements;
+	function->num_args = 0;
 	function->num_locals = lasm->num_locals;
+	function->num_imports = num_imports;
+	function->num_constants = num_constants;
 	function->num_instructions = num_instructions;
 	function->num_functions = num_functions;
 
+	lip_string_t* source_name = lip_locate_memblock(function, &source_name_block);
+	source_name->length = lasm->source_name.length;
+	memcpy(source_name->ptr, lasm->source_name.ptr, lasm->source_name.length);
+
+	lip_import_t* imports = lip_locate_memblock(function, &import_block);
+	for(uint32_t i = 0; i < num_imports; ++i)
+	{
+		uint32_t import_index = lasm->imports[i];
+		imports[i].name = lasm->string_layout[import_index].offset;
+		imports[i].value = (lip_value_t){
+			.type = LIP_VAL_NIL,
+			.data = { .reference = NULL }
+		};
+	}
+
+	lip_value_t* constants = lip_locate_memblock(function, &constant_block);
+	for(uint32_t i = 0; i < num_constants; ++i)
+	{
+		lip_value_t constant = lasm->constants[i];
+		constants[i].type = constant.type;
+		switch(lasm->constants[i].type)
+		{
+			case LIP_VAL_STRING:
+				constants[i].data.index = lasm->string_layout[constant.data.index].offset;
+				break;
+			case LIP_VAL_NUMBER:
+				constants[i].data.number = constant.data.number;
+				break;
+			default:
+				break;
+		}
+	}
+
+	uint32_t* functions = lip_locate_memblock(function, &nested_block);
+	for(uint32_t i = 0; i < num_functions; ++i)
+	{
+		functions[i] = lasm->nested_layout[i].offset;
+	}
+
 	lip_instruction_t* instructions = lip_locate_memblock(function, &instruction_block);
 	lip_loc_range_t* locations = lip_locate_memblock(function, &location_block);
-	for(size_t i = 0; i < num_instructions; ++i)
+	for(uint32_t i = 0; i < num_instructions; ++i)
 	{
 		instructions[i] = lasm->instructions[i].instruction;
 		locations[i] = lasm->instructions[i].location;
 	}
 
-	uint32_t* nested_offsets = lip_locate_memblock(function, &nested_block);
+	size_t num_strings = lip_array_len(lasm->string_pool);
+	for(uint32_t i = 0; i < num_strings; ++i)
+	{
+		lip_string_t* string = lip_locate_memblock(function, &lasm->string_layout[i]);
+		string->length = lasm->string_pool[i].length;
+		memcpy(string->ptr, lasm->string_pool[i].ptr, lasm->string_pool[i].length);
+	}
+
 	for(uint32_t i = 0; i < num_functions; ++i)
 	{
-		void* dest = lip_locate_memblock(function, &lasm->nested_layout[i]);
-		memcpy(dest, lasm->functions[i], lasm->functions[i]->size);
-		nested_offsets[i] = lasm->nested_layout[i].offset;
+		lip_function_t* nested_function = lip_locate_memblock(function, &lasm->nested_layout[i]);
+		memcpy(nested_function, lasm->functions[i], lasm->functions[i]->size);
 	}
 
 	return function;

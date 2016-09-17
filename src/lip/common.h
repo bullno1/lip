@@ -119,4 +119,10 @@ lip_string_ref_equal(lip_string_ref_t lhs, lip_string_ref_t rhs)
 	return lhs.length == rhs.length && memcmp(lhs.ptr, rhs.ptr, lhs.length) == 0;
 }
 
+LIP_MAYBE_UNUSED static inline bool
+lip_string_equal(lip_string_t* lhs, lip_string_t* rhs)
+{
+	return lhs->length == rhs->length && memcmp(lhs->ptr, rhs->ptr, lhs->length) == 0;
+}
+
 #endif

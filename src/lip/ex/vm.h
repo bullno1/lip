@@ -3,71 +3,68 @@
 
 #include "../vm.h"
 #include "../opcode.h"
-#include "../bundler.h"
 #include "../memory.h"
 #include "../utils.h"
 
 typedef struct lip_stack_frame_s lip_stack_frame_t;
-typedef struct lip_kv_s lip_kv_t;
+typedef struct lip_function_layout_s lip_function_layout_t;
+typedef struct lip_import_s lip_import_t;
 
+struct lip_import_s
+{
+	uint32_t name;
+	lip_value_t value;
+};
+
+/**
+ * Layout:
+ *
+ * [lip_function_t]: header
+ * [lip_string_t]: source name
+ * [lip_import_t...]: imports
+ * [lip_value_t...]: constant pool, with each string as offset to lip_string_t
+ * [uint32_t...]: nested function offsets
+ * [lip_instruction_t...]: instructions
+ * [lip_loc_range_t...]: source locations
+ * [lip_string_t...]: string pool, including source name
+ * [lip_function_t...]: nested functions
+ */
 struct lip_function_s
 {
-	size_t size;
+	/// Total size, including body
+	uint32_t size;
 
 	uint16_t num_args;
 	uint16_t num_locals;
+	uint16_t num_imports;
+	uint16_t num_constants;
+	uint16_t num_instructions;
+	uint16_t num_functions;
+};
 
-	uint32_t num_instructions;
-	uint32_t num_functions;
-
-	// Layout:
-	//
-	// [lip_function_s]: header
-	// [uint32_t...]: nested function offsets
-	// [lip_instruction_t...]: instructions
-	// [lip_loc_range_t...]: source locations
+struct lip_function_layout_s
+{
+	lip_string_t* source_name;
+	lip_import_t* imports;
+	lip_value_t* constants;
+	uint32_t* function_offsets;
+	lip_instruction_t* instructions;
+	lip_loc_range_t* locations;
 };
 
 struct lip_closure_s
 {
-	lip_module_t* module;
 	union
 	{
 		lip_function_t* lip;
-		struct
-		{
-			lip_native_fn_t ptr;
-			uint16_t num_args;
-		} native;
+		lip_native_fn_t native;
 	} function;
-	bool is_native;
 
 	uint16_t num_captures;
+	unsigned is_native:1;
+	unsigned native_arity: 7;
+
 	lip_value_t environment[];
-};
-
-struct lip_kv_s
-{
-	uint32_t key;
-	lip_value_t value;
-};
-
-struct lip_module_s
-{
-	uint32_t num_public_symbols;
-	uint32_t num_private_symbols;
-	uint32_t num_imports;
-	uint32_t num_constants;
-
-	// Layout:
-	//
-	// [lip_module_s]: header
-	// [lip_kv_s...]: public symbols
-	// [lip_kv_s...]: private symbols
-	// [lip_kv_s...]: imports
-	// [lip_value_s...]: constant pool
-	// [lip_string_s...]: string pool
-	// [lip_function_s...]: functions
 };
 
 struct lip_stack_frame_s
@@ -98,14 +95,19 @@ struct lip_vm_s
 static const size_t lip_string_t_alignment =
 	LIP_ALIGN_OF(struct{ size_t size; char ptr[1]; });
 
+// I don't know a better way too do this at compile-time
 static const size_t lip_function_t_alignment =
 	LIP_MAX(
 		LIP_ALIGN_OF(lip_function_t),
 		LIP_MAX(
-			LIP_ALIGN_OF(uint32_t),
+			LIP_ALIGN_OF(struct{ size_t size; char ptr[1]; }),
 			LIP_MAX(
-				LIP_ALIGN_OF(lip_instruction_t),
-				LIP_ALIGN_OF(lip_loc_range_t))));
+				LIP_ALIGN_OF(lip_import_t),
+				LIP_MAX(
+						LIP_ALIGN_OF(uint32_t),
+							LIP_MAX(
+								LIP_ALIGN_OF(lip_instruction_t),
+								LIP_ALIGN_OF(lip_loc_range_t))))));
 
 size_t
 lip_vm_memory_required(lip_vm_config_t* config);
@@ -113,77 +115,29 @@ lip_vm_memory_required(lip_vm_config_t* config);
 void
 lip_vm_init(lip_vm_t* vm, lip_vm_config_t* config, void* mem);
 
-LIP_MAYBE_UNUSED static inline uint32_t*
-lip_function_get_nested_table(lip_function_t* function)
+LIP_MAYBE_UNUSED static inline void
+lip_get_function_layout(lip_function_t* function, lip_function_layout_t* layout)
 {
-	lip_function_t* function_end = function + 1;
-	return lip_align_ptr(function_end, LIP_ALIGN_OF(uint32_t));
-}
+	char* function_end = (char*)function + sizeof(lip_function_t);
+	layout->source_name = lip_align_ptr(function_end, lip_string_t_alignment);
 
-LIP_MAYBE_UNUSED static inline lip_instruction_t*
-lip_function_get_instructions(lip_function_t* function)
-{
-	uint32_t* nested_table = lip_function_get_nested_table(function);
-	uint32_t* nested_table_end = nested_table + function->num_functions;
-	return lip_align_ptr(nested_table_end, LIP_ALIGN_OF(lip_instruction_t));
-}
-
-LIP_MAYBE_UNUSED static inline lip_loc_range_t*
-lip_function_get_locations(lip_function_t* function)
-{
-	lip_instruction_t* instructions = lip_function_get_instructions(function);
-	lip_instruction_t* instructions_end = instructions + function->num_instructions;
-	return lip_align_ptr(instructions_end, LIP_ALIGN_OF(lip_instruction_t));
-}
-
-LIP_MAYBE_UNUSED static inline lip_function_t*
-lip_function_get_nested_function(lip_function_t* function, uint32_t index)
-{
-	uint32_t* nested_table = lip_function_get_nested_table(function);
-	uint32_t offset = nested_table[index];
-	return (lip_function_t*)((char*)function + offset);
-}
-
-LIP_MAYBE_UNUSED static inline lip_kv_t*
-lip_module_get_public_symbols(lip_module_t* module)
-{
-	return (lip_kv_t*)lip_align_ptr(module + 1, LIP_ALIGN_OF(lip_kv_t));
-}
-
-LIP_MAYBE_UNUSED static inline lip_kv_t*
-lip_module_get_private_symbols(lip_module_t* module)
-{
-	lip_kv_t* public_symbols = lip_module_get_public_symbols(module);
-	return public_symbols + module->num_public_symbols;
-}
-
-LIP_MAYBE_UNUSED static inline lip_kv_t*
-lip_module_get_imports(lip_module_t* module)
-{
-	lip_kv_t* private_symbols = lip_module_get_private_symbols(module);
-	return private_symbols + module->num_private_symbols;
-}
-
-LIP_MAYBE_UNUSED static inline lip_value_t*
-lip_module_get_constants(lip_module_t* module)
-{
-	lip_kv_t* imports = lip_module_get_imports(module);
-	lip_kv_t* imports_end = imports + module->num_imports;
-	return lip_align_ptr(imports_end, LIP_ALIGN_OF(lip_value_t));
-}
-
-LIP_MAYBE_UNUSED static inline void*
-lip_module_get_resource(lip_module_t* module, uint32_t index)
-{
-	return (char*)module + index;
-}
-
-LIP_MAYBE_UNUSED static inline lip_string_t*
-lip_module_get_name(lip_module_t* module)
-{
-	lip_value_t* constants = lip_module_get_constants(module);
-	lip_value_t* constants_end = constants + module->num_constants;
-	return lip_align_ptr(constants_end, lip_string_t_alignment);
+	char* source_name_end =
+		(char*)layout->source_name
+		+ sizeof(lip_string_t)
+		+ layout->source_name->length;
+	layout->imports = lip_align_ptr(source_name_end, LIP_ALIGN_OF(lip_import_t));
+	layout->constants = lip_align_ptr(
+		layout->imports + function->num_imports, LIP_ALIGN_OF(lip_value_t)
+	);
+	layout->function_offsets = lip_align_ptr(
+		layout->constants + function->num_constants, LIP_ALIGN_OF(uint32_t)
+	);
+	layout->instructions = lip_align_ptr(
+		layout->function_offsets + function->num_functions, LIP_ALIGN_OF(lip_instruction_t)
+	);
+	layout->locations = lip_align_ptr(
+		layout->instructions + function->num_instructions, LIP_ALIGN_OF(lip_loc_range_t)
+	);
 }
 
 #endif

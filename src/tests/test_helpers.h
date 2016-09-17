@@ -70,4 +70,18 @@
 		} \
 	} while(0)
 
+#define lip_assert_mem_equal(a, a_len, b, b_len) \
+	do { \
+		const char* a_ = a; \
+		size_t a_len_ = a_len; \
+		const char* b_ = b; \
+		size_t b_len_ = b_len; \
+		if (MUNIT_UNLIKELY(a_len_ != b_len_ || memcmp(a_, b_, a_len_) != 0)) { \
+			munit_errorf( \
+				"assertion failed: mem " #a " == " #b " (\"%.*s\" == \"%.*s\")", \
+				(int)a_len_, a_, (int)b_len_, b_ \
+			); \
+		} \
+	} while (0)
+
 #endif

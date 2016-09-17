@@ -28,7 +28,7 @@ empty(const MunitParameter params[], void* fixture)
 	(void)params;
 
 	lip_asm_t* lasm = fixture;
-	lip_asm_begin(lasm);
+	lip_asm_begin(lasm, lip_string_ref(__func__));
 	lip_function_t* function = lip_asm_end(lasm);
 
 	munit_assert_size(0, ==, function->num_functions);
@@ -46,7 +46,7 @@ normal(const MunitParameter params[], void* fixture)
 	(void)params;
 
 	lip_asm_t* lasm = fixture;
-	lip_asm_begin(lasm);
+	lip_asm_begin(lasm, lip_string_ref(__func__));
 
 	lip_asm_index_t num_locals = munit_rand_uint32() % 20;
 	for(lip_asm_index_t i = 0; i < num_locals; ++i)
@@ -62,9 +62,17 @@ normal(const MunitParameter params[], void* fixture)
 	memset(&dummy_loc, 0, sizeof(lip_loc_range_t));
 	for(lip_asm_index_t i = 0; i < num_functions; ++i)
 	{
-		lip_asm_begin(lasm2);
+		lip_asm_begin(lasm2, lip_string_ref("nested"));
 		lip_asm_add(lasm2, LIP_OP_NOP, i, dummy_loc);
 		lip_function_t* nested_function = lip_asm_end(lasm2);
+
+		lip_function_layout_t function_layout;
+		lip_get_function_layout(nested_function, &function_layout);
+		lip_opcode_t opcode;
+		lip_operand_t operand;
+		lip_disasm(function_layout.instructions[0], &opcode, &operand);
+		lip_assert_enum(lip_opcode_t, LIP_OP_NOP, ==, opcode);
+
 		lip_array_push(nested_functions, nested_function);
 		munit_assert_uint(i, ==, lip_asm_new_function(lasm, nested_function));
 	}
@@ -87,45 +95,59 @@ normal(const MunitParameter params[], void* fixture)
 	lip_array_destroy(nested_functions);
 
 	munit_assert_size(num_locals, ==, function->num_locals);
+	munit_assert_size(0, ==, function->num_constants);
+	munit_assert_size(0, ==, function->num_imports);
 	munit_assert_size(num_functions, ==, function->num_functions);
 	munit_assert_size(num_instructions, ==, function->num_instructions);
 
+	lip_function_layout_t function_layout;
+	lip_get_function_layout(function, &function_layout);
+
+	lip_assert_mem_equal(
+		__func__, strlen(__func__),
+		function_layout.source_name->ptr, function_layout.source_name->length);
+
 	for(lip_asm_index_t i = 0; i < num_functions; ++i)
 	{
-		lip_function_t* nested_function = lip_function_get_nested_function(function, i);
+		lip_function_t* nested_function =
+			(lip_function_t*)((char*)function + function_layout.function_offsets[i]);
 		munit_assert_ptr(function, <, nested_function);
 		munit_assert_ptr((char*)nested_function + nested_function->size, <=, (char*)function + function->size);
 		lip_assert_alignment(nested_function, lip_function_t_alignment);
+
+		lip_function_layout_t nested_layout;
+		lip_get_function_layout(nested_function, &nested_layout);
+		lip_assert_mem_equal(
+			"nested", strlen("nested"),
+			nested_layout.source_name->ptr, nested_layout.source_name->length
+		);
 
 		munit_assert_size(1, ==, nested_function->num_instructions);
 		munit_assert_size(0, ==, nested_function->num_locals);
 		munit_assert_size(0, ==, nested_function->num_functions);
 
-		lip_instruction_t* instructions = lip_function_get_instructions(nested_function);
 		lip_opcode_t opcode;
 		lip_operand_t operand;
-		lip_disasm(instructions[0], &opcode, &operand);
-		lip_assert_typed_alignment(instructions, lip_instruction_t);
+		lip_disasm(nested_layout.instructions[0], &opcode, &operand);
+		lip_assert_typed_alignment(nested_layout.instructions, lip_instruction_t);
 
 		lip_assert_enum(lip_opcode_t, LIP_OP_NOP, ==, opcode);
 		munit_assert_int32(i, ==, operand);
 	}
 
-	lip_instruction_t* instructions = lip_function_get_instructions(function);
-	munit_assert_ptr(function, <, instructions);
-	munit_assert_ptr(instructions + function->num_instructions, <=, (char*)function + function->size);
-	lip_assert_typed_alignment(instructions, lip_instruction_t);
+	munit_assert_ptr(function, <, function_layout.instructions);
+	munit_assert_ptr(function_layout.instructions + function->num_instructions, <=, (char*)function + function->size);
+	lip_assert_typed_alignment(function_layout.instructions, lip_instruction_t);
 
-	lip_loc_range_t* locations = lip_function_get_locations(function);
-	munit_assert_ptr(function, <, locations);
-	munit_assert_ptr(locations + function->num_instructions, <=, (char*)function + function->size);
-	lip_assert_typed_alignment(locations, lip_loc_range_t);
+	munit_assert_ptr(function, <, function_layout.locations);
+	munit_assert_ptr(function_layout.locations + function->num_instructions, <=, (char*)function + function->size);
+	lip_assert_typed_alignment(function_layout.locations, lip_loc_range_t);
 
 	for(lip_asm_index_t i = 0; i < num_instructions; ++i)
 	{
 		lip_opcode_t opcode;
 		lip_operand_t operand;
-		lip_disasm(instructions[i], &opcode, &operand);
+		lip_disasm(function_layout.instructions[i], &opcode, &operand);
 
 		munit_assert_uint(i, ==, operand);
 		lip_assert_enum(lip_opcode_t, LIP_OP_NOP, ==, opcode);
@@ -134,7 +156,7 @@ normal(const MunitParameter params[], void* fixture)
 			.start = { .line = i, .column = i},
 			.end = { .line = i, .column = i + 1}
 		};
-		lip_assert_loc_range_equal(location, locations[i]);
+		lip_assert_loc_range_equal(location, function_layout.locations[i]);
 	}
 
 	lip_free(lip_default_allocator, function);
@@ -172,20 +194,21 @@ lip_assert_asm_(
 
 	lip_function_t* function = lip_asm_end(lasm);
 
+	lip_function_layout_t function_layout;
+	lip_get_function_layout(function, &function_layout);
+
 	munit_assert_size(num_instr_after, ==, function->num_instructions);
-	lip_instruction_t* instructions = lip_function_get_instructions(function);
-	lip_loc_range_t* locations = lip_function_get_locations(function);
 	for(lip_asm_index_t i = 0; i < function->num_instructions; ++i)
 	{
 		lip_opcode_t opcode1, opcode2;
 		lip_operand_t operand1, operand2;
 
 		lip_disasm(instr_after[i], &opcode1, &operand1);
-		lip_disasm(instructions[i], &opcode2, &operand2);
+		lip_disasm(function_layout.instructions[i], &opcode2, &operand2);
 
 		lip_assert_enum(lip_opcode_t, opcode1, ==, opcode2);
 		munit_assert_int32(operand1, ==, operand2);
-		munit_assert_uint(expected_locations[i], ==, locations[i].start.line);
+		munit_assert_uint(expected_locations[i], ==, function_layout.locations[i].start.line);
 	}
 
 	lip_free(lip_default_allocator, function);
@@ -197,7 +220,7 @@ jump(const MunitParameter params[], void* fixture)
 	(void)params;
 
 	lip_asm_t* lasm = fixture;
-	lip_asm_begin(lasm);
+	lip_asm_begin(lasm, lip_string_ref(__func__));
 
 	lip_asm_index_t label = lip_asm_new_label(lasm);
 	lip_asm_index_t label2 = lip_asm_new_label(lasm);
@@ -242,7 +265,7 @@ short_circuit(const MunitParameter params[], void* fixture)
 	(void)params;
 
 	lip_asm_t* lasm = fixture;
-	lip_asm_begin(lasm);
+	lip_asm_begin(lasm, lip_string_ref(__func__));
 
 	lip_asm_index_t label = lip_asm_new_label(lasm);
 
@@ -279,7 +302,7 @@ tail_call(const MunitParameter params[], void* fixture)
 	(void)params;
 
 	lip_asm_t* lasm = fixture;
-	lip_asm_begin(lasm);
+	lip_asm_begin(lasm, lip_string_ref(__func__));
 
 	lip_asm_index_t label = lip_asm_new_label(lasm);
 
