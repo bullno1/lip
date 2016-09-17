@@ -61,9 +61,7 @@ lip_free(lip_allocator_t* allocator, void* ptr)
 LIP_MAYBE_UNUSED static inline void*
 lip_align_ptr(void* ptr, size_t alignment)
 {
-	ptrdiff_t rem = (uintptr_t)ptr % alignment;
-	ptrdiff_t shift = alignment - rem;
-	return (char*)ptr + (rem == 0 ? 0 : shift);
+	return (void*)(((uintptr_t)ptr + alignment - 1) / alignment * alignment);
 }
 
 #endif
