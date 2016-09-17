@@ -33,9 +33,13 @@ tests: bin/tests ! live << VALGRIND UB_FLAGS
 	echo "-------------------------------------"
 	${VALGRIND} bin/tests
 
-test:%: bin/tests ! live << VALGRIND
+test:%: bin/tests ! live << VALGRIND SEED
 	echo "-------------------------------------"
-	${VALGRIND} bin/tests ${m}
+	if [ -z "${SEED}" ]; then
+		${VALGRIND} bin/tests ${m}
+	else
+		${VALGRIND} bin/tests --seed ${SEED} ${m}
+	fi
 
 cover: tests
 	mkdir -p $@
