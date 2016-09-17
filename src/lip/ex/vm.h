@@ -116,7 +116,7 @@ void
 lip_vm_init(lip_vm_t* vm, lip_vm_config_t* config, void* mem);
 
 LIP_MAYBE_UNUSED static inline void
-lip_get_function_layout(lip_function_t* function, lip_function_layout_t* layout)
+lip_function_get_layout(lip_function_t* function, lip_function_layout_t* layout)
 {
 	char* function_end = (char*)function + sizeof(lip_function_t);
 	layout->source_name = lip_align_ptr(function_end, lip_string_t_alignment);
@@ -138,6 +138,12 @@ lip_get_function_layout(lip_function_t* function, lip_function_layout_t* layout)
 	layout->locations = lip_align_ptr(
 		layout->instructions + function->num_instructions, LIP_ALIGN_OF(lip_loc_range_t)
 	);
+}
+
+LIP_MAYBE_UNUSED static inline lip_string_t*
+lip_function_get_string(lip_function_t* function, uint32_t offset)
+{
+	return (lip_string_t*)((char*)function + offset);
 }
 
 #endif

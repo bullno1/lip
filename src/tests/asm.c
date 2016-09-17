@@ -41,6 +41,71 @@ empty(const MunitParameter params[], void* fixture)
 }
 
 static MunitResult
+dedupe(const MunitParameter params[], void* fixture)
+{
+	(void)params;
+
+	lip_asm_t* lasm = fixture;
+	lip_asm_begin(lasm, lip_string_ref(__func__));
+
+	lip_asm_index_t import_foo = lip_asm_alloc_import(lasm, lip_string_ref("foo"));
+	lip_asm_index_t import_bar = lip_asm_alloc_import(lasm, lip_string_ref("bar"));
+	lip_asm_index_t import_foo2 = lip_asm_alloc_import(lasm, lip_string_ref("foo"));
+
+	lip_asm_index_t const_foo = lip_asm_alloc_string_constant(lasm, lip_string_ref("foo"));
+	lip_asm_index_t const_wat = lip_asm_alloc_string_constant(lasm, lip_string_ref("wat"));
+	lip_asm_index_t const_wat2 = lip_asm_alloc_string_constant(lasm, lip_string_ref("wat"));
+
+	lip_asm_index_t const_one = lip_asm_alloc_numeric_constant(lasm, 1.0);
+	lip_asm_index_t const_two = lip_asm_alloc_numeric_constant(lasm, 2.2);
+	lip_asm_index_t const_one2 = lip_asm_alloc_numeric_constant(lasm, 1.0);
+
+	munit_assert_uint32(0, ==, import_foo);
+	munit_assert_uint32(1, ==, import_bar);
+	munit_assert_uint32(0, ==, import_foo2);
+
+	munit_assert_uint32(0, ==, const_foo);
+	munit_assert_uint32(1, ==, const_wat);
+	munit_assert_uint32(1, ==, const_wat2);
+
+	munit_assert_uint32(2, ==, const_one);
+	munit_assert_uint32(3, ==, const_two);
+	munit_assert_uint32(2, ==, const_one2);
+
+	lip_function_t* function = lip_asm_end(lasm);
+
+	lip_function_layout_t function_layout;
+	lip_function_get_layout(function, &function_layout);
+
+	{
+		lip_string_t* foo  = lip_function_get_string(
+			function, function_layout.imports[import_foo].name
+		);
+		lip_string_t* bar  = lip_function_get_string(
+			function, function_layout.imports[import_bar].name
+		);
+		lip_assert_mem_equal("foo", strlen("foo"), foo->ptr, foo->length);
+		lip_assert_mem_equal("bar", strlen("bar"), bar->ptr, bar->length);
+	}
+	{
+		lip_string_t* foo = lip_function_get_string(
+			function, function_layout.constants[const_foo].data.index
+		);
+		lip_string_t* wat = lip_function_get_string(
+			function, function_layout.constants[const_wat].data.index
+		);
+		lip_assert_mem_equal("foo", strlen("foo"), foo->ptr, foo->length);
+		lip_assert_mem_equal("wat", strlen("bar"), wat->ptr, wat->length);
+	}
+	munit_assert_double(1.0, ==, function_layout.constants[const_one].data.number);
+	munit_assert_double(2.2, ==, function_layout.constants[const_two].data.number);
+
+	lip_free(lip_default_allocator, function);
+
+	return MUNIT_OK;
+}
+
+static MunitResult
 normal(const MunitParameter params[], void* fixture)
 {
 	(void)params;
@@ -67,7 +132,7 @@ normal(const MunitParameter params[], void* fixture)
 		lip_function_t* nested_function = lip_asm_end(lasm2);
 
 		lip_function_layout_t function_layout;
-		lip_get_function_layout(nested_function, &function_layout);
+		lip_function_get_layout(nested_function, &function_layout);
 		lip_opcode_t opcode;
 		lip_operand_t operand;
 		lip_disasm(function_layout.instructions[0], &opcode, &operand);
@@ -101,7 +166,7 @@ normal(const MunitParameter params[], void* fixture)
 	munit_assert_size(num_instructions, ==, function->num_instructions);
 
 	lip_function_layout_t function_layout;
-	lip_get_function_layout(function, &function_layout);
+	lip_function_get_layout(function, &function_layout);
 
 	lip_assert_mem_equal(
 		__func__, strlen(__func__),
@@ -116,7 +181,7 @@ normal(const MunitParameter params[], void* fixture)
 		lip_assert_alignment(nested_function, lip_function_t_alignment);
 
 		lip_function_layout_t nested_layout;
-		lip_get_function_layout(nested_function, &nested_layout);
+		lip_function_get_layout(nested_function, &nested_layout);
 		lip_assert_mem_equal(
 			"nested", strlen("nested"),
 			nested_layout.source_name->ptr, nested_layout.source_name->length
@@ -195,7 +260,7 @@ lip_assert_asm_(
 	lip_function_t* function = lip_asm_end(lasm);
 
 	lip_function_layout_t function_layout;
-	lip_get_function_layout(function, &function_layout);
+	lip_function_get_layout(function, &function_layout);
 
 	munit_assert_size(num_instr_after, ==, function->num_instructions);
 	for(lip_asm_index_t i = 0; i < function->num_instructions; ++i)
@@ -339,6 +404,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/empty",
 		.test = empty,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/dedupe",
+		.test = dedupe,
 		.setup = setup,
 		.tear_down = teardown
 	},
