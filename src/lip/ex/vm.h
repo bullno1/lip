@@ -98,16 +98,15 @@ static const size_t lip_string_t_alignment =
 // I don't know a better way too do this at compile-time
 static const size_t lip_function_t_alignment =
 	LIP_MAX(
-		LIP_ALIGN_OF(lip_function_t),
-		LIP_MAX(
-			LIP_ALIGN_OF(struct{ size_t size; char ptr[1]; }),
-			LIP_MAX(
-				LIP_ALIGN_OF(lip_import_t),
-				LIP_MAX(
-						LIP_ALIGN_OF(uint32_t),
-							LIP_MAX(
-								LIP_ALIGN_OF(lip_instruction_t),
-								LIP_ALIGN_OF(lip_loc_range_t))))));
+		LIP_ALIGN_OF(struct{ size_t size; char ptr[1]; }),
+		LIP_ALIGN_OF(struct{
+			lip_function_t function;
+			lip_import_t import;
+			uint32_t index;
+			lip_instruction_t instruction;
+			lip_loc_range_t location;
+		})
+	);
 
 size_t
 lip_vm_memory_required(lip_vm_config_t* config);
