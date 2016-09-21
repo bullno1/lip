@@ -9,9 +9,9 @@ struct lip_lexer_s
 	lip_error_t error;
 	lip_in_t* input;
 	lip_loc_t location;
+	lip_array(lip_array(char)) capture_buffs;
 	lip_array(char) capture_buff;
-	lip_array(char*) strings;
-	char buff;
+	char read_buff;
 	bool capturing;
 	bool buffered;
 	bool eos;

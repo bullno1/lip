@@ -12,8 +12,8 @@ void
 lip_lexer_init(lip_lexer_t* lexer, lip_allocator_t* allocator)
 {
 	lexer->allocator = allocator;
-	lexer->capture_buff = lip_array_create(allocator, char, 1);
-	lexer->strings = lip_array_create(allocator, char*, 1);
+	lexer->capture_buffs = lip_array_create(allocator, lip_array(char), 0);
+	lexer->capture_buff = NULL;
 	lip_lexer_reset(lexer, NULL);
 }
 
@@ -21,8 +21,11 @@ void
 lip_lexer_cleanup(lip_lexer_t* lexer)
 {
 	lip_lexer_reset(lexer, NULL);
-	lip_array_destroy(lexer->capture_buff);
-	lip_array_destroy(lexer->strings);
+	lip_array_destroy(lexer->capture_buffs);
+	if(lexer->capture_buff)
+	{
+		lip_array_destroy(lexer->capture_buff);
+	}
 }
 
 void
@@ -31,44 +34,51 @@ lip_lexer_reset(lip_lexer_t* lexer, lip_in_t* input)
 	lexer->location.line = 1;
 	lexer->location.column = 1;
 	memset(&lexer->error, 0, sizeof(lexer->error));
-	lexer->buff = 0;
+	lexer->read_buff = 0;
 	lexer->capturing = false;
 	lexer->buffered = false;
 	lexer->eos = false;
 	lexer->input = input;
-	lip_array_clear(lexer->capture_buff);
-	lip_array_foreach(char*, string, lexer->strings)
+	lip_array_foreach(lip_array(char), buff, lexer->capture_buffs)
 	{
-		lip_free(lexer->allocator, *string);
+		lip_array_destroy(*buff);
 	}
-	lip_array_clear(lexer->strings);
-
+	lip_array_clear(lexer->capture_buffs);
+	if(lexer->capture_buff)
+	{
+		lip_array_clear(lexer->capture_buff);
+	}
 }
 
 static void
 lip_lexer_begin_capture(lip_lexer_t* lexer)
 {
+	if(!lexer->capture_buff)
+	{
+		lexer->capture_buff = lip_array_create(lexer->allocator, char, 0);
+	}
 	lexer->capturing = true;
 }
 
 static void
 lip_lexer_reset_capture(lip_lexer_t* lexer)
 {
-	lip_array_clear(lexer->capture_buff);
+	if(lexer->capture_buff)
+	{
+		lip_array_clear(lexer->capture_buff);
+	}
 	lexer->capturing = false;
 }
 
 static lip_string_ref_t
 lip_lexer_end_capture(lip_lexer_t* lexer)
 {
-	lip_array_push(lexer->capture_buff, 0); // null-terminate
-	unsigned int len = lip_array_len(lexer->capture_buff);
-	char* string = lip_malloc(lexer->allocator, len);
-	memcpy(string, lexer->capture_buff, len);
-	lip_string_ref_t ref = { len - 1, string }; // exclude null terminator
 
-	lip_array_push(lexer->strings, string);
-	lip_lexer_reset_capture(lexer);
+	unsigned int len = lip_array_len(lexer->capture_buff);
+	lip_string_ref_t ref = { len, lexer->capture_buff };
+	lip_array_push(lexer->capture_buffs, lexer->capture_buff);
+	lexer->capture_buff = NULL;
+	lexer->capturing = false;
 
 	return ref;
 }
@@ -91,12 +101,12 @@ lip_lexer_make_token(
 static bool
 lip_lexer_peek_char(lip_lexer_t* lexer, char* ch)
 {
-	if(lexer->buffered) { *ch = lexer->buff; return true; }
+	if(lexer->buffered) { *ch = lexer->read_buff; return true; }
 
-	if(lip_read(&lexer->buff, 1, lexer->input))
+	if(lip_read(&lexer->read_buff, 1, lexer->input))
 	{
 		lexer->buffered = true;
-		*ch = lexer->buff;
+		*ch = lexer->read_buff;
 		return true;
 	}
 	else
@@ -112,7 +122,7 @@ lip_lexer_consume_char(lip_lexer_t* lexer)
 	lexer->buffered = false;
 	if(lexer->capturing)
 	{
-		lip_array_push(lexer->capture_buff, lexer->buff);
+		lip_array_push(lexer->capture_buff, lexer->read_buff);
 	}
 	++lexer->location.column;
 }
