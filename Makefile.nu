@@ -70,8 +70,20 @@ bin/lip: << C_FLAGS CPP_FLAGS CC
 		libs="bin/liblip.a"
 
 bin/liblip.a:
-	${NUMAKE} static-lib:$@ \
-		sources="src/lip/lexer.c src/lip/array.c src/lip/memory.c src/lip/io.c src/lip/parser.c src/lip/asm.c"
+	MODULES=" \
+		lexer \
+		array \
+		memory \
+		io \
+		parser \
+		asm \
+		temp_allocator \
+	"
+	SOURCES=$(
+		echo ${MODULES} |
+		awk '{ for(i = 1; i <= NF; i++) { print "src/lip/" $i ".c"; } }'
+	)
+	${NUMAKE} static-lib:$@ sources="${SOURCES}"
 
 # Only for vm_dispatch.c, remove -pedantic because we will be using a
 # non-standard extension (computed goto) if it is available

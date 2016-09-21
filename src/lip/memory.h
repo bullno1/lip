@@ -17,8 +17,8 @@ typedef struct lip_memblock_info_s lip_memblock_info_t;
 
 struct lip_allocator_s
 {
-	void*(*realloc)(void* self, void* old, size_t size);
-	void(*free)(void* self, void* mem);
+	void*(*realloc)(lip_allocator_t* self, void* old, size_t size);
+	void(*free)(lip_allocator_t* self, void* mem);
 };
 
 struct lip_memblock_info_s

@@ -2,16 +2,16 @@
 #include "memory.h"
 
 static void*
-lip_crt_realloc(void* context, void* old, size_t size)
+lip_crt_realloc(lip_allocator_t* self, void* old, size_t size)
 {
-	(void)context;
+	(void)self;
 	return realloc(old, size);
 }
 
 static void
-lip_crt_free(void* context, void* mem)
+lip_crt_free(lip_allocator_t* self, void* mem)
 {
-	(void)context;
+	(void)self;
 	free(mem);
 }
 
