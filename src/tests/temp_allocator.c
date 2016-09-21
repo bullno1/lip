@@ -130,6 +130,7 @@ no_leak(const MunitParameter params[], void* fixture_)
 		}
 	}
 
+	lip_array_destroy(pointers);
 	lip_temp_allocator_destroy(allocator);
 
 	return MUNIT_OK;
