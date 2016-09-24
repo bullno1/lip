@@ -4,8 +4,6 @@
 #include "asm.h"
 #include "memory.h"
 
-#include <stdio.h>
-
 #if defined(__GNUC__) || defined(__GNUG__) || defined(__clang__)
 #	define GENERATE_LABEL(ENUM) &&do_##ENUM,
 #	define BEGIN_LOOP() \

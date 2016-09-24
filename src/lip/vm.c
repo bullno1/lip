@@ -3,8 +3,6 @@
 #include "memory.h"
 #include "vm_dispatch.h"
 
-#include <stdio.h>
-
 lip_vm_t*
 lip_vm_create(lip_allocator_t* allocator, lip_vm_config_t* config)
 {
