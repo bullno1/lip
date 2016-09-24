@@ -1,0 +1,143 @@
+BEGIN_OP(NOP)
+END_OP(NOP)
+
+BEGIN_OP(POP)
+	--sp;
+END_OP(NOP)
+
+BEGIN_OP(LDC)
+	*(sp++) = fn.constants[operand];
+END_OP(LDC)
+
+BEGIN_OP(LDL)
+	lip_value_t* target =
+		operand > 0 ? ep - operand : fp->closure->environment - operand;
+	*(sp++) = *target;
+END_OP(LDL)
+
+BEGIN_OP(LDS)
+	*(sp++) = fn.imports[operand].value;
+END_OP(LDS)
+
+BEGIN_OP(LDI)
+	lip_value_t* value = sp++;
+	value->type = LIP_VAL_NUMBER;
+	value->data.number = operand;
+END_OP(LDI)
+
+BEGIN_OP(PLHR)
+	lip_value_t* value = ep - operand;
+	value->type = LIP_VAL_PLACEHOLDER;
+	value->data.index = operand;
+END_OP(PLHR)
+
+BEGIN_OP(NIL)
+	(sp++)->type = LIP_VAL_NIL;
+END_OP(NIL)
+
+BEGIN_OP(JMP)
+	pc = fn.instructions + operand;
+END_OP(JMP)
+
+BEGIN_OP(JOF)
+	bool flag = (--sp)->data.boolean;
+	pc = flag ? pc : fn.instructions + operand;
+END_OP(JOF)
+
+BEGIN_OP(CALL)
+	SAVE_CONTEXT();
+	++vm->fp;
+	*(vm->fp) = *(vm->fp - 1);
+	lip_vm_do_call(vm, operand);
+	LOAD_CONTEXT();
+END_OP(CALL)
+
+BEGIN_OP(TAIL)
+	SAVE_CONTEXT();
+	vm->fp->ep = (vm->fp - 1)->ep;
+	lip_vm_do_call(vm, operand);
+	if(vm->fp->is_native) { return LIP_EXEC_OK; }
+	LOAD_CONTEXT();
+END_OP(TAIL)
+
+BEGIN_OP(RET)
+	SAVE_CONTEXT();
+	--vm->fp;
+	if(vm->fp->is_native) { return LIP_EXEC_OK; }
+	LOAD_CONTEXT();
+END_OP(RET)
+
+BEGIN_OP(LT)
+	lip_value_t* lhs = sp - 1;
+	lip_value_t* rhs = sp - 2;
+	lip_value_t result = {
+		.type = LIP_VAL_BOOLEAN,
+		.data = { .boolean = lhs->data.number < rhs->data.number }
+	};
+	--sp;
+	*(sp - 1) = result;
+END_OP(LT)
+
+BEGIN_OP(ADD)
+	double acc = 0.0;
+	for(int i = 0; i < operand; ++i)
+	{
+		acc += (sp - 1 - i)->data.number;
+	}
+	lip_value_t result = {
+		.type = LIP_VAL_NUMBER,
+		.data = { .number = acc }
+	};
+	sp -= (operand - 1);
+	*(sp - 1) = result;
+END_OP(ADD)
+
+BEGIN_OP(CLS)
+	unsigned int function_index = operand & 0xFFF;
+	unsigned int num_captures = (operand >> 12) & 0xFFF;
+	size_t env_size = num_captures * sizeof(lip_value_t);
+	size_t closure_size = sizeof(lip_closure_t) + env_size;
+	lip_closure_t* closure = lip_malloc(vm->config.allocator, closure_size);
+	closure->is_native = false;
+	closure->function.lip = lip_function_resource(
+		fp->closure->function.lip, fn.function_offsets[function_index]
+	);
+	closure->env_len = num_captures;
+	for(unsigned int i = 0; i < num_captures; ++i)
+	{
+		lip_opcode_t opcode;
+		int32_t local_index;
+		lip_disasm(pc[i], &opcode, &local_index);
+		lip_value_t* target = local_index > 0 ?
+			ep - local_index
+			: fp->closure->environment - local_index;
+		closure->environment[i] = *target;
+	}
+	pc += num_captures;
+	lip_value_t value = {
+		.type = LIP_VAL_FUNCTION,
+		.data = { .reference = closure }
+	};
+	*(sp++) = value;
+END_OP(CLS)
+
+BEGIN_OP(RCLS)
+	lip_value_t* target = ep - operand;
+	if(target->type == LIP_VAL_FUNCTION)
+	{
+		lip_closure_t* closure = target->data.reference;
+		for(unsigned int i = 0; i < closure->env_len; ++i)
+		{
+			lip_value_t* captured_val = &closure->environment[i];
+			if(captured_val->type == LIP_VAL_PLACEHOLDER)
+			{
+				*captured_val = *(ep - captured_val->data.index);
+			}
+		}
+	}
+END_OP(RCLS)
+
+BEGIN_OP(SET)
+	lip_value_t* target = operand > 0 ? ep - operand : fp->closure->environment - operand;
+	*target = *(--sp);
+END_OP(SET)

@@ -75,23 +75,23 @@ dedupe(const MunitParameter params[], void* fixture)
 	lip_function_t* function = lip_asm_end(lasm);
 
 	lip_function_layout_t function_layout;
-	lip_function_get_layout(function, &function_layout);
+	lip_function_layout(function, &function_layout);
 
 	{
-		lip_string_t* foo  = lip_function_get_string(
+		lip_string_t* foo  = lip_function_resource(
 			function, function_layout.imports[import_foo].name
 		);
-		lip_string_t* bar  = lip_function_get_string(
+		lip_string_t* bar  = lip_function_resource(
 			function, function_layout.imports[import_bar].name
 		);
 		lip_assert_mem_equal("foo", strlen("foo"), foo->ptr, foo->length);
 		lip_assert_mem_equal("bar", strlen("bar"), bar->ptr, bar->length);
 	}
 	{
-		lip_string_t* foo = lip_function_get_string(
+		lip_string_t* foo = lip_function_resource(
 			function, function_layout.constants[const_foo].data.index
 		);
-		lip_string_t* wat = lip_function_get_string(
+		lip_string_t* wat = lip_function_resource(
 			function, function_layout.constants[const_wat].data.index
 		);
 		lip_assert_mem_equal("foo", strlen("foo"), foo->ptr, foo->length);
@@ -132,7 +132,7 @@ normal(const MunitParameter params[], void* fixture)
 		lip_function_t* nested_function = lip_asm_end(lasm2);
 
 		lip_function_layout_t function_layout;
-		lip_function_get_layout(nested_function, &function_layout);
+		lip_function_layout(nested_function, &function_layout);
 		lip_opcode_t opcode;
 		lip_operand_t operand;
 		lip_disasm(function_layout.instructions[0], &opcode, &operand);
@@ -166,7 +166,7 @@ normal(const MunitParameter params[], void* fixture)
 	munit_assert_size(num_instructions, ==, function->num_instructions);
 
 	lip_function_layout_t function_layout;
-	lip_function_get_layout(function, &function_layout);
+	lip_function_layout(function, &function_layout);
 
 	lip_assert_mem_equal(
 		__func__, strlen(__func__),
@@ -175,13 +175,13 @@ normal(const MunitParameter params[], void* fixture)
 	for(lip_asm_index_t i = 0; i < num_functions; ++i)
 	{
 		lip_function_t* nested_function =
-			(lip_function_t*)((char*)function + function_layout.function_offsets[i]);
+			lip_function_resource(function, function_layout.function_offsets[i]);
 		munit_assert_ptr(function, <, nested_function);
 		munit_assert_ptr((char*)nested_function + nested_function->size, <=, (char*)function + function->size);
 		lip_assert_alignment(nested_function, lip_function_t_alignment);
 
 		lip_function_layout_t nested_layout;
-		lip_function_get_layout(nested_function, &nested_layout);
+		lip_function_layout(nested_function, &nested_layout);
 		lip_assert_mem_equal(
 			"nested", strlen("nested"),
 			nested_layout.source_name->ptr, nested_layout.source_name->length
@@ -260,7 +260,7 @@ lip_assert_asm_(
 	lip_function_t* function = lip_asm_end(lasm);
 
 	lip_function_layout_t function_layout;
-	lip_function_get_layout(function, &function_layout);
+	lip_function_layout(function, &function_layout);
 
 	munit_assert_size(num_instr_after, ==, function->num_instructions);
 	for(lip_asm_index_t i = 0; i < function->num_instructions; ++i)

@@ -22,12 +22,12 @@ struct lip_value_s
 struct lip_vm_config_s
 {
 	lip_allocator_t* allocator;
-	uint32_t operand_stack_length;
-	uint32_t call_stack_length;
-	uint32_t environment_length;
+	uint32_t os_len;
+	uint32_t cs_len;
+	uint32_t env_len;
 };
 
-struct lip_vm_hook_t
+struct lip_vm_hook_s
 {
 	lip_vm_hook_fn_t hook_fn;
 };
@@ -36,7 +36,7 @@ lip_vm_t*
 lip_vm_create(lip_allocator_t* allocator, lip_vm_config_t* config);
 
 void
-lip_vm_destroy(lip_vm_t* vm);
+lip_vm_destroy(lip_allocator_t* allocator, lip_vm_t* vm);
 
 lip_vm_hook_t*
 lip_vm_set_hook(lip_vm_t* vm, lip_vm_hook_t* hook);

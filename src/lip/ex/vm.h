@@ -60,7 +60,7 @@ struct lip_closure_s
 		lip_native_fn_t native;
 	} function;
 
-	uint16_t num_captures;
+	uint16_t env_len;
 	unsigned is_native:1;
 	unsigned native_arity: 7;
 
@@ -79,16 +79,9 @@ struct lip_vm_s
 {
 	lip_vm_config_t config;
 
-	lip_value_t* min_sp;
-	lip_value_t* max_sp;
-	lip_value_t* min_ep;
-	lip_value_t* max_ep;
-	lip_stack_frame_t* min_fp;
-	lip_stack_frame_t* max_fp;
-
+	void* mem;
 	lip_value_t* sp;
 	lip_stack_frame_t* fp;
-
 	lip_vm_hook_t* hook;
 };
 
@@ -115,7 +108,7 @@ void
 lip_vm_init(lip_vm_t* vm, lip_vm_config_t* config, void* mem);
 
 LIP_MAYBE_UNUSED static inline void
-lip_function_get_layout(lip_function_t* function, lip_function_layout_t* layout)
+lip_function_layout(lip_function_t* function, lip_function_layout_t* layout)
 {
 	char* function_end = (char*)function + sizeof(lip_function_t);
 	layout->source_name = lip_align_ptr(function_end, lip_string_t_alignment);
@@ -139,8 +132,8 @@ lip_function_get_layout(lip_function_t* function, lip_function_layout_t* layout)
 	);
 }
 
-LIP_MAYBE_UNUSED static inline lip_string_t*
-lip_function_get_string(lip_function_t* function, uint32_t offset)
+LIP_MAYBE_UNUSED static inline void*
+lip_function_resource(lip_function_t* function, uint32_t offset)
 {
 	return (lip_string_t*)((char*)function + offset);
 }

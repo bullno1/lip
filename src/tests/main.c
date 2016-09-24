@@ -8,7 +8,8 @@
 	F(lexer) \
 	F(parser) \
 	F(assembler) \
-	F(temp_allocator)
+	F(temp_allocator) \
+	F(vm)
 
 #define DECLARE_SUITE(S) extern MunitSuite S;
 

@@ -18,7 +18,7 @@
 	F(LIP_OP_CALL) \
 	F(LIP_OP_TAIL) \
 	F(LIP_OP_RET) \
-	F(LIP_OP_PLUS) \
+	F(LIP_OP_ADD) \
 	F(LIP_OP_LT) \
 	F(LIP_OP_CLS) \
 	F(LIP_OP_RCLS)

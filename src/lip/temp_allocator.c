@@ -3,17 +3,6 @@
 #include "memory.h"
 #include "utils.h"
 
-static const size_t LIP_MAX_ALIGNMENT =
-	LIP_ALIGN_OF(struct {
-		char a;
-		short b;
-		int c;
-		long long d;
-		void* e;
-		float f;
-		double g;
-	});
-
 static void*
 lip_alloc_from_chunk(lip_temp_chunk_t* chunk, size_t size)
 {
