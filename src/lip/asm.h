@@ -57,7 +57,7 @@ LIP_MAYBE_UNUSED static inline void
 lip_disasm(lip_instruction_t instr, lip_opcode_t* opcode, lip_operand_t* operand)
 {
 	*opcode = (instr >> 24) & 0xFF;
-	*operand = (instr << 8) >> 8;
+	*operand = (int32_t)((uint32_t)instr << 8) >> 8;
 }
 
 #endif
