@@ -113,6 +113,17 @@ basic_forms(const MunitParameter params[], void* fixture_)
 	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
 	munit_assert_double_equal(2.5, result.data.number, 0);
 
+	munit_assert_true(
+		lip_runtime_exec_string(
+			runtime,
+			"(let ((x 1.6)"
+			"      (y 2.5))"
+			"    (let ((test-capture (fn () x)))"
+			"      (let ((x 4)) (test-capture))))",
+			&result));
+	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
+	munit_assert_double_equal(2.5, result.data.number, 0);
+
 	return MUNIT_OK;
 }
 
