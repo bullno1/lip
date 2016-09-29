@@ -4,6 +4,7 @@
 #include "ex/vm.h"
 #include "asm.h"
 #include "memory.h"
+#include "array.h"
 
 void
 lip_print_instruction(
@@ -195,5 +196,158 @@ lip_print_closure(
 		lip_print_function(
 			allocator, depth - 1, indent + 1, output, closure->function.lip
 		);
+	}
+}
+
+static void
+lip_print_ast_block(
+	lip_allocator_t* allocator,
+	unsigned int depth,
+	unsigned int indent,
+	lip_out_t* output,
+	lip_array(lip_ast_t*) ast_block
+)
+{
+	lip_array_foreach(lip_ast_t*, ast, ast_block)
+	{
+		lip_printf(allocator, output, "%*s", indent * 2, "");
+		lip_print_ast(allocator, depth, indent, output, *ast);
+	}
+}
+
+void
+lip_print_ast(
+	lip_allocator_t* allocator,
+	unsigned int depth,
+	unsigned int indent,
+	lip_out_t* output,
+	lip_ast_t* ast
+)
+{
+	lip_printf(
+		allocator, output, "%s",
+		lip_ast_type_t_to_str(ast->type) + sizeof("LIP_AST_") - 1
+	);
+
+	if(depth == 0)
+	{
+		lip_printf(allocator, output, "\n");
+		return;
+	}
+	else
+	{
+		lip_printf(allocator, output, ": ");
+	}
+
+	switch(ast->type)
+	{
+		case LIP_AST_IDENTIFIER:
+			lip_printf(
+				allocator, output, "%.*s\n",
+				(int)ast->data.string.length, ast->data.string.ptr
+			);
+			break;
+		case LIP_AST_IF:
+			lip_printf(
+				allocator, output, "\n%*sCondition: ", indent * 2 + 1, ""
+			);
+			lip_print_ast(
+				allocator, depth - 1, indent + 1, output,
+				ast->data.if_.condition
+			);
+			lip_printf(
+				allocator, output, "%*sThen: ", indent * 2 + 1, ""
+			);
+			lip_print_ast(
+				allocator, depth - 1, indent + 1, output,
+				ast->data.if_.then
+			);
+			if(ast->data.if_.else_)
+			{
+				lip_printf(
+					allocator, output, "%*sElse: ", indent * 2 + 1, ""
+				);
+				lip_print_ast(
+					allocator, depth - 1, indent + 1, output,
+					ast->data.if_.else_
+				);
+			}
+			break;
+		case LIP_AST_APPLICATION:
+			lip_printf(
+				allocator, output, "\n%*sFunction: ", indent * 2 + 1, ""
+			);
+			lip_print_ast(
+				allocator, depth - 1, indent + 1, output,
+				ast->data.application.function
+			);
+			lip_printf(
+				allocator, output, "%*sArguments:\n", indent * 2 + 1, ""
+			);
+			lip_print_ast_block(
+				allocator, depth - 1, indent + 1, output,
+				ast->data.application.arguments
+			);
+			break;
+		case LIP_AST_LAMBDA:
+			lip_printf(
+				allocator, output, "\n%*sArguments:", indent * 2 + 1, ""
+			);
+			lip_array_foreach(lip_string_ref_t, arg, ast->data.lambda.arguments)
+			{
+				lip_printf(
+					allocator, output, " %.*s", (int)arg->length, arg->ptr
+				);
+			}
+			lip_printf(
+				allocator, output, "\n%*sBody:\n", indent * 2 + 1, ""
+			);
+			lip_print_ast_block(
+				allocator, depth - 1, indent + 1, output,
+				ast->data.lambda.body
+			);
+			break;
+		case LIP_AST_DO:
+			lip_printf(allocator, output, "\n");
+			lip_print_ast_block(
+				allocator, depth - 1, indent + 1, output,
+				ast->data.lambda.body
+			);
+			break;
+		case LIP_AST_LET:
+		case LIP_AST_LETREC:
+			lip_printf(
+				allocator, output, "\n%*sBindings:\n", indent * 2 + 1, ""
+			);
+			lip_array_foreach(lip_let_binding_t, binding, ast->data.let.bindings)
+			{
+				lip_printf(
+					allocator, output, "%*s%.*s: ",
+					indent * 2 + 2, "",
+					(int)binding->name.length, binding->name.ptr
+				);
+				lip_print_ast(
+					allocator, depth - 1, indent + 2, output, binding->value
+				);
+			}
+			lip_printf(
+				allocator, output, "%*sBody:\n", indent * 2 + 1, ""
+			);
+			lip_print_ast_block(
+				allocator, depth - 1, indent + 1, output, ast->data.let.body
+			);
+			break;
+		case LIP_AST_STRING:
+			lip_printf(
+				allocator, output, "\"%.*s\"\n",
+				(int)ast->data.string.length, ast->data.string.ptr
+			);
+			break;
+		case LIP_AST_NUMBER:
+			lip_printf(
+				allocator, output, "%f\n",
+				ast->data.number
+			);
+			break;
 	}
 }

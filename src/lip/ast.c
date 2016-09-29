@@ -116,7 +116,7 @@ lip_translate_let(
 			&& binding->data.list[0].type == LIP_SEXP_SYMBOL,
 			"a binding must have the form: (<symbol> <expr>)"
 		);
-		TRANSLATE(value, &binding->data.list[0]);
+		TRANSLATE(value, &binding->data.list[1]);
 		lip_array_push(bindings, ((lip_let_binding_t){
 			.name = binding->data.list[0].data.string,
 			.value = value,

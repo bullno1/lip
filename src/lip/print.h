@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "asm.h"
+#include "ast.h"
 
 void
 lip_print_instruction(
@@ -36,6 +37,15 @@ lip_print_function(
 	unsigned int indent,
 	lip_out_t* output,
 	lip_function_t* function
+);
+
+void
+lip_print_ast(
+	lip_allocator_t* allocator,
+	unsigned int depth,
+	unsigned int indent,
+	lip_out_t* output,
+	lip_ast_t* ast
 );
 
 #endif
