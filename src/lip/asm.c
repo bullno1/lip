@@ -179,6 +179,42 @@ lip_asm_add(
 lip_function_t*
 lip_asm_end(lip_asm_t* lasm)
 {
+	// Eliminate [NIL; POP 1] sequences where POP 1 is not the last instruction
+	{
+		lip_asm_index_t num_instructions = lip_array_len(lasm->instructions);
+		lip_asm_index_t out_index = 0;
+		for(lip_asm_index_t i = 0; i < num_instructions; ++i)
+		{
+			bool skip = false;
+			if(i + 2 < num_instructions)
+			{
+				lip_opcode_t opcode1, opcode2;
+				lip_operand_t operand1, operand2;
+				lip_disasm(lasm->instructions[i].instruction, &opcode1, &operand1);
+				lip_disasm(lasm->instructions[i + 1].instruction, &opcode2, &operand2);
+
+				if(true
+					&& opcode1 == LIP_OP_NIL
+					&& opcode2 == LIP_OP_POP
+					&& operand2 == 1)
+				{
+					skip = true;
+				}
+			}
+
+			if(skip)
+			{
+				++i;
+			}
+			else
+			{
+				lasm->instructions[out_index] = lasm->instructions[i];
+				++out_index;
+			}
+		}
+		lip_array_resize(lasm->instructions, out_index);
+	}
+
 	// Transform [JMP l] where l points to RET into [RET]
 	{
 		lip_asm_index_t num_instructions = lip_array_len(lasm->instructions);

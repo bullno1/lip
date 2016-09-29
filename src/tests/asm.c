@@ -362,6 +362,56 @@ short_circuit(const MunitParameter params[], void* fixture)
 }
 
 static MunitResult
+nil_pop(const MunitParameter params[], void* fixture)
+{
+	(void)params;
+
+	lip_asm_t* lasm = fixture;
+	{
+		lip_asm_begin(lasm, lip_string_ref(__func__));
+
+		lip_instruction_t before[] = {
+			lip_asm(LIP_OP_NIL, 0),
+			lip_asm(LIP_OP_POP, 1)
+		};
+
+		lip_instruction_t after[] = {
+			lip_asm(LIP_OP_NIL, 0),
+			lip_asm(LIP_OP_POP, 1)
+		};
+
+		lip_asm_index_t locations[] = {
+			0,
+			1
+		};
+
+		lip_assert_asm(lasm, before, after, locations);
+	}
+
+	{
+		lip_asm_begin(lasm, lip_string_ref(__func__));
+
+		lip_instruction_t before[] = {
+			lip_asm(LIP_OP_NIL, 0),
+			lip_asm(LIP_OP_POP, 1),
+			lip_asm(LIP_OP_NOP, 0)
+		};
+
+		lip_instruction_t after[] = {
+			lip_asm(LIP_OP_NOP, 0)
+		};
+
+		lip_asm_index_t locations[] = {
+			2
+		};
+
+		lip_assert_asm(lasm, before, after, locations);
+	}
+
+	return MUNIT_OK;
+}
+
+static MunitResult
 tail_call(const MunitParameter params[], void* fixture)
 {
 	(void)params;
@@ -428,6 +478,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/short_circuit",
 		.test = short_circuit,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/nil_pop",
+		.test = nil_pop,
 		.setup = setup,
 		.tear_down = teardown
 	},
