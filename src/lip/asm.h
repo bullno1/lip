@@ -50,7 +50,7 @@ lip_asm_end(lip_asm_t* lasm);
 LIP_MAYBE_UNUSED static inline lip_instruction_t
 lip_asm(lip_opcode_t opcode, lip_operand_t operand)
 {
-	return (((int32_t)opcode & 0xFF) << 24) | (operand & 0x00FFFFFF);
+	return (((uint32_t)opcode & 0xFF) << 24) | (operand & 0x00FFFFFF);
 }
 
 LIP_MAYBE_UNUSED static inline void
