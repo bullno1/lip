@@ -81,27 +81,28 @@ lip_temp_allocator_large_alloc(lip_temp_allocator_t* allocator, size_t size)
 }
 
 static void*
-lip_temp_allocator_realloc(lip_allocator_t* self, void* old, size_t size)
+lip_temp_allocator_realloc(lip_allocator_t* vtable, void* old, size_t size)
 {
 	// This allocator cannot do reallocation
 	if(old) { return NULL; }
 
-	lip_temp_allocator_t* temp_allocator = (lip_temp_allocator_t*)self;
+	lip_temp_allocator_t* allocator =
+		LIP_CONTAINER_OF(vtable, lip_temp_allocator_t, vtable);
 
-	if(size > temp_allocator->chunk_size)
+	if(size > allocator->chunk_size)
 	{
-		return lip_temp_allocator_large_alloc(temp_allocator, size);
+		return lip_temp_allocator_large_alloc(allocator, size);
 	}
 	else
 	{
-		return  lip_temp_allocator_small_alloc(temp_allocator, size);
+		return  lip_temp_allocator_small_alloc(allocator, size);
 	}
 }
 
 static void
-lip_temp_allocator_free(lip_allocator_t* self, void* ptr)
+lip_temp_allocator_free(lip_allocator_t* vtable, void* ptr)
 {
-	(void)self;
+	(void)vtable;
 	(void)ptr;
 }
 
@@ -125,7 +126,8 @@ lip_temp_allocator_destroy(lip_allocator_t* allocator)
 {
 	lip_temp_allocator_reset(allocator);
 
-	lip_temp_allocator_t* temp_allocator = (lip_temp_allocator_t*)allocator;
+	lip_temp_allocator_t* temp_allocator =
+		LIP_CONTAINER_OF(allocator, lip_temp_allocator_t, vtable);
 	for(
 		lip_temp_chunk_t* chunk = temp_allocator->chunks;
 		chunk != NULL;
@@ -140,9 +142,10 @@ lip_temp_allocator_destroy(lip_allocator_t* allocator)
 }
 
 void
-lip_temp_allocator_reset(lip_allocator_t* allocator)
+lip_temp_allocator_reset(lip_allocator_t* vtable)
 {
-	lip_temp_allocator_t* temp_allocator = (lip_temp_allocator_t*)allocator;
+	lip_temp_allocator_t* temp_allocator =
+		LIP_CONTAINER_OF(vtable, lip_temp_allocator_t, vtable);
 
 	for(
 		lip_large_alloc_t* large_alloc = temp_allocator->large_allocs;
