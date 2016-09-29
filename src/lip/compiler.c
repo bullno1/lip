@@ -144,6 +144,18 @@ lip_compile_identifier(lip_compiler_t* compiler, lip_ast_t* ast)
 	{
 		LASM(compiler, LIP_OP_LDL, index, ast->location);
 	}
+	else if(lip_string_ref_equal(lip_string_ref("true"), ast->data.string))
+	{
+		LASM(compiler, LIP_OP_LDB, 1, ast->location);
+	}
+	else if(lip_string_ref_equal(lip_string_ref("false"), ast->data.string))
+	{
+		LASM(compiler, LIP_OP_LDB, 0, ast->location);
+	}
+	else if(lip_string_ref_equal(lip_string_ref("nil"), ast->data.string))
+	{
+		LASM(compiler, LIP_OP_NIL, 0, ast->location);
+	}
 	else
 	{
 		lip_asm_index_t symbol_index = lip_asm_alloc_import(

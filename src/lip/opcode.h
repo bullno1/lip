@@ -10,8 +10,9 @@
 	F(LIP_OP_LDL) \
 	F(LIP_OP_LDS) \
 	F(LIP_OP_LDI) \
-	F(LIP_OP_PLHR) \
+	F(LIP_OP_LDB) \
 	F(LIP_OP_NIL) \
+	F(LIP_OP_PLHR) \
 	F(LIP_OP_SET) \
 	F(LIP_OP_JMP) \
 	F(LIP_OP_JOF) \

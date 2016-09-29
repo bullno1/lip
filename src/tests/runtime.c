@@ -75,13 +75,13 @@ basic_forms(const MunitParameter params[], void* fixture_)
 
 	munit_assert_true(lip_runtime_exec_string(runtime, "2", &result));
 	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.0, result.data.number, 0);
+	munit_assert_double_equal(2.0, result.data.number, 3);
 
 	munit_assert_true(
 		lip_runtime_exec_string(
 			runtime, "((fn (x y) (x y)) (fn (x) x) 3.5)", &result));
 	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(3.0, result.data.number, 0);
+	munit_assert_double_equal(3.5, result.data.number, 3);
 
 	munit_assert_true(
 		lip_runtime_exec_string(
@@ -91,7 +91,7 @@ basic_forms(const MunitParameter params[], void* fixture_)
 			"    y)",
 			&result));
 	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.5, result.data.number, 0);
+	munit_assert_double_equal(2.5, result.data.number, 3);
 
 	munit_assert_true(
 		lip_runtime_exec_string(
@@ -101,7 +101,7 @@ basic_forms(const MunitParameter params[], void* fixture_)
 			"    (let ((x 2.3)) x))",
 			&result));
 	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.3, result.data.number, 0);
+	munit_assert_double_equal(2.3, result.data.number, 3);
 
 	munit_assert_true(
 		lip_runtime_exec_string(
@@ -111,7 +111,7 @@ basic_forms(const MunitParameter params[], void* fixture_)
 			"    (let ((x 2.3)) y))",
 			&result));
 	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.5, result.data.number, 0);
+	munit_assert_double_equal(2.5, result.data.number, 3);
 
 	munit_assert_true(
 		lip_runtime_exec_string(
@@ -122,7 +122,7 @@ basic_forms(const MunitParameter params[], void* fixture_)
 			"      (let ((x 4)) (test-capture))))",
 			&result));
 	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.5, result.data.number, 0);
+	munit_assert_double_equal(1.6, result.data.number, 3);
 
 	munit_assert_true(
 		lip_runtime_exec_string(
@@ -132,7 +132,7 @@ basic_forms(const MunitParameter params[], void* fixture_)
 			"    (test-capture))",
 			&result));
 	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.5, result.data.number, 0);
+	munit_assert_double_equal(2.5, result.data.number, 3);
 
 	munit_assert_true(
 		lip_runtime_exec_string(
@@ -142,7 +142,39 @@ basic_forms(const MunitParameter params[], void* fixture_)
 			"    y)",
 			&result));
 	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.5, result.data.number, 0);
+	munit_assert_double_equal(2.5, result.data.number, 3);
+
+	munit_assert_true(
+		lip_runtime_exec_string(
+			runtime,
+			"(if true 2 3)",
+			&result));
+	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
+	munit_assert_double_equal(2.0, result.data.number, 3);
+
+	munit_assert_true(
+		lip_runtime_exec_string(
+			runtime,
+			"(if false 2 3)",
+			&result));
+	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
+	munit_assert_double_equal(3.0, result.data.number, 3);
+
+	munit_assert_true(
+		lip_runtime_exec_string(
+			runtime,
+			"(if nil 2 3)",
+			&result));
+	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
+	munit_assert_double_equal(3.0, result.data.number, 3);
+
+	munit_assert_true(
+		lip_runtime_exec_string(
+			runtime,
+			"(if 0 2 3)",
+			&result));
+	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
+	munit_assert_double_equal(2.0, result.data.number, 3);
 
 	return MUNIT_OK;
 }

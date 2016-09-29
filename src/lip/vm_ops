@@ -25,6 +25,12 @@ BEGIN_OP(LDI)
 	value->data.number = operand;
 END_OP(LDI)
 
+BEGIN_OP(LDB)
+	lip_value_t* value = sp++;
+	value->type = LIP_VAL_BOOLEAN;
+	value->data.boolean = operand;
+END_OP(LDB)
+
 BEGIN_OP(PLHR)
 	lip_value_t* value = ep - operand;
 	value->type = LIP_VAL_PLACEHOLDER;
@@ -40,8 +46,12 @@ BEGIN_OP(JMP)
 END_OP(JMP)
 
 BEGIN_OP(JOF)
-	bool flag = (--sp)->data.boolean;
-	pc = flag ? pc : fn.instructions + operand;
+	lip_value_t* top = (--sp);
+	bool is_false =
+		(top->type == LIP_VAL_NIL)
+		|| (top->type == LIP_VAL_BOOLEAN && !top->data.boolean);
+	lip_instruction_t* false_target = fn.instructions + operand;
+	pc = is_false ? false_target : pc;
 END_OP(JOF)
 
 BEGIN_OP(CALL)
