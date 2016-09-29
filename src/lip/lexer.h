@@ -5,7 +5,6 @@
 #include "token.h"
 
 #define LIP_LEX_ERROR(F) \
-	F(LIP_LEX_OK) \
 	F(LIP_LEX_BAD_STRING) \
 	F(LIP_LEX_BAD_NUMBER)
 

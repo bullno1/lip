@@ -1,111 +1,66 @@
 #ifndef LIP_RUNTIME_H
 #define LIP_RUNTIME_H
 
-#include <stdio.h>
-#include "types.h"
-#include "value.h"
-#include "function.h"
+#include "common.h"
 #include "vm.h"
 
-typedef struct lip_runtime_t lip_runtime_t;
-typedef struct lip_module_t lip_module_t;
-typedef struct lip_linker_t lip_linker_t;
-
-typedef struct lip_runtime_config_t {
-	lip_write_fn_t error_fn;
-	void* error_ctx;
-
-	bool dump_ast;
-	bool dump_code;
-	lip_vm_config_t vm_config;
-	lip_allocator_t* allocator;
-} lip_runtime_config_t;
-
-typedef struct lip_native_module_entry_t
-{
-	const char* name;
-	lip_native_function_t function;
-	int arity;
-} lip_native_module_entry_t;
-
-lip_runtime_t* lip_runtime_new(lip_runtime_config_t* cfg);
-void lip_runtime_delete(lip_runtime_t* runtime);
-
-lip_module_t* lip_runtime_load_filen(
-	lip_runtime_t* runtime, const char* filename
-);
-lip_module_t* lip_runtime_load_fileh(
-	lip_runtime_t* runtime, const char* filename, FILE* file
-);
-lip_module_t* lip_runtime_load_stream(
-	lip_runtime_t* runtime,
-	const char* filename,
-	lip_read_fn_t read_fn,
-	void* stream
-);
-
-lip_module_t* lip_runtime_compile_filen(
-	lip_runtime_t* runtime, const char* filename
-);
-lip_module_t* lip_runtime_compile_fileh(
-	lip_runtime_t* runtime, const char* filename, FILE* file
-);
-lip_module_t* lip_runtime_compile_stream(
-	lip_runtime_t* runtime,
-	const char* filename,
-	lip_read_fn_t read_fn,
-	void* stream
-);
-
-void lip_runtime_load_module(lip_runtime_t* runtime, lip_module_t* module);
-void lip_runtime_unload_module(lip_runtime_t* runtime, lip_module_t* module);
-void lip_runtime_free_module(lip_runtime_t* runtime, lip_module_t* module);
-
-typedef bool (*lip_runtime_exec_handler_t)(
-	void* context, lip_exec_status_t status, lip_value_t* result
-);
-
-void lip_runtime_exec_filen(
-	lip_runtime_t* runtime,
-	lip_runtime_exec_handler_t handler,
+typedef struct lip_runtime_s lip_runtime_t;
+typedef struct lip_runtime_config_s lip_runtime_config_t;
+typedef bool(*lip_repl_handler_t)(
 	void* context,
-	const char* filename
-);
-void lip_runtime_exec_fileh(
 	lip_runtime_t* runtime,
-	lip_runtime_exec_handler_t handler,
-	void* context,
-	const char* filename,
-	FILE* file
-);
-void lip_runtime_exec_stream(
-	lip_runtime_t* runtime,
-	lip_runtime_exec_handler_t handler,
-	void* context,
-	const char* filename,
-	lip_read_fn_t read_fn,
-	void* stream
-);
-
-lip_module_t* lip_runtime_register_native_module(
-	lip_runtime_t* runtime,
-	unsigned int num_entries,
-	lip_native_module_entry_t* entries
-);
-
-lip_module_t* lip_runtime_create_native_module(
-	lip_runtime_t* runtime,
-	unsigned int num_entries,
-	lip_native_module_entry_t* entries
-);
-
-lip_exec_status_t lip_runtime_exec_symbol(
-	lip_runtime_t* runtime,
-	const char* symbol,
+	lip_vm_t* vm,
+	bool status,
 	lip_value_t* result
 );
 
-lip_vm_t* lip_runtime_get_vm(lip_runtime_t* runtime);
-lip_linker_t* lip_runtime_get_linker(lip_runtime_t* runtime);
+struct lip_runtime_config_s
+{
+	lip_vm_config_t vm_config;
+};
+
+lip_runtime_t*
+lip_runtime_create(lip_allocator_t* allocator, lip_runtime_config_t* config);
+
+void
+lip_runtime_destroy(lip_runtime_t* runtime);
+
+lip_error_t*
+lip_runtime_last_error(lip_runtime_t* runtime);
+
+bool
+lip_runtime_exec(
+	lip_runtime_t* runtime,
+	lip_in_t* stream,
+	lip_string_ref_t name,
+	lip_vm_t* vm,
+	lip_value_t* result
+);
+
+void
+lip_runtime_repl(
+	lip_runtime_t* runtime,
+	lip_in_t* stream,
+	lip_string_ref_t name,
+	lip_vm_t* vm,
+	lip_repl_handler_t handler,
+	void* context
+);
+
+lip_function_t*
+lip_runtime_compile(
+	lip_runtime_t* runtime,
+	lip_in_t* stream,
+	lip_string_ref_t name
+);
+
+lip_vm_t*
+lip_runtime_alloc_vm(lip_runtime_t* runtime, lip_vm_config_t* config);
+
+void
+lip_runtime_free_vm(lip_runtime_t* runtime, lip_vm_t* vm);
+
+lip_vm_t*
+lip_runtime_default_vm(lip_runtime_t* runtime);
 
 #endif

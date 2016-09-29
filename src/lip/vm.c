@@ -1,5 +1,4 @@
 #include "ex/vm.h"
-#include <string.h>
 #include "memory.h"
 #include "vm_dispatch.h"
 
@@ -68,6 +67,12 @@ lip_vm_memory_required(lip_vm_config_t* config)
 		lip_vm_memory_layout(config, &os_block, &env_block, &cs_block);
 
 	return mem_layout.num_elements;
+}
+
+void
+lip_vm_reset(lip_vm_t* vm)
+{
+	lip_vm_init(vm, &vm->config, vm->mem);
 }
 
 void

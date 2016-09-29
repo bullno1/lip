@@ -1,4 +1,3 @@
-#include <string.h>
 #include "ex/vm.h"
 #include "vm_dispatch.h"
 #include "asm.h"

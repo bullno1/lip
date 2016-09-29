@@ -17,8 +17,8 @@ UB_FLAGS_0 =
 UB_FLAGS_1 = -fsanitize=undefined
 UB_FLAGS = $(eval echo \${UB_FLAGS_$WITH_UB_SAN})
 
-COMMON_FLAGS = -g ${UB_FLAGS} ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
-COMPILATION_FLAGS = -Wall -Wextra -Werror -pedantic
+COMMON_FLAGS = ${UB_FLAGS} ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
+COMPILATION_FLAGS = -g -Wall -Wextra -Werror -pedantic
 C_FLAGS ?= -std=c99 ${COMPILATION_FLAGS} ${COMMON_FLAGS}
 CPP_FLAGS ?= ${COMPILATION_FLAGS} ${COMMON_FLAGS}
 LINK_FLAGS ?= -g ${COMMON_FLAGS}
@@ -78,8 +78,12 @@ bin/liblip.a:
 		parser \
 		asm \
 		temp_allocator \
+		ast \
+		compiler \
 		vm \
-		vm_dispatch
+		vm_dispatch \
+		runtime \
+		print
 	"
 	SOURCES=$(
 		echo ${MODULES} |

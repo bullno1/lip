@@ -1,578 +1,234 @@
-#include "compiler.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include "array.h"
-#include "allocator.h"
-#include "sexp.h"
-#include "asm.h"
+#include "ex/compiler.h"
 #include "utils.h"
-#include "enum.h"
+#include "ast.h"
+#include "array.h"
 
-#define ENSURE(cond, msg) \
-	if(!(cond)) { return lip_compile_error(compiler, msg, sexp); }
-#define CHECK(status) if(!(status)) { return false; }
-#define LASM(compiler, ...) \
-	lip_asm_add(&compiler->current_scope->lasm, __VA_ARGS__, LIP_ASM_END)
+#define CHECK(cond) do { if(!cond) { return false; } } while(0)
+#define LASM(compiler, opcode, operand, location) \
+	lip_asm_add(&compiler->current_scope->lasm, opcode, operand, location)
 
-#define LIP_AST(F) \
-	F(LIP_AST_NUMBER) \
-	F(LIP_AST_STRING) \
-	F(LIP_AST_IDENTIFIER) \
-	F(LIP_AST_APPLICATION) \
-	F(LIP_AST_IF) \
-	F(LIP_AST_LET) \
-	F(LIP_AST_LETREC) \
-	F(LIP_AST_LAMBDA) \
-	F(LIP_AST_BEGIN) \
-	F(LIP_AST_ERROR)
+LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(lip_compiler)
 
-LIP_ENUM(lip_ast_type_t, LIP_AST)
+static const lip_loc_range_t LOC_NOWHERE = {
+	.start = { .line = 0, .column = 0 },
+	.end = { .line = 0, .column = 0 }
+};
 
-typedef struct lip_constant_t
+static void
+lip_set_error(
+	lip_compiler_t* compiler, lip_loc_range_t location, const char* message
+)
 {
-	lip_value_type_t type;
-	union
+	compiler->error.location = location;
+	compiler->error.extra = message;
+}
+
+static bool
+lip_compile_exp(lip_compiler_t* compiler, lip_ast_t* ast);
+
+static bool
+lip_compile_number(lip_compiler_t* compiler, lip_ast_t* ast)
+{
+	double number = ast->data.number;
+	int integer = (int)number;
+	if(number == (double)integer && -16777216 <= integer && integer <= 16777215)
 	{
-		double number;
-		lip_string_ref_t string;
-	} data;
-} lip_constant_t;
-
-// A function scope
-typedef struct lip_scope_t
-{
-	lip_scope_t* parent;
-	lip_asm_t lasm;
-
-	lip_array(lip_string_ref_t) var_names;
-	lip_array(lip_asm_index_t) var_indices;
-
-	lip_array(lip_constant_t) constant_values;
-	lip_array(lip_asm_index_t) constant_indices;
-
-	lip_array(lip_string_ref_t) import_names;
-	lip_array(lip_asm_index_t) import_indices;
-} lip_function_scope_t;
-
-lip_scope_t* lip_scope_new(lip_compiler_t* compiler)
-{
-	lip_scope_t* scope = compiler->free_scopes;
-
-	if(scope)
-	{
-		compiler->free_scopes = scope->parent;
-		return scope;
+		LASM(compiler, LIP_OP_LDI, integer, ast->location);
 	}
 	else
 	{
-		lip_scope_t* scope = lip_new(compiler->allocator, lip_scope_t);
-		lip_asm_init(&scope->lasm, compiler->allocator);
-		scope->var_names = lip_array_new(compiler->allocator);
-		scope->var_indices = lip_array_new(compiler->allocator);
-		scope->constant_values = lip_array_new(compiler->allocator);
-		scope->constant_indices = lip_array_new(compiler->allocator);
-		scope->import_names = lip_array_new(compiler->allocator);
-		scope->import_indices = lip_array_new(compiler->allocator);
-		return scope;
+		lip_asm_index_t index = lip_asm_alloc_numeric_constant(
+			&compiler->current_scope->lasm, number
+		);
+		LASM(compiler, LIP_OP_LDC, index, ast->location);
 	}
+
+	return true;
 }
 
-void lip_scope_delete(lip_compiler_t* compiler, lip_scope_t* scope)
+static bool
+lip_compile_string(lip_compiler_t* compiler, lip_ast_t* ast)
 {
-	lip_array_delete(scope->import_indices);
-	lip_array_delete(scope->import_names);
-	lip_array_delete(scope->constant_indices);
-	lip_array_delete(scope->constant_values);
-	lip_array_delete(scope->var_indices);
-	lip_array_delete(scope->var_names);
-	lip_asm_cleanup(&scope->lasm);
-	lip_free(compiler->allocator, scope);
+	lip_asm_index_t index = lip_asm_alloc_string_constant(
+		&compiler->current_scope->lasm, ast->data.string
+	);
+	LASM(compiler, LIP_OP_LDC, index, ast->location);
+	return true;
 }
 
-void lip_scope_begin(lip_compiler_t* compiler)
+static void
+lip_begin_scope(lip_compiler_t* compiler)
 {
-	lip_scope_t* scope = lip_scope_new(compiler);
-
-	lip_asm_begin(&scope->lasm);
-	lip_array_clear(scope->var_names);
-	lip_array_clear(scope->var_indices);
-	lip_array_clear(scope->constant_values);
-	lip_array_clear(scope->constant_indices);
-	lip_array_clear(scope->import_names);
-	lip_array_clear(scope->import_indices);
+	lip_scope_t* scope;
+	if(compiler->free_scopes)
+	{
+		scope = compiler->free_scopes;
+		compiler->free_scopes = compiler->free_scopes->parent;
+		lip_array_clear(scope->var_names);
+		lip_array_clear(scope->var_indices);
+	}
+	else
+	{
+		scope = lip_new(compiler->allocator, lip_scope_t);
+		lip_asm_init(&scope->lasm, compiler->allocator);
+		scope->var_names = lip_array_create(
+			compiler->allocator, lip_string_ref_t, 1
+		);
+		scope->var_indices = lip_array_create(
+			compiler->allocator, lip_operand_t, 1
+		);
+	}
 
 	scope->parent = compiler->current_scope;
 	compiler->current_scope = scope;
+	lip_asm_begin(&scope->lasm, compiler->source_name);
 }
 
-void lip_scope_end(lip_compiler_t* compiler)
+static lip_function_t*
+lip_end_scope(lip_compiler_t* compiler)
 {
-	lip_scope_t* current_scope = compiler->current_scope;
-	compiler->current_scope = current_scope->parent;
+	lip_scope_t* scope = compiler->current_scope;
 
-	current_scope->parent = compiler->free_scopes;
-	compiler->free_scopes = current_scope;
+	compiler->current_scope = scope->parent;
+	scope->parent = compiler->free_scopes;
+	compiler->free_scopes = scope;
+
+	return lip_asm_end(&scope->lasm);
 }
 
-static inline lip_ast_type_t lip_ast_type(lip_sexp_t* sexp)
+
+static bool
+lip_compile_arguments(lip_compiler_t* compiler, lip_array(lip_ast_t*) args)
 {
-	lip_sexp_t* list;
-	switch(sexp->type)
+	size_t arity = lip_array_len(args);
+	for(size_t i = 0; i < arity; ++i)
 	{
-		case LIP_SEXP_LIST:
-			list = sexp->data.list;
-
-			if(lip_array_len(list) == 0)
-			{
-				return LIP_AST_ERROR;
-			}
-			else if(list[0].type == LIP_SEXP_SYMBOL)
-			{
-				lip_string_ref_t symbol = list[0].data.string;
-				if(lip_string_ref_equal(symbol, lip_string_ref("if")))
-				{
-					return LIP_AST_IF;
-				}
-				else if(lip_string_ref_equal(symbol, lip_string_ref("let")))
-				{
-					return LIP_AST_LET;
-				}
-				else if(lip_string_ref_equal(symbol, lip_string_ref("letrec")))
-				{
-					return LIP_AST_LETREC;
-				}
-				else if(lip_string_ref_equal(symbol, lip_string_ref("lambda")))
-				{
-					return LIP_AST_LAMBDA;
-				}
-				else if(lip_string_ref_equal(symbol, lip_string_ref("begin")))
-				{
-					return LIP_AST_BEGIN;
-				}
-				else
-				{
-					return LIP_AST_APPLICATION;
-				}
-			}
-			else
-			{
-				return LIP_AST_APPLICATION;
-			}
-		case LIP_SEXP_SYMBOL:
-			return LIP_AST_IDENTIFIER;
-		case LIP_SEXP_STRING:
-			return LIP_AST_STRING;
-		case LIP_SEXP_NUMBER:
-			return LIP_AST_NUMBER;
-	}
-
-	return LIP_AST_ERROR;
-}
-
-static inline bool lip_compile_error(
-	lip_compiler_t* compiler, const char* msg, lip_sexp_t* sexp
-)
-{
-	compiler->error->msg = msg;
-	compiler->error->sexp = sexp;
-	return false;
-}
-
-static inline bool lip_check_syntax(lip_compiler_t* compiler, lip_sexp_t* sexp);
-
-static inline bool lip_check_if_syntax(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
-{
-	lip_sexp_t* list = sexp->data.list;
-	unsigned int arity = lip_array_len(list) - 1;
-
-	ENSURE(
-		arity == 2 || arity == 3,
-		"'if' must have the form: (if <cond> <then> [else])"
-	);
-
-	CHECK(lip_check_syntax(compiler, &list[1]));
-	CHECK(lip_check_syntax(compiler, &list[2]));
-	if(arity == 3)
-	{
-		CHECK(lip_check_syntax(compiler, &list[3]));
+		CHECK(lip_compile_exp(compiler, args[arity - i - 1]));
 	}
 
 	return true;
 }
 
-static inline bool lip_check_let_syntax(
-	lip_compiler_t* compiler, lip_sexp_t* sexp, bool recursive
-)
-{
-	lip_sexp_t* list = sexp->data.list;
-	unsigned int arity = lip_array_len(list) - 1;
-
-	const char* error_msg = recursive ?
-		"'letrec' must have the form: (letrec (<bindings...>) <exp>)" :
-		"'let' must have the form: (let (<bindings...>) <exp>)";
-	ENSURE(arity == 2 && list[1].type == LIP_SEXP_LIST, error_msg);
-
-	lip_array_foreach(lip_sexp_t, binding, list[1].data.list)
-	{
-		bool valid = binding->type == LIP_SEXP_LIST
-				  && lip_array_len(binding->data.list) == 2
-				  && binding->data.list[0].type == LIP_SEXP_SYMBOL;
-		if(!valid)
-		{
-			return lip_compile_error(
-				compiler,
-				"a binding must have the form: (<symbol> <exp>)",
-				binding
-			);
-		}
-		CHECK(lip_check_syntax(compiler, &binding->data.list[1]));
-	}
-
-	CHECK(lip_check_syntax(compiler, &list[2]));
-
-	return true;
-}
-
-static inline bool lip_check_lambda_syntax(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
-{
-	lip_sexp_t* list = sexp->data.list;
-	unsigned int arity = lip_array_len(list) - 1;
-
-	ENSURE(
-		arity == 2 && list[1].type == LIP_SEXP_LIST,
-		"'lambda' must have the form: (lambda (<parameters>) <body>)"
-	);
-
-	lip_array_foreach(lip_sexp_t, param, list[1].data.list)
-	{
-		if(param->type != LIP_SEXP_SYMBOL)
-		{
-			return lip_compile_error(
-				compiler,
-				"parameter must be a symbol",
-				param
-			);
-		}
-	}
-
-	CHECK(lip_check_syntax(compiler, &list[2]));
-
-	return true;
-}
-
-static inline bool lip_check_begin_syntax(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
-{
-	lip_sexp_t* list = sexp->data.list;
-	unsigned int length = lip_array_len(list);
-
-	for(unsigned int i = 1; i < length; ++i)
-	{
-		CHECK(lip_check_syntax(compiler, &list[i]));
-	}
-
-	return true;
-}
-
-static inline bool lip_check_application_syntax(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
-{
-	lip_sexp_t* head = &sexp->data.list[0];
-
-	if(head->type != LIP_SEXP_SYMBOL && head->type != LIP_SEXP_LIST)
-	{
-		return lip_compile_error(compiler, "term cannot be applied", head);
-	}
-
-	lip_array_foreach(lip_sexp_t, sub_exp, sexp->data.list)
-	{
-		CHECK(lip_check_syntax(compiler, sub_exp));
-	}
-
-	return true;
-}
-
-static inline bool lip_check_syntax(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
-{
-	switch(lip_ast_type(sexp))
-	{
-		case LIP_AST_APPLICATION:
-			return lip_check_application_syntax(compiler, sexp);
-		case LIP_AST_IF:
-			return lip_check_if_syntax(compiler, sexp);
-		case LIP_AST_LET:
-			return lip_check_let_syntax(compiler, sexp, false);
-		case LIP_AST_LETREC:
-			return lip_check_let_syntax(compiler, sexp, true);
-		case LIP_AST_LAMBDA:
-			return lip_check_lambda_syntax(compiler, sexp);
-		case LIP_AST_BEGIN:
-			return lip_check_begin_syntax(compiler, sexp);
-		case LIP_AST_IDENTIFIER:
-		case LIP_AST_STRING:
-		case LIP_AST_NUMBER:
-			return true;
-		case LIP_AST_ERROR:
-			return lip_compile_error(compiler, "unrecognized form", sexp);
-	}
-
-	return lip_compile_error(compiler, "unrecognized form", sexp);
-}
-
-void lip_compiler_init(
+static bool
+lip_find_local(
 	lip_compiler_t* compiler,
-	lip_allocator_t* allocator
+	lip_string_ref_t name,
+	lip_operand_t* out
 )
 {
-	compiler->allocator = allocator;
-	lip_bundler_init(&compiler->bundler, allocator);
-	compiler->current_scope = NULL;
-	compiler->free_scopes = NULL;
-	compiler->free_var_names = lip_array_new(allocator);
-	compiler->free_var_indices = lip_array_new(allocator);
-}
-
-static inline void lip_compiler_reset(lip_compiler_t* compiler)
-{
-	while(compiler->current_scope)
-	{
-		lip_scope_end(compiler);
-	}
-}
-
-void lip_compiler_begin(
-	lip_compiler_t* compiler,
-	lip_compile_mode_t mode
-)
-{
-	compiler->mode = mode;
-	lip_compiler_reset(compiler);
-
-	if(mode == LIP_COMPILE_MODE_REPL)
-	{
-		lip_scope_begin(compiler);
-		// Push nil so that the next expression has something to pop
-		// It can also compile an empty file safely and return nil as a result
-		LASM(compiler, LIP_OP_NIL, 0);
-	}
-	else
-	{
-		lip_bundler_begin(&compiler->bundler);
-	}
-}
-
-static bool lip_compile_sexp(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-);
-
-static inline bool lip_scope_find_local(
-	lip_scope_t* scope,
-	lip_string_ref_t identifier,
-	lip_asm_index_t* result
-)
-{
-	// Search backward to allow var shadowing
-	unsigned int num_locals = lip_array_len(scope->var_names);
-	for(int i = num_locals - 1; i >= 0; --i)
-	{
-		if(lip_string_ref_equal(identifier, scope->var_names[i]))
-		{
-			*result = scope->var_indices[i];
-			return true;
-		}
-	}
-
-	return false;
-}
-
-static inline bool lip_find_local(
-	lip_compiler_t* compiler,
-	lip_string_ref_t identifier,
-	lip_asm_index_t* result
-)
-{
-	// Search upward from current scope
 	for(
 		lip_scope_t* scope = compiler->current_scope;
 		scope != NULL;
 		scope = scope->parent
 	)
 	{
-		if(lip_scope_find_local(scope, identifier, result))
+		size_t num_locals = lip_array_len(scope->var_names);
+		for(int i = num_locals - 1; i >= 0; --i)
 		{
-			return true;
+			if(lip_string_ref_equal(name, scope->var_names[i]))
+			{
+				*out = scope->var_indices[i];
+				return true;
+			}
 		}
 	}
 
 	return false;
 }
 
-static inline lip_asm_index_t lip_find_import(
-	lip_compiler_t* compiler,
-	lip_string_ref_t identifier
-)
+static bool
+lip_compile_identifier(lip_compiler_t* compiler, lip_ast_t* ast)
 {
-	lip_scope_t* scope = compiler->current_scope;
-	unsigned int num_imports = lip_array_len(scope->import_names);
-	for(unsigned int i = 0; i < num_imports; ++i)
+	lip_operand_t index;
+	if(lip_find_local(compiler, ast->data.string, &index))
 	{
-		if(lip_string_ref_equal(identifier, scope->import_names[i]))
-		{
-			return scope->import_indices[i];
-		}
-	}
-
-	lip_array_push(scope->import_names, identifier);
-	lip_asm_index_t index = lip_asm_new_import(&scope->lasm, identifier);
-	lip_array_push(scope->import_indices, index);
-	return index;
-}
-
-static inline bool lip_compile_identifier(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
-{
-	// TODO: warn or error on imports which are special forms
-	lip_string_ref_t identifier = sexp->data.string;
-
-	lip_asm_index_t index;
-	if(lip_find_local(compiler, identifier, &index))
-	{
-		LASM(compiler, LIP_OP_LDL, index);
+		LASM(compiler, LIP_OP_LDL, index, ast->location);
 	}
 	else
 	{
-		LASM(compiler, LIP_OP_LDS, lip_find_import(compiler, identifier));
+		lip_asm_index_t symbol_index = lip_asm_alloc_import(
+			&compiler->current_scope->lasm,
+			ast->data.string
+		);
+		LASM(compiler, LIP_OP_LDS, symbol_index, ast->location);
 	}
 
 	return true;
 }
 
-static inline bool lip_compile_arguments(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
+static bool
+lip_compile_application(lip_compiler_t* compiler, lip_ast_t* ast)
 {
-	lip_sexp_t* head = sexp->data.list;
-	unsigned int arity = lip_array_len(sexp->data.list) - 1;
-	for(unsigned int arg = arity; arg > 0; --arg)
-	{
-		CHECK(lip_compile_sexp(compiler, &head[arg]));
-	}
-
+	CHECK(lip_compile_arguments(compiler, ast->data.application.arguments));
+	CHECK(lip_compile_exp(compiler, ast->data.application.function));
+	LASM(
+		compiler,
+		LIP_OP_CALL, lip_array_len(ast->data.application.arguments),
+		ast->location
+	);
 	return true;
 }
 
-static inline bool lip_constant_equal(lip_constant_t* lhs, lip_constant_t* rhs)
+static bool
+lip_compile_if(lip_compiler_t* compiler, lip_ast_t* ast)
 {
-	if(lhs->type != rhs->type) { return false; }
+	CHECK(lip_compile_exp(compiler, ast->data.if_.condition));
 
-	switch(lhs->type)
-	{
-		case LIP_VAL_NUMBER:
-			return lhs->data.number == rhs->data.number;
-		case LIP_VAL_STRING:
-			return lip_string_ref_equal(lhs->data.string, rhs->data.string);
-		default:
-			abort();
-			return false;
-	}
-}
-
-static inline lip_asm_index_t lip_find_constant(
-	lip_compiler_t* compiler, lip_constant_t* constant
-)
-{
 	lip_scope_t* scope = compiler->current_scope;
-	unsigned int num_consts = lip_array_len(scope->constant_values);
-	for(unsigned int i = 0; i < num_consts; ++i)
+	lip_asm_index_t else_label = lip_asm_new_label(&scope->lasm);
+	lip_asm_index_t done_label = lip_asm_new_label(&scope->lasm);
+	LASM(compiler, LIP_OP_JOF, else_label, LOC_NOWHERE);
+	CHECK(lip_compile_exp(compiler, ast->data.if_.then));
+	LASM(compiler, LIP_OP_JMP, done_label, LOC_NOWHERE);
+	LASM(compiler, LIP_OP_LABEL, else_label, LOC_NOWHERE);
+	if(ast->data.if_.else_)
 	{
-		if(lip_constant_equal(&scope->constant_values[i], constant))
-		{
-			return scope->constant_indices[i];
-		}
+		CHECK(lip_compile_exp(compiler, ast->data.if_.else_));
 	}
-
-	lip_array_push(scope->constant_values, *constant);
-	lip_asm_index_t index;
-	switch(constant->type)
+	else
 	{
-		case LIP_VAL_NUMBER:
-			index =
-				lip_asm_new_number_const(&scope->lasm, constant->data.number);
-			break;
-		case LIP_VAL_STRING:
-			index =
-				lip_asm_new_string_const(&scope->lasm, constant->data.string);
-			break;
-		default:
-			abort();
+		LASM(compiler, LIP_OP_NIL, 0, LOC_NOWHERE);
 	}
-	lip_array_push(scope->constant_indices, index);
-	return index;
-}
+	LASM(compiler, LIP_OP_LABEL, done_label, LOC_NOWHERE);
 
-static inline bool lip_compile_constant(
-	lip_compiler_t* compiler, lip_constant_t* constant
-)
-{
-	LASM(compiler, LIP_OP_LDC, lip_find_constant(compiler, constant));
 	return true;
 }
 
-static inline bool lip_compile_string(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
+static bool
+lip_compile_block(lip_compiler_t* compiler, lip_array(lip_ast_t*) block)
 {
-	// TODO: decode escape sequences
-	lip_constant_t constant = {
-		.type = LIP_VAL_STRING,
-		.data = { .string = sexp->data.string }
-	};
-	return lip_compile_constant(compiler, &constant);
-}
+	size_t block_size = lip_array_len(block);
 
-static inline bool lip_compile_number(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
-{
-	lip_string_ref_t string = sexp->data.string;
-	double number = strtod(string.ptr, NULL);
-	// For small 24-bit integers, use LDI instead
-	int integer = (int)number;
-	if(number == (double)integer && -16777216 <= integer && integer <= 16777215)
+	if(block_size == 0)
 	{
-		LASM(compiler, LIP_OP_LDI, integer);
+		LASM(compiler, LIP_OP_NIL, 0, LOC_NOWHERE);
 		return true;
 	}
+	else if(block_size == 1)
+	{
+		return lip_compile_exp(compiler, block[0]);
+	}
 	else
 	{
-		lip_constant_t constant = {
-			.type = LIP_VAL_NUMBER,
-			.data = { .number = number }
-		};
-		return lip_compile_constant(compiler, &constant);
+		for(size_t i = 0; i < block_size - 1; ++i)
+		{
+			CHECK(lip_compile_exp(compiler, block[i]));
+		}
+		LASM(compiler, LIP_OP_POP, block_size - 1, LOC_NOWHERE);
+		CHECK(lip_compile_exp(compiler, block[block_size - 1]));
+		return true;
 	}
 }
 
-static inline lip_asm_index_t lip_new_local(
-	lip_compiler_t* compiler, lip_string_ref_t name
-)
+static lip_asm_index_t
+lip_alloc_local(lip_compiler_t* compiler, lip_string_ref_t name)
 {
 	lip_scope_t* scope = compiler->current_scope;
 	lip_array_push(scope->var_names, name);
-	unsigned int num_locals = lip_array_len(scope->var_names);
+	size_t num_locals = lip_array_len(scope->var_names);
 	if(num_locals <= lip_array_len(scope->var_indices))
 	{
-		// reuse index allocated in an earlier sibling let
+		// reuse an index allocated in an earlier sibling 'let'
 		return scope->var_indices[num_locals - 1];
 	}
 	else
@@ -584,210 +240,195 @@ static inline lip_asm_index_t lip_new_local(
 	}
 }
 
-static inline bool lip_compile_if(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
+static bool
+lip_compile_let(lip_compiler_t* compiler, lip_ast_t* ast)
 {
-	lip_scope_t* scope = compiler->current_scope;
-	lip_array(lip_sexp_t) list = sexp->data.list;
-
-	lip_asm_index_t else_label = lip_asm_new_label(&scope->lasm);
-	lip_asm_index_t done_label = lip_asm_new_label(&scope->lasm);
-	CHECK(lip_compile_sexp(compiler, &list[1]));
-	LASM(compiler, LIP_OP_JOF, else_label);
-	CHECK(lip_compile_sexp(compiler, &list[2]));
-	if(lip_array_len(list) == 3)
-	{
-		LASM(compiler,
-			LIP_OP_JMP, done_label,
-			LIP_OP_LABEL, else_label,
-			LIP_OP_NIL, 0,
-			LIP_OP_LABEL, done_label
-		);
-	}
-	else
-	{
-		LASM(compiler,
-			LIP_OP_JMP, done_label,
-			LIP_OP_LABEL, else_label
-		);
-		CHECK(lip_compile_sexp(compiler, &list[3]));
-		LASM(compiler, LIP_OP_LABEL, done_label);
-	}
-
-	return true;
-}
-
-static inline bool lip_compile_let(
-	lip_compiler_t* compiler, lip_sexp_t* sexp, bool recursive
-)
-{
-	lip_scope_t* scope = compiler->current_scope;
-	unsigned int num_locals = lip_array_len(scope->var_names);
+	size_t num_vars = lip_array_len(compiler->current_scope->var_names);
 
 	// Compile bindings
-	if(recursive)
+	lip_array_foreach(lip_let_binding_t, binding, ast->data.let.bindings)
 	{
-		lip_array_foreach(lip_sexp_t, binding, sexp->data.list[1].data.list)
-		{
-			lip_asm_index_t index =
-				lip_new_local(compiler, binding->data.list[0].data.string);
-
-			LASM(compiler, LIP_OP_PLHR, index);
-		}
-
-		unsigned int local_index = num_locals;
-		lip_array_foreach(lip_sexp_t, binding, sexp->data.list[1].data.list)
-		{
-			CHECK(lip_compile_sexp(compiler, &binding->data.list[1]));
-			LASM(compiler, LIP_OP_SET, scope->var_indices[local_index++]);
-		}
-
-		local_index = num_locals;
-		lip_array_foreach(lip_sexp_t, binding, sexp->data.list[1].data.list)
-		{
-			LASM(compiler, LIP_OP_RCLS, scope->var_indices[local_index++]);
-		}
-	}
-	else
-	{
-		lip_array_foreach(lip_sexp_t, binding, sexp->data.list[1].data.list)
-		{
-			CHECK(lip_compile_sexp(compiler, &binding->data.list[1]));
-			lip_asm_index_t local = lip_new_local(
-				compiler,
-				binding->data.list[0].data.string
-			);
-			LASM(compiler, LIP_OP_SET, local);
-		}
+		CHECK(lip_compile_exp(compiler, binding->value));
+		lip_asm_index_t local = lip_alloc_local(compiler, binding->name);
+		LASM(compiler, LIP_OP_SET, local, binding->location);
 	}
 
 	// Compile body
-	CHECK(lip_compile_sexp(compiler, &sexp->data.list[2]));
+	CHECK(lip_compile_block(compiler, ast->data.let.body));
 
-	lip_array_resize(scope->var_names, num_locals);
+	lip_array_resize(compiler->current_scope->var_names, num_vars);
+
 	return true;
 }
 
-void lip_add_var(lip_array(lip_string_ref_t)* free_vars, lip_string_ref_t var)
+static bool
+lip_compile_letrec(lip_compiler_t* compiler, lip_ast_t* ast)
 {
-	lip_array_foreach(lip_string_ref_t, str, *free_vars)
+	size_t num_vars = lip_array_len(compiler->current_scope->var_names);
+
+	// Compile bindings
+	// Declare placeholders
+	lip_array_foreach(lip_let_binding_t, binding, ast->data.let.bindings)
 	{
-		if(lip_string_ref_equal(*str, var)) { return; }
+		lip_asm_index_t local = lip_alloc_local(compiler, binding->name);
+		LASM(compiler, LIP_OP_PLHR, local, LOC_NOWHERE);
 	}
 
-	lip_array_push(*free_vars, var);
+	// Bind value to locals
+	lip_asm_index_t local_index = num_vars;
+	lip_array_foreach(lip_let_binding_t, binding, ast->data.let.bindings)
+	{
+		CHECK(lip_compile_exp(compiler, binding->value));
+		LASM(
+			compiler,
+			LIP_OP_SET, compiler->current_scope->var_indices[local_index++],
+			binding->location
+		);
+	}
+
+	// Make recursive closure
+	local_index = num_vars;
+	lip_array_foreach(lip_let_binding_t, binding, ast->data.let.bindings)
+	{
+		LASM(
+			compiler,
+			LIP_OP_RCLS, compiler->current_scope->var_indices[local_index++],
+			LOC_NOWHERE
+		);
+	}
+
+	// Compile body
+	CHECK(lip_compile_block(compiler, ast->data.let.body));
+
+	lip_array_resize(compiler->current_scope->var_names, num_vars);
+
+	return true;
 }
 
-void lip_remove_var(lip_array(lip_string_ref_t)* free_vars, lip_string_ref_t var)
+static void
+lip_set_add(lip_array(lip_string_ref_t)* set, lip_string_ref_t elem)
 {
-	unsigned int num_vars = lip_array_len(*free_vars);
-
-	for(unsigned int i = 0; i < num_vars; ++i)
+	lip_array_foreach(lip_string_ref_t, str, *set)
 	{
-		if(lip_string_ref_equal((*free_vars)[i], var))
+		if(lip_string_ref_equal(*str, elem)) { return; }
+	}
+
+	lip_array_push(*set, elem);
+}
+
+static void
+lip_set_remove(lip_array(lip_string_ref_t)* set, lip_string_ref_t elem)
+{
+	size_t num_elems = lip_array_len(*set);
+	for(size_t i = 0; i < num_elems; ++i)
+	{
+		if(lip_string_ref_equal((*set)[i], elem))
 		{
-			(*free_vars)[i] = (*free_vars)[num_vars - 1];
-			lip_array_resize(*free_vars, num_vars - 1);
+			lip_array_quick_remove(*set, i);
 			return;
 		}
 	}
 }
 
-static inline void lip_find_free_vars(
-	lip_sexp_t* sexp, lip_array(lip_string_ref_t)* free_vars
+static void
+lip_find_free_vars(lip_ast_t* ast, lip_array(lip_string_ref_t)* out);
+
+static void
+lip_find_free_vars_in_block(
+	lip_array(lip_ast_t*) block, lip_array(lip_string_ref_t)* out
 )
 {
-	switch(lip_ast_type(sexp))
+	lip_array_foreach(lip_ast_t*, sub_exp, block)
+	{
+		lip_find_free_vars(*sub_exp, out);
+	}
+}
+
+static void
+lip_find_free_vars(lip_ast_t* ast, lip_array(lip_string_ref_t)* out)
+{
+	switch(ast->type)
 	{
 		case LIP_AST_IDENTIFIER:
-			lip_add_var(free_vars, sexp->data.string);
+			lip_set_add(out, ast->data.string);
 			break;
 		case LIP_AST_IF:
-			lip_find_free_vars(&sexp->data.list[1], free_vars);
-			lip_find_free_vars(&sexp->data.list[2], free_vars);
-			if(lip_array_len(sexp->data.list) == 4)
+			lip_find_free_vars(ast->data.if_.condition, out);
+			lip_find_free_vars(ast->data.if_.then, out);
+			if(ast->data.if_.else_)
 			{
-				lip_find_free_vars(&sexp->data.list[3], free_vars);
+				lip_find_free_vars(ast->data.if_.else_, out);
 			}
 			break;
 		case LIP_AST_APPLICATION:
-			lip_array_foreach(lip_sexp_t, sub_exp, sexp->data.list)
-			{
-				lip_find_free_vars(sub_exp, free_vars);
-			}
+			lip_find_free_vars_in_block(ast->data.application.arguments, out);
+			lip_find_free_vars(ast->data.application.function, out);
 			break;
 		case LIP_AST_LAMBDA:
-			lip_find_free_vars(&sexp->data.list[2], free_vars);
-			lip_array_foreach(lip_sexp_t, param, sexp->data.list[1].data.list)
+			lip_find_free_vars_in_block(ast->data.lambda.body, out);
+			lip_array_foreach(lip_string_ref_t, param, ast->data.lambda.arguments)
 			{
-				lip_remove_var(free_vars, param->data.string);
+				lip_set_remove(out, *param);
 			}
 			break;
-		case LIP_AST_BEGIN:
-			for(unsigned int i = 1; i < lip_array_len(sexp->data.list); ++i)
-			{
-				lip_find_free_vars(&sexp->data.list[i], free_vars);
-			}
+		case LIP_AST_DO:
+			lip_find_free_vars_in_block(ast->data.do_, out);
 			break;
 		case LIP_AST_LET:
 			{
-				lip_find_free_vars(&sexp->data.list[2], free_vars);
-				lip_array(lip_sexp_t) bindings = sexp->data.list[1].data.list;
-				int num_bindings = lip_array_len(bindings);
+				lip_find_free_vars_in_block(ast->data.let.body, out);
+				size_t num_bindings = lip_array_len(ast->data.let.bindings);
 				for(int i = num_bindings - 1; i >= 0; --i)
 				{
-					lip_sexp_t* binding = &bindings[i];
-					lip_remove_var(free_vars, binding->data.list[0].data.string);
-					lip_find_free_vars(&binding->data.list[1], free_vars);
+					lip_let_binding_t* binding = &ast->data.let.bindings[i];
+					lip_set_remove(out, binding->name);
+					lip_find_free_vars(binding->value, out);
 				}
 			}
 			break;
 		case LIP_AST_LETREC:
 			{
-				lip_find_free_vars(&sexp->data.list[2], free_vars);
-				lip_array(lip_sexp_t) bindings = sexp->data.list[1].data.list;
-				lip_array_foreach(lip_sexp_t, binding, bindings)
+				lip_find_free_vars_in_block(ast->data.let.body, out);
+				size_t num_bindings = lip_array_len(ast->data.let.bindings);
+				for(int i = num_bindings - 1; i >= 0; --i)
 				{
-					lip_find_free_vars(&binding->data.list[1], free_vars);
+					lip_find_free_vars(ast->data.let.bindings[i].value, out);
 				}
-				lip_array_foreach(lip_sexp_t, binding, bindings)
+				for(int i = num_bindings - 1; i >= 0; --i)
 				{
-					lip_remove_var(free_vars, binding->data.list[0].data.string);
+					lip_set_remove(out, ast->data.let.bindings[i].name);
 				}
 			}
 			break;
 		case LIP_AST_STRING:
 		case LIP_AST_NUMBER:
-			break;;
-		case LIP_AST_ERROR:
-			abort();
+			break;
 	}
 }
 
-static inline bool lip_compile_lambda(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
+static bool
+lip_compile_lambda(lip_compiler_t* compiler, lip_ast_t* ast)
 {
-	lip_scope_begin(compiler);
+	lip_begin_scope(compiler);
+
 	// Allocate parameters as local variables
-	lip_array_foreach(lip_sexp_t, param, sexp->data.list[1].data.list)
+	lip_array_foreach(lip_string_ref_t, arg, ast->data.lambda.arguments)
 	{
-		lip_new_local(compiler, param->data.string);
+		lip_alloc_local(compiler, *arg);
 	}
+
 	// Allocate free vars
 	lip_array_clear(compiler->free_var_names);
-	lip_array_clear(compiler->free_var_indices);
-	lip_find_free_vars(sexp, &compiler->free_var_names);
-	unsigned int num_free_vars = lip_array_len(compiler->free_var_names);
-	unsigned int num_captures = 0;
-	int free_var_index = 0;
-	lip_scope_t* scope = compiler->current_scope;
-	for(unsigned int i = 0; i < num_free_vars; ++i)
-	{
-		compiler->free_var_names[num_captures] = compiler->free_var_names[i];
+	lip_find_free_vars(ast, &compiler->free_var_names);
 
-		lip_asm_index_t local_index;
+	lip_array_clear(compiler->free_var_indices);
+	lip_scope_t* scope = compiler->current_scope;
+	lip_operand_t free_var_index = 0;
+	size_t num_free_vars = lip_array_len(compiler->free_var_names);
+	size_t num_captures = 0;
+	for(size_t i = 0; i < num_free_vars; ++i)
+	{
+		lip_operand_t local_index;
 		if(lip_find_local(compiler, compiler->free_var_names[i], &local_index))
 		{
 			lip_array_push(scope->var_names, compiler->free_var_names[i]);
@@ -796,168 +437,157 @@ static inline bool lip_compile_lambda(
 			++num_captures;
 		}
 	}
-	lip_array_resize(compiler->free_var_names, num_captures);
-	// Compile body
-	if(!lip_compile_sexp(compiler, &sexp->data.list[2]))
-	{
-		lip_scope_end(compiler);
-		return false;
-	}
-	LASM(compiler, LIP_OP_RET, 0);
-	lip_function_t* function = lip_asm_end(&compiler->current_scope->lasm);
-	lip_scope_end(compiler);
 
+	// Compile body
+	CHECK(lip_compile_block(compiler, ast->data.lambda.body));
+
+	LASM(compiler, LIP_OP_RET, 0, LOC_NOWHERE);
+	lip_function_t* function = lip_end_scope(compiler);
+	function->num_args = lip_array_len(ast->data.lambda.arguments);
+	lip_array_push(compiler->nested_functions, function);
+
+	// Compiler closure capture
 	lip_asm_index_t function_index =
 		lip_asm_new_function(&compiler->current_scope->lasm, function);
-	int32_t operand = (function_index & 0xFFF) | ((num_captures & 0xFFF) << 12);
-	LASM(compiler, LIP_OP_CLS, operand);
-	// pseudo-instructions to capture local variables into closure
-	for(unsigned int i = 0; i < num_captures; ++i)
-	{
-		LASM(compiler, LIP_OP_LDL, compiler->free_var_indices[i]);
-	}
-	return true;
-}
+	lip_operand_t operand =
+		(function_index & 0xFFF) | ((num_captures & 0xFFF) << 12);
 
-static inline bool lip_compile_begin(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
-{
-	lip_sexp_t* list = sexp->data.list;
-	unsigned int length = lip_array_len(list);
-
-	// TODO: pop in the pen-ultimate expression instead
-	// Must handle many edge cases like empty begin
-	LASM(compiler, LIP_OP_NIL, 0);
-	for(unsigned int i = 1; i < length; ++i)
+	LASM(compiler, LIP_OP_CLS, operand, ast->location);
+	// Pseudo-instructions to capture local variables into closure
+	for(size_t i = 0; i < num_captures; ++i)
 	{
-		LASM(compiler, LIP_OP_POP, 1);
-		CHECK(lip_compile_sexp(compiler, &list[i]));
+		LASM(compiler, LIP_OP_LDL, compiler->free_var_indices[i], LOC_NOWHERE);
 	}
 
 	return true;
 }
 
-static inline bool lip_compile_application(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
+static bool
+lip_compile_do(lip_compiler_t* compiler, lip_ast_t* ast)
 {
-	lip_sexp_t* head = &sexp->data.list[0];
-	unsigned int arity = lip_array_len(sexp->data.list) - 1;
-
-	if(head->type == LIP_SEXP_SYMBOL)
-	{
-		lip_string_ref_t symbol = head->data.string;
-		// TODO: optimize in asm instead, search for import->call sequence and
-		// change to instruction before label collection
-		if(lip_string_ref_equal(symbol, lip_string_ref("+")))
-		{
-			CHECK(lip_compile_arguments(compiler, sexp));
-			LASM(compiler, LIP_OP_PLUS, arity);
-		}
-		else if(lip_string_ref_equal(symbol, lip_string_ref("<")))
-		{
-			ENSURE(arity == 2, "'<' expects 2 arguments");
-			CHECK(lip_compile_arguments(compiler, sexp));
-			LASM(compiler, LIP_OP_LT, 0);
-		}
-		else
-		{
-			CHECK(lip_compile_arguments(compiler, sexp));
-			CHECK(lip_compile_sexp(compiler, head));
-			LASM(compiler, LIP_OP_CALL, arity);
-		}
-	}
-	else
-	{
-		CHECK(lip_compile_arguments(compiler, sexp));
-		CHECK(lip_compile_sexp(compiler, head));
-		LASM(compiler, LIP_OP_CALL, arity);
-	}
-
-	return true;
+	return lip_compile_block(compiler, ast->data.do_);
 }
 
-static inline bool lip_compile_sexp(
-	lip_compiler_t* compiler, lip_sexp_t* sexp
-)
+static bool
+lip_compile_exp(lip_compiler_t* compiler, lip_ast_t* ast)
 {
-	switch(lip_ast_type(sexp))
+	switch(ast->type)
 	{
-		case LIP_AST_IDENTIFIER:
-			return lip_compile_identifier(compiler, sexp);
-		case LIP_AST_STRING:
-			return lip_compile_string(compiler, sexp);
 		case LIP_AST_NUMBER:
-			return lip_compile_number(compiler, sexp);
-		case LIP_AST_IF:
-			return lip_compile_if(compiler, sexp);
-		case LIP_AST_LET:
-			return lip_compile_let(compiler, sexp, false);
-		case LIP_AST_LETREC:
-			return lip_compile_let(compiler, sexp, true);
+			return lip_compile_number(compiler, ast);
+		case LIP_AST_STRING:
+			return lip_compile_string(compiler, ast);
+		case LIP_AST_IDENTIFIER:
+			return lip_compile_identifier(compiler, ast);
 		case LIP_AST_APPLICATION:
-			return lip_compile_application(compiler, sexp);
+			return lip_compile_application(compiler, ast);
+		case LIP_AST_IF:
+			return lip_compile_if(compiler, ast);
+		case LIP_AST_LET:
+			return lip_compile_let(compiler, ast);
+		case LIP_AST_LETREC:
+			return lip_compile_letrec(compiler, ast);
 		case LIP_AST_LAMBDA:
-			return lip_compile_lambda(compiler, sexp);
-		case LIP_AST_BEGIN:
-			return lip_compile_begin(compiler, sexp);
-		case LIP_AST_ERROR:
-			return lip_compile_error(compiler, "unrecognized form", sexp);
+			return lip_compile_lambda(compiler, ast);
+		case LIP_AST_DO:
+			return lip_compile_do(compiler, ast);
 	}
 
-	return lip_compile_error(compiler, "not implemented", sexp);
+	lip_set_error(compiler, ast->location, "Unknown error");
+	return false;
 }
 
-bool lip_compiler_add_sexp(
-	lip_compiler_t* compiler, lip_sexp_t* sexp, lip_compile_error_t* error
-)
+void
+lip_compiler_init(lip_compiler_t* compiler, lip_allocator_t* allocator)
 {
-	compiler->error = error;
-	CHECK(lip_check_syntax(compiler, sexp));
-
-	if(compiler->mode == LIP_COMPILE_MODE_REPL)
-	{
-		LASM(compiler, LIP_OP_POP, 1);
-		return lip_compile_sexp(compiler, sexp);
-	}
-	else
-	{
-		return lip_compile_error(compiler, "not implemented", sexp);
-	}
+	compiler->allocator = allocator;
+	compiler->temp_allocator = lip_temp_allocator_create(allocator, 1024);
+	compiler->source_name = lip_string_ref("");
+	compiler->current_scope = NULL;
+	compiler->free_scopes = NULL;
+	compiler->error.code = 0;
+	compiler->error.location = LOC_NOWHERE;
+	compiler->nested_functions = lip_array_create(
+		compiler->allocator, lip_function_t*, 1
+	);
+	compiler->free_var_names = lip_array_create(
+		compiler->allocator, lip_string_ref_t, 1
+	);
+	compiler->free_var_indices = lip_array_create(
+		compiler->allocator, lip_operand_t, 1
+	);
+	compiler->error.extra = NULL;
 }
 
-lip_module_t* lip_compiler_end(lip_compiler_t* compiler)
+static void
+lip_compiler_reset(lip_compiler_t* compiler)
 {
-	if(compiler->mode == LIP_COMPILE_MODE_REPL)
+	while(compiler->current_scope)
 	{
-		LASM(compiler, LIP_OP_RET, 0);
-		lip_function_t* function = lip_asm_end(&compiler->current_scope->lasm);
-		lip_scope_end(compiler);
-		lip_bundler_begin(&compiler->bundler);
-		lip_bundler_add_lip_function(
-			&compiler->bundler, lip_string_ref("main"), function
-		);
-		return lip_bundler_end(&compiler->bundler);
+		lip_end_scope(compiler);
 	}
-	else
+
+	lip_temp_allocator_reset(compiler->temp_allocator);
+
+	lip_array_foreach(lip_function_t*, function, compiler->nested_functions)
 	{
-		return lip_bundler_end(&compiler->bundler);
+		lip_free(compiler->allocator, *function);
 	}
+	lip_array_clear(compiler->nested_functions);
 }
 
-void lip_compiler_cleanup(lip_compiler_t* compiler)
+void
+lip_compiler_cleanup(lip_compiler_t* compiler)
 {
-	lip_array_delete(compiler->free_var_names);
-	lip_array_delete(compiler->free_var_indices);
 	lip_compiler_reset(compiler);
-	lip_scope_t* itr = compiler->free_scopes;
-	while(itr)
+
+	for(
+		lip_scope_t* scope = compiler->free_scopes;
+		scope != NULL;
+	)
 	{
-		lip_scope_t* next = itr->parent;
-		lip_scope_delete(compiler, itr);
-		itr = next;
+		lip_scope_t* next_scope = scope->parent;
+
+		lip_asm_cleanup(&scope->lasm);
+		lip_array_destroy(scope->var_indices);
+		lip_array_destroy(scope->var_names);
+		lip_free(compiler->allocator, scope);
+
+		scope = next_scope;
 	}
 
-	lip_bundler_cleanup(&compiler->bundler);
+	lip_array_destroy(compiler->free_var_indices);
+	lip_array_destroy(compiler->free_var_names);
+	lip_array_destroy(compiler->nested_functions);
+	lip_temp_allocator_destroy(compiler->temp_allocator);
+}
+
+void
+lip_compiler_begin(lip_compiler_t* compiler, lip_string_ref_t source_name)
+{
+	compiler->source_name = source_name;
+	lip_compiler_reset(compiler);
+	lip_begin_scope(compiler);
+	// Push nil so that the next expression has something to pop
+	// It can also help to compile an empty file safely and return nil
+	LASM(compiler, LIP_OP_NIL, 0, LOC_NOWHERE);
+}
+
+lip_error_t*
+lip_compiler_add_sexp(lip_compiler_t* compiler, lip_sexp_t* sexp)
+{
+	lip_result_t result = lip_translate_sexp(compiler->temp_allocator, sexp);
+	if(!result.success) { return result.value; }
+
+	LASM(compiler, LIP_OP_POP, 1, LOC_NOWHERE); // previous exp's result
+	if(!lip_compile_exp(compiler, result.value)) { return &compiler->error; }
+
+	return NULL;
+}
+
+lip_function_t*
+lip_compiler_end(lip_compiler_t* compiler)
+{
+	LASM(compiler, LIP_OP_RET, 0, LOC_NOWHERE);
+	return lip_end_scope(compiler);
 }

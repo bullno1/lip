@@ -1,6 +1,7 @@
 #ifndef LIP_IO_H
 #define LIP_IO_H
 
+#include <stdio.h>
 #include "common.h"
 
 struct lip_in_s
@@ -19,6 +20,21 @@ struct lip_sstream_s
 	lip_string_ref_t str;
 	size_t pos;
 };
+
+struct lip_ofstream_s
+{
+	lip_out_t vtable;
+	FILE* file;
+};
+
+lip_in_t*
+lip_stdin();
+
+lip_out_t*
+lip_stdout();
+
+lip_out_t*
+lip_stderr();
 
 LIP_MAYBE_UNUSED static inline size_t
 lip_read(void* buff, size_t size, lip_in_t* input)
@@ -40,5 +56,8 @@ lip_printf(lip_allocator_t* allocator, lip_out_t* output, const char* format, ..
 
 lip_in_t*
 lip_make_sstream(lip_string_ref_t str, struct lip_sstream_s* sstream);
+
+lip_out_t*
+lip_make_ofstream(FILE* file, struct lip_ofstream_s* ofstream);
 
 #endif

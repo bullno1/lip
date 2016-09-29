@@ -36,6 +36,9 @@ lip_vm_t*
 lip_vm_create(lip_allocator_t* allocator, lip_vm_config_t* config);
 
 void
+lip_vm_reset(lip_vm_t* vm);
+
+void
 lip_vm_destroy(lip_allocator_t* allocator, lip_vm_t* vm);
 
 lip_vm_hook_t*
@@ -73,6 +76,15 @@ lip_vm_push_boolean(lip_vm_t* vm, bool boolean)
 	lip_vm_push_value(vm, (lip_value_t){
 		.type = LIP_VAL_BOOLEAN,
 		.data = { .boolean = boolean }
+	});
+}
+
+LIP_MAYBE_UNUSED static inline void
+lip_vm_push_closure(lip_vm_t* vm, lip_closure_t* closure)
+{
+	lip_vm_push_value(vm, (lip_value_t){
+		.type = LIP_VAL_FUNCTION,
+		.data = { .reference = closure }
 	});
 }
 

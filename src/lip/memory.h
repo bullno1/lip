@@ -29,7 +29,7 @@ struct lip_memblock_info_s
 	ptrdiff_t offset;
 };
 
-extern lip_allocator_t* lip_default_allocator;
+extern lip_allocator_t* const lip_default_allocator;
 
 static const size_t LIP_MAX_ALIGNMENT =
 	LIP_ALIGN_OF(struct {

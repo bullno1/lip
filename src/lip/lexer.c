@@ -1,7 +1,5 @@
 #include "ex/lexer.h"
 #include <ctype.h>
-#include <string.h>
-#include "token.h"
 #include "array.h"
 #include "io.h"
 #include "utils.h"
@@ -75,6 +73,7 @@ lip_lexer_end_capture(lip_lexer_t* lexer)
 {
 
 	unsigned int len = lip_array_len(lexer->capture_buff);
+	lip_array_push(lexer->capture_buff, 0); // null-terminate
 	lip_string_ref_t ref = { len, lexer->capture_buff };
 	lip_array_push(lexer->capture_buffs, lexer->capture_buff);
 	lexer->capture_buff = NULL;

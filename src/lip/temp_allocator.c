@@ -1,5 +1,4 @@
 #include "ex/temp_allocator.h"
-#include <stdlib.h>
 #include "memory.h"
 #include "utils.h"
 

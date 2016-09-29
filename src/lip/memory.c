@@ -52,4 +52,4 @@ static lip_allocator_t lip_crt_allocator = {
 	.free = lip_crt_free
 };
 
-lip_allocator_t* lip_default_allocator = &lip_crt_allocator;
+lip_allocator_t* const lip_default_allocator = &lip_crt_allocator;
