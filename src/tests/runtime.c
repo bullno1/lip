@@ -186,6 +186,30 @@ basic_forms(const MunitParameter params[], void* fixture_)
 	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
 	munit_assert_double_equal(1.0, result.data.number, 3);
 
+	munit_assert_true(
+		lip_runtime_exec_string(
+			runtime,
+		    "(let ((x 2))"
+			" (let ((y 3)"
+			"       (x 1))"
+			"  nil)"
+			" (let ((z 8)) x))",
+			&result));
+	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
+	munit_assert_double_equal(2.0, result.data.number, 3);
+
+	munit_assert_true(
+		lip_runtime_exec_string(
+			runtime,
+		    "(let ((x 2))"
+			" (let ((y 3)"
+			"       (x 1))"
+			"  nil)"
+			" (let ((z 6) (h x) (w 4)) h))",
+			&result));
+	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
+	munit_assert_double_equal(2.0, result.data.number, 3);
+
 	return MUNIT_OK;
 }
 
