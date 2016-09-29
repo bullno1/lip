@@ -135,6 +135,10 @@ BEGIN_OP(RCLS)
 			}
 		}
 	}
+	else if(target->type == LIP_VAL_PLACEHOLDER)
+	{
+		*target = *(ep - target->data.index);
+	}
 END_OP(RCLS)
 
 BEGIN_OP(SET)
