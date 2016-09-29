@@ -70,26 +70,8 @@ bin/lip: << C_FLAGS CPP_FLAGS CC
 		libs="bin/liblip.a"
 
 bin/liblip.a:
-	MODULES=" \
-		lexer \
-		array \
-		memory \
-		io \
-		parser \
-		asm \
-		temp_allocator \
-		ast \
-		compiler \
-		vm \
-		vm_dispatch \
-		runtime \
-		print
-	"
-	SOURCES=$(
-		echo ${MODULES} |
-		awk '{ for(i = 1; i <= NF; i++) { print "src/lip/" $i ".c"; } }'
-	)
-	${NUMAKE} static-lib:$@ sources="${SOURCES}"
+	${NUMAKE} static-lib:$@ \
+		sources="`find src/lip -name '*.cpp' -or -name '*.c'`"
 
 # Only for vm_dispatch.c, remove -pedantic because we will be using a
 # non-standard extension (computed goto) if it is available
