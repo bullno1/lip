@@ -311,6 +311,18 @@ syntax_error(const MunitParameter params[], void* fixture_)
 		.end = { .line = 1, .column = 9 }
 	}));
 
+	munit_assert_false(
+		lip_runtime_exec_string(
+			runtime,
+			"(fn (xy zzz xy) x)",
+			&result));
+	error = lip_runtime_last_error(runtime);
+	lip_assert_enum(lip_error_stage_t, error->code, ==, LIP_STAGE_COMPILER);
+	lip_assert_loc_range_equal(error->location, ((lip_loc_range_t){
+		.start = { .line = 1, .column = 13 },
+		.end = { .line = 1, .column = 14 }
+	}));
+
 	return MUNIT_OK;
 }
 

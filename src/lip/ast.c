@@ -154,6 +154,14 @@ lip_translate_lambda(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 		CHECK_SEXP(
 			arg, arg->type == LIP_SEXP_SYMBOL, "argument name must be a symbol"
 		);
+		lip_array_foreach(lip_string_ref_t, previous_arg, arguments)
+		{
+			if(lip_string_ref_equal(*previous_arg, arg->data.string))
+			{
+				return lip_error(allocator, arg, "Duplicated parameter name");
+			}
+		}
+
 		lip_array_push(arguments, arg->data.string);
 	}
 
