@@ -10,6 +10,7 @@ matrix:
           packages:
             - gcc-5
       env:
+        - COMPILER=gcc
         - CC='gcc-5 -fuse-ld=gold'
         - WITH_LTO=0
         - WITH_COVERAGE=1
@@ -24,6 +25,7 @@ matrix:
           packages:
             - clang-3.8
       env:
+        - COMPILER=clang
         - CC=clang-3.8
         - WITH_LTO=0
         - WITH_COVERAGE=0
@@ -35,6 +37,6 @@ install:
 script:
   - ./numake tests
 after_success:
-  - if [ "$CC" = "gcc" ]; then coveralls --root . --build-root . --exclude .build/src/tests; fi
+  - if [ "$COMPILER" = "gcc" ]; then coveralls --root . --build-root . --exclude .build/src/tests; fi
 sudo: required
 dist: trusty
