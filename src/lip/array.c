@@ -12,9 +12,9 @@ typedef struct lip_array_s
 } lip_array_t;
 
 static inline lip_array_t*
-lip_array_head(void* ptr)
+lip_array_head(const void* ptr)
 {
-	char* body = ptr;
+	const char* body = ptr;
 	return (lip_array_t*)(body - (*(body - 1)));
 }
 
@@ -99,7 +99,7 @@ lip_array__prepare_push(void* array)
 }
 
 size_t
-lip_array_len(void* array)
+lip_array_len(const void* array)
 {
 	return lip_array_head(array)->length;
 }

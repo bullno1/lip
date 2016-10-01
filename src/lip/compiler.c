@@ -19,10 +19,10 @@ lip_set_error(
 }
 
 static bool
-lip_compile_exp(lip_compiler_t* compiler, lip_ast_t* ast);
+lip_compile_exp(lip_compiler_t* compiler, const lip_ast_t* ast);
 
 static bool
-lip_compile_number(lip_compiler_t* compiler, lip_ast_t* ast)
+lip_compile_number(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
 	double number = ast->data.number;
 	int integer = (int)number;
@@ -42,7 +42,7 @@ lip_compile_number(lip_compiler_t* compiler, lip_ast_t* ast)
 }
 
 static bool
-lip_compile_string(lip_compiler_t* compiler, lip_ast_t* ast)
+lip_compile_string(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
 	lip_asm_index_t index = lip_asm_alloc_string_constant(
 		&compiler->current_scope->lasm, ast->data.string
@@ -132,7 +132,7 @@ lip_find_local(
 }
 
 static bool
-lip_compile_identifier(lip_compiler_t* compiler, lip_ast_t* ast)
+lip_compile_identifier(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
 	lip_operand_t index;
 	if(lip_find_local(compiler, ast->data.string, &index))
@@ -164,7 +164,7 @@ lip_compile_identifier(lip_compiler_t* compiler, lip_ast_t* ast)
 }
 
 static bool
-lip_compile_application(lip_compiler_t* compiler, lip_ast_t* ast)
+lip_compile_application(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
 	CHECK(lip_compile_arguments(compiler, ast->data.application.arguments));
 	CHECK(lip_compile_exp(compiler, ast->data.application.function));
@@ -177,7 +177,7 @@ lip_compile_application(lip_compiler_t* compiler, lip_ast_t* ast)
 }
 
 static bool
-lip_compile_if(lip_compiler_t* compiler, lip_ast_t* ast)
+lip_compile_if(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
 	CHECK(lip_compile_exp(compiler, ast->data.if_.condition));
 
@@ -248,7 +248,7 @@ lip_alloc_local(lip_compiler_t* compiler, lip_string_ref_t name)
 }
 
 static bool
-lip_compile_let(lip_compiler_t* compiler, lip_ast_t* ast)
+lip_compile_let(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
 	size_t num_vars = lip_array_len(compiler->current_scope->var_names);
 
@@ -269,7 +269,7 @@ lip_compile_let(lip_compiler_t* compiler, lip_ast_t* ast)
 }
 
 static bool
-lip_compile_letrec(lip_compiler_t* compiler, lip_ast_t* ast)
+lip_compile_letrec(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
 	size_t num_vars = lip_array_len(compiler->current_scope->var_names);
 
@@ -338,7 +338,7 @@ lip_set_remove(lip_array(lip_string_ref_t)* set, lip_string_ref_t elem)
 }
 
 static void
-lip_find_free_vars(lip_ast_t* ast, lip_array(lip_string_ref_t)* out);
+lip_find_free_vars(const lip_ast_t* ast, lip_array(lip_string_ref_t)* out);
 
 static void
 lip_find_free_vars_in_block(
@@ -352,7 +352,7 @@ lip_find_free_vars_in_block(
 }
 
 static void
-lip_find_free_vars(lip_ast_t* ast, lip_array(lip_string_ref_t)* out)
+lip_find_free_vars(const lip_ast_t* ast, lip_array(lip_string_ref_t)* out)
 {
 	switch(ast->type)
 	{
@@ -414,7 +414,7 @@ lip_find_free_vars(lip_ast_t* ast, lip_array(lip_string_ref_t)* out)
 }
 
 static bool
-lip_compile_lambda(lip_compiler_t* compiler, lip_ast_t* ast)
+lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
 	lip_begin_scope(compiler);
 
@@ -470,13 +470,13 @@ lip_compile_lambda(lip_compiler_t* compiler, lip_ast_t* ast)
 }
 
 static bool
-lip_compile_do(lip_compiler_t* compiler, lip_ast_t* ast)
+lip_compile_do(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
 	return lip_compile_block(compiler, ast->data.do_);
 }
 
 static bool
-lip_compile_exp(lip_compiler_t* compiler, lip_ast_t* ast)
+lip_compile_exp(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
 	switch(ast->type)
 	{
@@ -580,8 +580,8 @@ lip_compiler_begin(lip_compiler_t* compiler, lip_string_ref_t source_name)
 	LASM(compiler, LIP_OP_NIL, 0, LIP_LOC_NOWHERE);
 }
 
-lip_error_t*
-lip_compiler_add_sexp(lip_compiler_t* compiler, lip_sexp_t* sexp)
+const lip_error_t*
+lip_compiler_add_sexp(lip_compiler_t* compiler, const lip_sexp_t* sexp)
 {
 	lip_result_t result = lip_translate_sexp(compiler->temp_allocator, sexp);
 	if(!result.success) { return result.value; }

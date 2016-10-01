@@ -27,7 +27,7 @@ lip_print_closure(
 	unsigned int depth,
 	unsigned int indent,
 	lip_out_t* output,
-	lip_closure_t* closure
+	const lip_closure_t* closure
 );
 
 void
@@ -36,7 +36,7 @@ lip_print_function(
 	unsigned int depth,
 	unsigned int indent,
 	lip_out_t* output,
-	lip_function_t* function
+	const lip_function_t* function
 );
 
 void
@@ -45,7 +45,7 @@ lip_print_ast(
 	unsigned int depth,
 	unsigned int indent,
 	lip_out_t* output,
-	lip_ast_t* ast
+	const lip_ast_t* ast
 );
 
 #endif

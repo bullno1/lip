@@ -39,7 +39,7 @@ lip_success(void* result)
 }
 
 static lip_result_t
-lip_error(lip_allocator_t* allocator, lip_sexp_t* sexp, const char* msg)
+lip_error(lip_allocator_t* allocator, const lip_sexp_t* sexp, const char* msg)
 {
 	lip_error_t* error = lip_new(allocator, lip_error_t);
 	error->code = 0;
@@ -52,7 +52,7 @@ lip_error(lip_allocator_t* allocator, lip_sexp_t* sexp, const char* msg)
 }
 
 static lip_ast_t*
-lip_alloc_ast(lip_allocator_t* allocator, lip_sexp_t* sexp)
+lip_alloc_ast(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	lip_ast_t* ast = lip_new(allocator, lip_ast_t);
 	ast->location = sexp->location;
@@ -60,7 +60,7 @@ lip_alloc_ast(lip_allocator_t* allocator, lip_sexp_t* sexp)
 }
 
 static lip_result_t
-lip_translate_if(lip_allocator_t* allocator, lip_sexp_t* sexp)
+lip_translate_if(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	lip_sexp_t* list = sexp->data.list;
 	unsigned int arity = lip_array_len(list) - 1;
@@ -89,7 +89,7 @@ lip_translate_if(lip_allocator_t* allocator, lip_sexp_t* sexp)
 
 static lip_result_t
 lip_translate_let(
-	lip_allocator_t* allocator, lip_sexp_t* sexp, bool recursive
+	lip_allocator_t* allocator, const lip_sexp_t* sexp, bool recursive
 )
 {
 	lip_sexp_t* list = sexp->data.list;
@@ -134,7 +134,7 @@ lip_translate_let(
 }
 
 static lip_result_t
-lip_translate_lambda(lip_allocator_t* allocator, lip_sexp_t* sexp)
+lip_translate_lambda(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	lip_sexp_t* list = sexp->data.list;
 	unsigned int arity = lip_array_len(list) - 1;
@@ -167,7 +167,7 @@ lip_translate_lambda(lip_allocator_t* allocator, lip_sexp_t* sexp)
 }
 
 static lip_result_t
-lip_translate_do(lip_allocator_t* allocator, lip_sexp_t* sexp)
+lip_translate_do(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	TRANSLATE_BLOCK(
 		body, sexp->data.list + 1, lip_array_len(sexp->data.list) - 1
@@ -180,7 +180,7 @@ lip_translate_do(lip_allocator_t* allocator, lip_sexp_t* sexp)
 }
 
 static lip_result_t
-lip_translate_application(lip_allocator_t* allocator, lip_sexp_t* sexp)
+lip_translate_application(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	lip_sexp_t* list = sexp->data.list;
 	unsigned int arity = lip_array_len(list) - 1;
@@ -196,7 +196,7 @@ lip_translate_application(lip_allocator_t* allocator, lip_sexp_t* sexp)
 }
 
 static lip_result_t
-lip_translate_identifier(lip_allocator_t* allocator, lip_sexp_t* sexp)
+lip_translate_identifier(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	lip_ast_t* identifier = lip_alloc_ast(allocator, sexp);
 	identifier->type = LIP_AST_IDENTIFIER;
@@ -205,7 +205,7 @@ lip_translate_identifier(lip_allocator_t* allocator, lip_sexp_t* sexp)
 }
 
 static lip_result_t
-lip_translate_string(lip_allocator_t* allocator, lip_sexp_t* sexp)
+lip_translate_string(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	lip_ast_t* string = lip_alloc_ast(allocator, sexp);
 	string->type = LIP_AST_STRING;
@@ -214,7 +214,7 @@ lip_translate_string(lip_allocator_t* allocator, lip_sexp_t* sexp)
 }
 
 static lip_result_t
-lip_translate_number(lip_allocator_t* allocator, lip_sexp_t* sexp)
+lip_translate_number(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	lip_ast_t* number = lip_alloc_ast(allocator, sexp);
 	number->type = LIP_AST_NUMBER;
@@ -224,7 +224,7 @@ lip_translate_number(lip_allocator_t* allocator, lip_sexp_t* sexp)
 }
 
 lip_result_t
-lip_translate_sexp(lip_allocator_t* allocator, lip_sexp_t* sexp)
+lip_translate_sexp(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	switch(sexp->type)
 	{

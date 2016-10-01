@@ -110,7 +110,7 @@ lip_runtime_compile(
 		{
 			case LIP_STREAM_OK:
 				{
-					lip_error_t* compile_error =
+					const lip_error_t* compile_error =
 						lip_compiler_add_sexp(&runtime->compiler, &sexp);
 					if(compile_error != NULL)
 					{

@@ -74,6 +74,6 @@ struct lip_result_s
 };
 
 lip_result_t
-lip_translate_sexp(lip_allocator_t* allocator, lip_sexp_t* sexp);
+lip_translate_sexp(lip_allocator_t* allocator, const lip_sexp_t* sexp);
 
 #endif

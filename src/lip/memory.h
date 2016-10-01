@@ -46,7 +46,7 @@ lip_memblock_info_t
 lip_align_memblocks(unsigned int num_blocks, lip_memblock_info_t** blocks);
 
 LIP_MAYBE_UNUSED static inline void*
-lip_locate_memblock(void* base, lip_memblock_info_t* block)
+lip_locate_memblock(void* base, const lip_memblock_info_t* block)
 {
 	return (char*)base + block->offset;
 }
@@ -70,7 +70,7 @@ lip_free(lip_allocator_t* allocator, void* ptr)
 }
 
 LIP_MAYBE_UNUSED static inline void*
-lip_align_ptr(void* ptr, size_t alignment)
+lip_align_ptr(const void* ptr, size_t alignment)
 {
 	return (void*)(((uintptr_t)ptr + alignment - 1) / alignment * alignment);
 }

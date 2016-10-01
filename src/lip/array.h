@@ -27,7 +27,7 @@ lip_array_destroy(void* array);
 void
 lip_array_clear(void* array);
 size_t
-lip_array_len(void* array);
+lip_array_len(const void* array);
 
 // private
 void*
