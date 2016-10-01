@@ -8,7 +8,6 @@
 struct lip_runtime_s
 {
 	lip_allocator_t* allocator;
-	lip_allocator_t* temp_allocator;
 	lip_runtime_config_t config;
 	lip_parser_t parser;
 	lip_compiler_t compiler;

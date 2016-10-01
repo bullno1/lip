@@ -1,6 +1,6 @@
 #include "ex/runtime.h"
-#include "temp_allocator.h"
 #include "utils.h"
+#include "memory.h"
 
 LIP_IMPLEMENT_DESTRUCTOR(lip_runtime)
 
@@ -20,7 +20,6 @@ lip_runtime_init(
 )
 {
 	runtime->allocator = allocator;
-	runtime->temp_allocator = lip_temp_allocator_create(allocator, 1024);
 	runtime->config = *config;
 	lip_parser_init(&runtime->parser, allocator);
 	lip_compiler_init(&runtime->compiler, allocator);
@@ -38,7 +37,6 @@ lip_runtime_cleanup(lip_runtime_t* runtime)
 
 	lip_compiler_cleanup(&runtime->compiler);
 	lip_parser_cleanup(&runtime->parser);
-	lip_temp_allocator_destroy(runtime->temp_allocator);
 }
 
 lip_error_t*
@@ -59,7 +57,8 @@ lip_runtime_exec(
 	lip_function_t* function = lip_runtime_compile(runtime, stream, name);
 	if(function == NULL) { return false; }
 
-	lip_closure_t* closure = lip_new(runtime->temp_allocator, lip_closure_t);
+	char mem[sizeof(lip_closure_t) + LIP_MAX_ALIGNMENT - 1];
+	lip_closure_t* closure = lip_align_ptr(mem, LIP_MAX_ALIGNMENT);
 	closure->function.lip = function;
 	closure->is_native = false;
 	closure->env_len = 0;
@@ -72,7 +71,6 @@ lip_runtime_exec(
 	lip_vm_reset(vm);
 	lip_vm_push_closure(vm, closure);
 	lip_exec_status_t status = lip_vm_call(vm, 0, result);
-	lip_temp_allocator_reset(runtime->temp_allocator);
 	lip_free(runtime->allocator, function);
 
 	switch(status)
