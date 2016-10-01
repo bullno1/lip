@@ -531,7 +531,10 @@ lip_compiler_reset(lip_compiler_t* compiler)
 {
 	while(compiler->current_scope)
 	{
-		lip_end_scope(compiler);
+		lip_scope_t* scope = compiler->current_scope;
+		compiler->current_scope = scope->parent;
+		scope->parent = compiler->free_scopes;
+		compiler->free_scopes = scope;
 	}
 
 	lip_temp_allocator_reset(compiler->temp_allocator);
