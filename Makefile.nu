@@ -17,28 +17,31 @@ UB_FLAGS_0 =
 UB_FLAGS_1 = -fsanitize=undefined -fno-sanitize-recover=undefined
 UB_FLAGS = $(eval echo \${UB_FLAGS_$WITH_UB_SAN})
 
-COMMON_FLAGS = ${UB_FLAGS} ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
+WITH_ADDR_SAN ?= 0
+ADDR_SAN_FLAGS_0 =
+ADDR_SAN_FLAGS_1 = -fsanitize=address
+ADDR_SAN_FLAGS = $(eval echo \${ADDR_SAN_FLAGS_$WITH_ADDR_SAN})
+
+COMMON_FLAGS = ${UB_FLAGS} ${ADDR_SAN_FLAGS} ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
 COMPILATION_FLAGS = -g -Wall -Wextra -Werror -pedantic
 C_FLAGS ?= -std=c99 ${COMPILATION_FLAGS} ${COMMON_FLAGS}
 CPP_FLAGS ?= ${COMPILATION_FLAGS} ${COMMON_FLAGS}
 LINK_FLAGS ?= -g ${COMMON_FLAGS}
 
-VALGRIND ?= valgrind
-
 -import cpp.nu
 
 all: tests bin/lip ! live
 
-tests: bin/tests ! live << VALGRIND
+tests: bin/tests ! live
 	echo "-------------------------------------"
-	${VALGRIND} bin/tests --color always
+	bin/tests --color always
 
-test:%: bin/tests ! live << VALGRIND SEED
+test:%: bin/tests ! live << SEED
 	echo "-------------------------------------"
 	if [ -z "${SEED}" ]; then
-		${VALGRIND} bin/tests --color always ${m}
+		bin/tests --color always ${m}
 	else
-		${VALGRIND} bin/tests --color always --seed ${SEED} ${m}
+		bin/tests --color always --seed ${SEED} ${m}
 	fi
 
 cover: tests
