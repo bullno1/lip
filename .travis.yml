@@ -1,41 +1,40 @@
 ---
-language: c
+language: generic
 matrix:
   include:
-    - compiler: gcc
+    - os: linux
       addons:
         apt:
           sources:
             - ubuntu-toolchain-r-test
           packages:
             - gcc-5
-      env: CC=gcc-5
-    - compiler: clang
+      env:
+        - CC='gcc-5 -fuse-ld=gold'
+        - WITH_LTO=0
+        - WITH_COVERAGE=1
+        - WITH_UB_SAN=1
+        - WITH_ADDR_SAN=1
+    - os: linux
       addons:
         apt:
           sources:
             - ubuntu-toolchain-r-test
-            - llvm-toolchain-trusty-3.8
+            - llvm-toolchain-precise-3.8
           packages:
             - clang-3.8
-      env: CC=clang-3.8
+      env:
+        - CC=clang-3.8
+        - WITH_LTO=0
+        - WITH_COVERAGE=0
+        - WITH_UB_SAN=1
+        - WITH_ADDR_SAN=1
 install:
   - sudo apt-get install -y valgrind
   - pip install --user cpp-coveralls
 script:
-  - if [ "$CC" = "clang" ]; then export WITH_UB_SAN=1; fi
   - ./numake tests
 after_success:
   - if [ "$CC" = "gcc" ]; then coveralls --root . --build-root . --exclude .build/src/tests; fi
-env:
-  - WITH_LTO=0 WITH_COVERAGE=1 VALGRIND='valgrind --leak-check=full'
 sudo: required
 dist: trusty
-addons:
-  apt:
-    packages:
-      - gcc-5
-      - g++-5
-    sources:
-      - ubuntu-toolchain-r-test
-      - llvm-toolchain-trusty-3.8
