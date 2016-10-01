@@ -29,16 +29,16 @@ VALGRIND ?= valgrind
 
 all: tests bin/lip ! live
 
-tests: bin/tests ! live << VALGRIND UB_FLAGS
+tests: bin/tests ! live << VALGRIND
 	echo "-------------------------------------"
-	${VALGRIND} bin/tests
+	${VALGRIND} bin/tests --color always
 
 test:%: bin/tests ! live << VALGRIND SEED
 	echo "-------------------------------------"
 	if [ -z "${SEED}" ]; then
-		${VALGRIND} bin/tests ${m}
+		${VALGRIND} bin/tests --color always ${m}
 	else
-		${VALGRIND} bin/tests --seed ${SEED} ${m}
+		${VALGRIND} bin/tests --color always --seed ${SEED} ${m}
 	fi
 
 cover: tests
