@@ -6,7 +6,7 @@
 struct lip_lexer_s
 {
 	lip_allocator_t* allocator;
-	lip_error_t error;
+	lip_last_error_t last_error;
 	lip_in_t* input;
 	lip_loc_t location;
 	lip_array(lip_array(char)) capture_buffs;

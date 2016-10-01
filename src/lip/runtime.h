@@ -4,6 +4,14 @@
 #include "common.h"
 #include "vm.h"
 
+#define LIP_ERROR_STAGE(F) \
+	F(LIP_STAGE_LEXER) \
+	F(LIP_STAGE_PARSER) \
+	F(LIP_STAGE_COMPILER) \
+	F(LIP_STAGE_EXEC)
+
+LIP_ENUM(lip_error_stage_t, LIP_ERROR_STAGE)
+
 typedef struct lip_runtime_s lip_runtime_t;
 typedef struct lip_runtime_config_s lip_runtime_config_t;
 typedef bool(*lip_repl_handler_t)(
@@ -25,7 +33,7 @@ lip_runtime_create(lip_allocator_t* allocator, lip_runtime_config_t* config);
 void
 lip_runtime_destroy(lip_runtime_t* runtime);
 
-lip_error_t*
+const lip_error_t*
 lip_runtime_last_error(lip_runtime_t* runtime);
 
 bool

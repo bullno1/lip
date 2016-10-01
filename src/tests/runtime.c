@@ -1,4 +1,6 @@
 #include <lip/runtime.h>
+#include <lip/lexer.h>
+#include <lip/parser.h>
 #include <lip/memory.h>
 #include <lip/temp_allocator.h>
 #include <lip/io.h>
@@ -229,10 +231,100 @@ basic_forms(const MunitParameter params[], void* fixture_)
 	return MUNIT_OK;
 }
 
+static MunitResult
+syntax_error(const MunitParameter params[], void* fixture_)
+{
+	(void)params;
+
+	lip_fixture_t* fixture = fixture_;
+	lip_runtime_t* runtime = fixture->runtime;
+	lip_value_t result;
+	const lip_error_t* error;
+
+	munit_assert_false(
+		lip_runtime_exec_string(
+			runtime,
+			" 1a  ",
+			&result));
+	error = lip_runtime_last_error(runtime);
+	const lip_error_t* lex_error = error->extra;
+	lip_assert_enum(lip_error_stage_t, error->code, ==, LIP_STAGE_LEXER);
+	lip_assert_enum(lip_lex_error_t, lex_error->code, ==, LIP_LEX_BAD_NUMBER);
+	lip_assert_loc_range_equal(error->location, ((lip_loc_range_t){
+		.start = { .line = 1, .column = 2 },
+		.end = { .line = 1, .column = 3 }
+	}));
+
+	munit_assert_false(
+		lip_runtime_exec_string(
+			runtime,
+			"  (56  ",
+			&result));
+	error = lip_runtime_last_error(runtime);
+	const lip_error_t* parse_error = error->extra;
+	lip_assert_enum(lip_error_stage_t, error->code, ==, LIP_STAGE_PARSER);
+	lip_assert_enum(lip_lex_error_t, parse_error->code, ==, LIP_PARSE_UNTERMINATED_LIST);
+	lip_assert_loc_range_equal(error->location, ((lip_loc_range_t){
+		.start = { .line = 1, .column = 3 },
+		.end = { .line = 1, .column = 3 }
+	}));
+
+	munit_assert_false(
+		lip_runtime_exec_string(
+			runtime,
+			"  (let ((x\n"
+			"         (fn (x)\n"
+			"          (if x true))))\n"
+			"   () (x x))  ",
+			&result));
+	error = lip_runtime_last_error(runtime);
+	lip_assert_enum(lip_error_stage_t, error->code, ==, LIP_STAGE_COMPILER);
+	lip_assert_loc_range_equal(error->location, ((lip_loc_range_t){
+		.start = { .line = 4, .column = 4 },
+		.end = { .line = 4, .column = 5 }
+	}));
+
+	munit_assert_false(
+		lip_runtime_exec_string(
+			runtime,
+			"  (let (x\n"
+			"         (fn (x)\n"
+			"          (if x true)))\n"
+			"   () (x x))  ",
+			&result));
+	error = lip_runtime_last_error(runtime);
+	lip_assert_enum(lip_error_stage_t, error->code, ==, LIP_STAGE_COMPILER);
+	lip_assert_loc_range_equal(error->location, ((lip_loc_range_t){
+		.start = { .line = 1, .column = 9 },
+		.end = { .line = 1, .column = 9 }
+	}));
+
+	munit_assert_false(
+		lip_runtime_exec_string(
+			runtime,
+			"  (let x)  ",
+			&result));
+	error = lip_runtime_last_error(runtime);
+	lip_assert_enum(lip_error_stage_t, error->code, ==, LIP_STAGE_COMPILER);
+	lip_assert_loc_range_equal(error->location, ((lip_loc_range_t){
+		.start = { .line = 1, .column = 3 },
+		.end = { .line = 1, .column = 9 }
+	}));
+
+	return MUNIT_OK;
+}
+
+
 static MunitTest tests[] = {
 	{
 		.name = "/basic_forms",
 		.test = basic_forms,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/syntax_error",
+		.test = syntax_error,
 		.setup = setup,
 		.tear_down = teardown
 	},

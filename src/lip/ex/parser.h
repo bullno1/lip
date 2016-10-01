@@ -7,7 +7,7 @@
 struct lip_parser_s
 {
 	lip_allocator_t* allocator;
-	lip_error_t error;
+	lip_last_error_t last_error;
 	lip_token_t error_token;
 	lip_lexer_t lexer;
 	lip_array(lip_array(lip_sexp_t)) lists;

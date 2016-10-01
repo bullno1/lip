@@ -31,12 +31,12 @@ lip_lexer_reset(lip_lexer_t* lexer, lip_in_t* input)
 {
 	lexer->location.line = 1;
 	lexer->location.column = 1;
-	memset(&lexer->error, 0, sizeof(lexer->error));
 	lexer->read_buff = 0;
 	lexer->capturing = false;
 	lexer->buffered = false;
 	lexer->eos = false;
 	lexer->input = input;
+	lip_clear_last_error(&lexer->last_error);
 	lip_array_foreach(lip_array(char), buff, lexer->capture_buffs)
 	{
 		lip_array_destroy(*buff);
@@ -135,9 +135,10 @@ lip_lexer_is_separator(char ch)
 static lip_stream_status_t
 lip_lexer_error(lip_lexer_t* lexer, lip_lex_error_t error)
 {
-	lexer->error.code = error;
-	lexer->error.location.end = lexer->location;
-	--lexer->error.location.end.column;
+	lexer->last_error.error.code = error;
+	lexer->last_error.error.location.end = lexer->location;
+	--lexer->last_error.error.location.end.column;
+	lexer->last_error.errorp = &lexer->last_error.error;
 	lip_lexer_reset_capture(lexer);
 
 	return LIP_STREAM_ERROR;
@@ -208,12 +209,12 @@ lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 {
 	if(lexer->eos) { return LIP_STREAM_END; }
 
-	memset(&lexer->error, 0, sizeof(lexer->error));
+	lip_clear_last_error(&lexer->last_error);
 
 	char ch;
 	while(lip_lexer_peek_char(lexer, &ch))
 	{
-		lexer->error.location.start = token->location.start = lexer->location;
+		lexer->last_error.error.location.start = token->location.start = lexer->location;
 		lip_lexer_begin_capture(lexer);
 		lip_lexer_consume_char(lexer);
 
@@ -307,5 +308,5 @@ lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 const lip_error_t*
 lip_lexer_last_error(lip_lexer_t* lexer)
 {
-	return &lexer->error;
+	return lip_last_error(&lexer->last_error);
 }

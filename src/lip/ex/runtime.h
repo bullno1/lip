@@ -11,8 +11,7 @@ struct lip_runtime_s
 	lip_runtime_config_t config;
 	lip_parser_t parser;
 	lip_compiler_t compiler;
-	lip_error_t error;
-	lip_error_t* last_error;
+	lip_last_error_t last_error;
 	lip_vm_t* default_vm;
 };
 

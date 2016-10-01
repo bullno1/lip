@@ -11,11 +11,6 @@ fibonacci(const MunitParameter params[], void* fixture)
 	(void)params;
 	(void)fixture;
 
-	const lip_loc_range_t LOC_NOWHERE = {
-		.start = { .line = 0, .column = 0 },
-		.end = { .line = 0, .column = 0 }
-	};
-
 	lip_asm_t* lasm = lip_asm_create(lip_default_allocator);
 	lip_asm_begin(lasm, lip_string_ref("fib.lip"));
 	lip_asm_index_t else_label = lip_asm_new_label(lasm);
@@ -23,35 +18,35 @@ fibonacci(const MunitParameter params[], void* fixture)
 	lip_asm_index_t n = lip_asm_new_local(lasm);
 
 	// n < 2
-	lip_asm_add(lasm, LIP_OP_LDI, 2, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_LDL, n, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_LT, 0, LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LDI, 2, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LDL, n, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LT, 0, LIP_LOC_NOWHERE);
 
 	// then
-	lip_asm_add(lasm, LIP_OP_JOF, else_label, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_LDI, 1, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_JMP, done_label, LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_JOF, else_label, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LDI, 1, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_JMP, done_label, LIP_LOC_NOWHERE);
 
 	// else
-	lip_asm_add(lasm, LIP_OP_LABEL, else_label, LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LABEL, else_label, LIP_LOC_NOWHERE);
 	// fib(n + (-1))
-	lip_asm_add(lasm, LIP_OP_LDI, -1, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_LDL, n, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_ADD, 2, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_LDL, 0, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_CALL, 1, LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LDI, -1, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LDL, n, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_ADD, 2, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LDL, 0, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_CALL, 1, LIP_LOC_NOWHERE);
 
 	// fib(n + (-2))
-	lip_asm_add(lasm, LIP_OP_LDI, -2, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_LDL, n, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_ADD, 2, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_LDL, 0, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_CALL, 1, LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LDI, -2, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LDL, n, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_ADD, 2, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LDL, 0, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_CALL, 1, LIP_LOC_NOWHERE);
 
-	lip_asm_add(lasm, LIP_OP_ADD, 2, LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_ADD, 2, LIP_LOC_NOWHERE);
 
-	lip_asm_add(lasm, LIP_OP_LABEL, done_label, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_RET, 0, LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LABEL, done_label, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_RET, 0, LIP_LOC_NOWHERE);
 
 	lip_function_t* fib_fn = lip_asm_end(lasm);
 
@@ -60,22 +55,22 @@ fibonacci(const MunitParameter params[], void* fixture)
 	lip_asm_index_t fib = lip_asm_new_local(lasm);
 	lip_asm_index_t fib_fn_index = lip_asm_new_function(lasm, fib_fn);
 
-	lip_asm_add(lasm, LIP_OP_PLHR, fib, LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_PLHR, fib, LIP_LOC_NOWHERE);
 
 	uint16_t num_captures = 1;
 	lip_asm_add(
 		lasm,
 		LIP_OP_CLS, (fib_fn_index & 0xFFF) | ((num_captures & 0xFFF) << 12),
-		LOC_NOWHERE
+		LIP_LOC_NOWHERE
 	);
-	lip_asm_add(lasm, LIP_OP_LDL, fib, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_SET, fib, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_RCLS, fib, LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LDL, fib, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_SET, fib, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_RCLS, fib, LIP_LOC_NOWHERE);
 
-	lip_asm_add(lasm, LIP_OP_LDL, n1, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_LDL, fib, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_CALL, 1, LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_RET, 0, LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LDL, n1, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LDL, fib, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_CALL, 1, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_RET, 0, LIP_LOC_NOWHERE);
 
 	lip_function_t* fn = lip_asm_end(lasm);
 	lip_free(lip_default_allocator, fib_fn);

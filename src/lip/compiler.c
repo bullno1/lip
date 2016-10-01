@@ -9,11 +9,6 @@
 
 LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(lip_compiler)
 
-static const lip_loc_range_t LOC_NOWHERE = {
-	.start = { .line = 0, .column = 0 },
-	.end = { .line = 0, .column = 0 }
-};
-
 static void
 lip_set_error(
 	lip_compiler_t* compiler, lip_loc_range_t location, const char* message
@@ -189,19 +184,19 @@ lip_compile_if(lip_compiler_t* compiler, lip_ast_t* ast)
 	lip_scope_t* scope = compiler->current_scope;
 	lip_asm_index_t else_label = lip_asm_new_label(&scope->lasm);
 	lip_asm_index_t done_label = lip_asm_new_label(&scope->lasm);
-	LASM(compiler, LIP_OP_JOF, else_label, LOC_NOWHERE);
+	LASM(compiler, LIP_OP_JOF, else_label, LIP_LOC_NOWHERE);
 	CHECK(lip_compile_exp(compiler, ast->data.if_.then));
-	LASM(compiler, LIP_OP_JMP, done_label, LOC_NOWHERE);
-	LASM(compiler, LIP_OP_LABEL, else_label, LOC_NOWHERE);
+	LASM(compiler, LIP_OP_JMP, done_label, LIP_LOC_NOWHERE);
+	LASM(compiler, LIP_OP_LABEL, else_label, LIP_LOC_NOWHERE);
 	if(ast->data.if_.else_)
 	{
 		CHECK(lip_compile_exp(compiler, ast->data.if_.else_));
 	}
 	else
 	{
-		LASM(compiler, LIP_OP_NIL, 0, LOC_NOWHERE);
+		LASM(compiler, LIP_OP_NIL, 0, LIP_LOC_NOWHERE);
 	}
-	LASM(compiler, LIP_OP_LABEL, done_label, LOC_NOWHERE);
+	LASM(compiler, LIP_OP_LABEL, done_label, LIP_LOC_NOWHERE);
 
 	return true;
 }
@@ -213,7 +208,7 @@ lip_compile_block(lip_compiler_t* compiler, lip_array(lip_ast_t*) block)
 
 	if(block_size == 0)
 	{
-		LASM(compiler, LIP_OP_NIL, 0, LOC_NOWHERE);
+		LASM(compiler, LIP_OP_NIL, 0, LIP_LOC_NOWHERE);
 		return true;
 	}
 	else if(block_size == 1)
@@ -226,7 +221,7 @@ lip_compile_block(lip_compiler_t* compiler, lip_array(lip_ast_t*) block)
 		{
 			CHECK(lip_compile_exp(compiler, block[i]));
 		}
-		LASM(compiler, LIP_OP_POP, block_size - 1, LOC_NOWHERE);
+		LASM(compiler, LIP_OP_POP, block_size - 1, LIP_LOC_NOWHERE);
 		CHECK(lip_compile_exp(compiler, block[block_size - 1]));
 		return true;
 	}
@@ -283,7 +278,7 @@ lip_compile_letrec(lip_compiler_t* compiler, lip_ast_t* ast)
 	lip_array_foreach(lip_let_binding_t, binding, ast->data.let.bindings)
 	{
 		lip_asm_index_t local = lip_alloc_local(compiler, binding->name);
-		LASM(compiler, LIP_OP_PLHR, local, LOC_NOWHERE);
+		LASM(compiler, LIP_OP_PLHR, local, LIP_LOC_NOWHERE);
 	}
 
 	// Bind value to locals
@@ -305,7 +300,7 @@ lip_compile_letrec(lip_compiler_t* compiler, lip_ast_t* ast)
 		LASM(
 			compiler,
 			LIP_OP_RCLS, compiler->current_scope->var_indices[local_index++],
-			LOC_NOWHERE
+			LIP_LOC_NOWHERE
 		);
 	}
 
@@ -453,7 +448,7 @@ lip_compile_lambda(lip_compiler_t* compiler, lip_ast_t* ast)
 	// Compile body
 	CHECK(lip_compile_block(compiler, ast->data.lambda.body));
 
-	LASM(compiler, LIP_OP_RET, 0, LOC_NOWHERE);
+	LASM(compiler, LIP_OP_RET, 0, LIP_LOC_NOWHERE);
 	lip_function_t* function = lip_end_scope(compiler);
 	function->num_args = lip_array_len(ast->data.lambda.arguments);
 	lip_array_push(compiler->nested_functions, function);
@@ -468,7 +463,7 @@ lip_compile_lambda(lip_compiler_t* compiler, lip_ast_t* ast)
 	// Pseudo-instructions to capture local variables into closure
 	for(size_t i = 0; i < num_captures; ++i)
 	{
-		LASM(compiler, LIP_OP_LDL, compiler->free_var_indices[i], LOC_NOWHERE);
+		LASM(compiler, LIP_OP_LDL, compiler->free_var_indices[i], LIP_LOC_NOWHERE);
 	}
 
 	return true;
@@ -518,7 +513,7 @@ lip_compiler_init(lip_compiler_t* compiler, lip_allocator_t* allocator)
 	compiler->current_scope = NULL;
 	compiler->free_scopes = NULL;
 	compiler->error.code = 0;
-	compiler->error.location = LOC_NOWHERE;
+	compiler->error.location = LIP_LOC_NOWHERE;
 	compiler->nested_functions = lip_array_create(
 		compiler->allocator, lip_function_t*, 1
 	);
@@ -582,7 +577,7 @@ lip_compiler_begin(lip_compiler_t* compiler, lip_string_ref_t source_name)
 	lip_begin_scope(compiler);
 	// Push nil so that the next expression has something to pop
 	// It can also help to compile an empty file safely and return nil
-	LASM(compiler, LIP_OP_NIL, 0, LOC_NOWHERE);
+	LASM(compiler, LIP_OP_NIL, 0, LIP_LOC_NOWHERE);
 }
 
 lip_error_t*
@@ -591,7 +586,7 @@ lip_compiler_add_sexp(lip_compiler_t* compiler, lip_sexp_t* sexp)
 	lip_result_t result = lip_translate_sexp(compiler->temp_allocator, sexp);
 	if(!result.success) { return result.value; }
 
-	LASM(compiler, LIP_OP_POP, 1, LOC_NOWHERE); // previous exp's result
+	LASM(compiler, LIP_OP_POP, 1, LIP_LOC_NOWHERE); // previous exp's result
 	if(!lip_compile_exp(compiler, result.value)) { return &compiler->error; }
 
 	return NULL;
@@ -600,6 +595,6 @@ lip_compiler_add_sexp(lip_compiler_t* compiler, lip_sexp_t* sexp)
 lip_function_t*
 lip_compiler_end(lip_compiler_t* compiler)
 {
-	LASM(compiler, LIP_OP_RET, 0, LOC_NOWHERE);
+	LASM(compiler, LIP_OP_RET, 0, LIP_LOC_NOWHERE);
 	return lip_end_scope(compiler);
 }

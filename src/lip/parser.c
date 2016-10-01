@@ -21,7 +21,7 @@ lip_parser_parse_list(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp
 				lip_array_push(list, element);
 				break;
 			case LIP_STREAM_ERROR:
-				switch(parser->error.code)
+				switch(parser->last_error.error.code)
 				{
 					case LIP_PARSE_LEX_ERROR:
 					case LIP_PARSE_UNTERMINATED_LIST:
@@ -43,8 +43,12 @@ lip_parser_parse_list(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp
 				}
 			case LIP_STREAM_END:
 				lip_array_destroy(list);
-				parser->error.code = LIP_PARSE_UNTERMINATED_LIST;
-				parser->error.location = token->location;
+				lip_set_last_error(
+					&parser->last_error,
+					LIP_PARSE_UNTERMINATED_LIST,
+					token->location,
+					NULL
+				);
 				return LIP_STREAM_ERROR;
 		}
 	}
@@ -67,9 +71,12 @@ lip_parser_parse_element(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* s
 		break;
 	default:
 		// Impossibru!!
-		parser->error.location = token->location;
-		parser->error.code = LIP_PARSE_UNEXPECTED_TOKEN;
-		parser->error.extra = token;
+		lip_set_last_error(
+			&parser->last_error,
+			LIP_PARSE_UNEXPECTED_TOKEN,
+			token->location,
+			NULL
+		);
 		return LIP_STREAM_ERROR;
 	}
 
@@ -86,10 +93,13 @@ lip_parser_parse(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp)
 		case LIP_TOKEN_LPAREN:
 			return lip_parser_parse_list(parser, token, sexp);
 		case LIP_TOKEN_RPAREN:
-			parser->error.location = token->location;
-			parser->error.code = LIP_PARSE_UNEXPECTED_TOKEN;
 			parser->error_token = *token;
-			parser->error.extra = &parser->error_token;
+			lip_set_last_error(
+				&parser->last_error,
+				LIP_PARSE_UNEXPECTED_TOKEN,
+				token->location,
+				&parser->error_token
+			);
 			return LIP_STREAM_ERROR;
 		case LIP_TOKEN_STRING:
 		case LIP_TOKEN_SYMBOL:
@@ -123,7 +133,7 @@ lip_parser_cleanup(lip_parser_t* parser)
 void
 lip_parser_reset(lip_parser_t* parser, lip_in_t* input)
 {
-	memset(&parser->error, 0, sizeof(parser->error));
+	lip_clear_last_error(&parser->last_error);
 	lip_array_foreach(lip_array(lip_sexp_t), list, parser->lists)
 	{
 		lip_array_destroy(*list);
@@ -136,7 +146,7 @@ lip_stream_status_t
 lip_parser_next_sexp(lip_parser_t* parser, lip_sexp_t* sexp)
 {
 	lip_token_t token;
-	memset(&parser->error, 0, sizeof(parser->error));
+	lip_clear_last_error(&parser->last_error);
 
 	lip_stream_status_t status = lip_lexer_next_token(&parser->lexer, &token);
 	switch(status)
@@ -144,9 +154,12 @@ lip_parser_next_sexp(lip_parser_t* parser, lip_sexp_t* sexp)
 		case LIP_STREAM_OK:
 			return lip_parser_parse(parser, &token, sexp);
 		case LIP_STREAM_ERROR:
-			parser->error.code = LIP_PARSE_LEX_ERROR;
-			parser->error.location = lip_lexer_last_error(&parser->lexer)->location;
-			parser->error.extra = lip_lexer_last_error(&parser->lexer);
+			lip_set_last_error(
+				&parser->last_error,
+				LIP_PARSE_LEX_ERROR,
+				lip_lexer_last_error(&parser->lexer)->location,
+				lip_lexer_last_error(&parser->lexer)
+			);
 			return LIP_STREAM_ERROR;
 		case LIP_STREAM_END:
 			return LIP_STREAM_END;
@@ -156,8 +169,8 @@ lip_parser_next_sexp(lip_parser_t* parser, lip_sexp_t* sexp)
 	return LIP_STREAM_ERROR;
 }
 
-lip_error_t*
+const lip_error_t*
 lip_parser_last_error(lip_parser_t* parser)
 {
-	return &parser->error;
+	return lip_last_error(&parser->last_error);
 }

@@ -237,7 +237,7 @@ unterminated_list(const MunitParameter params[], void* fixture)
 	lip_sexp_t sexp;
 	lip_stream_status_t status = lip_parser_next_sexp(parser, &sexp);
 	lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, status);
-	lip_error_t* error = lip_parser_last_error(parser);
+	const lip_error_t* error = lip_parser_last_error(parser);
 	lip_assert_enum(lip_parse_error_t, LIP_PARSE_UNTERMINATED_LIST, ==, error->code);
 	lip_assert_loc_range_equal(error->location, ((lip_loc_range_t){
 		.start = { .line = 1, .column = 2 },
@@ -278,7 +278,7 @@ unexpected_token(const MunitParameter params[], void* fixture)
 	lip_sexp_t sexp;
 	lip_stream_status_t status = lip_parser_next_sexp(parser, &sexp);
 	lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, status);
-	lip_error_t* error = lip_parser_last_error(parser);
+	const lip_error_t* error = lip_parser_last_error(parser);
 	lip_assert_enum(lip_parse_error_t, LIP_PARSE_UNEXPECTED_TOKEN, ==, error->code);
 	const lip_token_t* token = error->extra;
 	lip_assert_enum(lip_token_type_t, LIP_TOKEN_RPAREN, ==, token->type);
@@ -308,7 +308,7 @@ lex_error(const MunitParameter params[], void* fixture)
 	lip_sexp_t sexp;
 	lip_stream_status_t status = lip_parser_next_sexp(parser, &sexp);
 	lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, status);
-	lip_error_t* error = lip_parser_last_error(parser);
+	const lip_error_t* error = lip_parser_last_error(parser);
 	lip_assert_enum(lip_parse_error_t, LIP_PARSE_LEX_ERROR, ==, error->code);
 	const lip_error_t* lex_error = error->extra;
 	lip_assert_enum(lip_lex_error_t, LIP_LEX_BAD_NUMBER, ==, lex_error->code);

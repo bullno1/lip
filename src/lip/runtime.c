@@ -23,7 +23,7 @@ lip_runtime_init(
 	runtime->config = *config;
 	lip_parser_init(&runtime->parser, allocator);
 	lip_compiler_init(&runtime->compiler, allocator);
-	runtime->last_error = NULL;
+	lip_clear_last_error(&runtime->last_error);
 	runtime->default_vm = NULL;
 }
 
@@ -39,10 +39,10 @@ lip_runtime_cleanup(lip_runtime_t* runtime)
 	lip_parser_cleanup(&runtime->parser);
 }
 
-lip_error_t*
+const lip_error_t*
 lip_runtime_last_error(lip_runtime_t* runtime)
 {
-	return runtime->last_error;
+	return lip_last_error(&runtime->last_error);
 }
 
 bool
@@ -54,6 +54,8 @@ lip_runtime_exec(
 	lip_value_t* result
 )
 {
+	lip_clear_last_error(&runtime->last_error);
+
 	lip_function_t* function = lip_runtime_compile(runtime, stream, name);
 	if(function == NULL) { return false; }
 
@@ -78,6 +80,9 @@ lip_runtime_exec(
 		case LIP_EXEC_OK:
 			return true;
 		case LIP_EXEC_ERROR:
+			lip_set_last_error(
+				&runtime->last_error, LIP_STAGE_EXEC, LIP_LOC_NOWHERE, NULL
+			);
 			return false;
 	}
 
@@ -91,7 +96,7 @@ lip_runtime_compile(
 	lip_string_ref_t name
 )
 {
-	runtime->last_error = NULL;
+	lip_clear_last_error(&runtime->last_error);
 	lip_compiler_begin(&runtime->compiler, name);
 	lip_parser_reset(&runtime->parser, stream);
 
@@ -109,19 +114,30 @@ lip_runtime_compile(
 						lip_compiler_add_sexp(&runtime->compiler, &sexp);
 					if(compile_error != NULL)
 					{
-						runtime->last_error = compile_error;
+						lip_set_last_error(
+							&runtime->last_error,
+							LIP_STAGE_COMPILER,
+							compile_error->location,
+							compile_error->extra
+						);
 						return NULL;
 					}
 				}
 				break;
 			case LIP_STREAM_ERROR:
 				{
-					lip_error_t* parse_error =
-						lip_parser_last_error(&runtime->parser);
-					if(parse_error != NULL)
-					{
-						return NULL;
-					}
+					const lip_error_t* parse_error = lip_parser_last_error(&runtime->parser);
+					bool is_lex_error = parse_error->code == LIP_PARSE_LEX_ERROR;
+					lip_error_stage_t stage = is_lex_error ? LIP_STAGE_LEXER : LIP_STAGE_PARSER;
+					const void* extra = is_lex_error ? parse_error->extra : parse_error;
+
+					lip_set_last_error(
+						&runtime->last_error,
+						stage,
+						parse_error->location,
+						extra
+					);
+					return NULL;
 				}
 				break;
 			case LIP_STREAM_END:
