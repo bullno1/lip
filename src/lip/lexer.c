@@ -126,7 +126,8 @@ lip_lexer_consume_char(lip_lexer_t* lexer)
 	++lexer->location.column;
 }
 
-static inline bool lip_lexer_is_separator(char ch)
+static inline bool
+lip_lexer_is_separator(char ch)
 {
 	return isspace(ch) || ch == ')' || ch == '(' || ch == ';' || ch == '"';
 }
