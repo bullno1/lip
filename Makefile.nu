@@ -14,7 +14,7 @@ LTO_FLAGS = $(eval echo \${LTO_$WITH_LTO})
 
 WITH_UB_SAN ?= 0
 UB_FLAGS_0 =
-UB_FLAGS_1 = -fsanitize=undefined
+UB_FLAGS_1 = -fsanitize=undefined -fno-sanitize-recover=undefined
 UB_FLAGS = $(eval echo \${UB_FLAGS_$WITH_UB_SAN})
 
 COMMON_FLAGS = ${UB_FLAGS} ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
