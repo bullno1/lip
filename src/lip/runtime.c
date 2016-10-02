@@ -4,6 +4,63 @@
 
 LIP_IMPLEMENT_DESTRUCTOR(lip_runtime)
 
+static lip_function_t*
+lip_runtime_compile(
+	lip_runtime_t* runtime,
+	lip_in_t* stream,
+	lip_string_ref_t name
+)
+{
+	lip_clear_last_error(&runtime->last_error);
+	lip_compiler_begin(&runtime->compiler, name);
+	lip_parser_reset(&runtime->parser, stream);
+
+	while(true)
+	{
+		lip_sexp_t sexp;
+		lip_stream_status_t stream_status =
+			lip_parser_next_sexp(&runtime->parser, &sexp);
+
+		switch(stream_status)
+		{
+			case LIP_STREAM_OK:
+				{
+					const lip_error_t* compile_error =
+						lip_compiler_add_sexp(&runtime->compiler, &sexp);
+					if(compile_error != NULL)
+					{
+						lip_set_last_error(
+							&runtime->last_error,
+							LIP_STAGE_COMPILER,
+							compile_error->location,
+							compile_error->extra
+						);
+						return NULL;
+					}
+				}
+				break;
+			case LIP_STREAM_ERROR:
+				{
+					const lip_error_t* parse_error = lip_parser_last_error(&runtime->parser);
+					bool is_lex_error = parse_error->code == LIP_PARSE_LEX_ERROR;
+					lip_error_stage_t stage = is_lex_error ? LIP_STAGE_LEXER : LIP_STAGE_PARSER;
+					const void* extra = is_lex_error ? parse_error->extra : parse_error;
+
+					lip_set_last_error(
+						&runtime->last_error,
+						stage,
+						parse_error->location,
+						extra
+					);
+					return NULL;
+				}
+				break;
+			case LIP_STREAM_END:
+				return lip_compiler_end(&runtime->compiler, runtime->allocator);
+		}
+	}
+}
+
 lip_runtime_t*
 lip_runtime_create(lip_allocator_t* allocator, lip_runtime_config_t* config)
 {
@@ -87,63 +144,6 @@ lip_runtime_exec(
 	}
 
 	return false;
-}
-
-lip_function_t*
-lip_runtime_compile(
-	lip_runtime_t* runtime,
-	lip_in_t* stream,
-	lip_string_ref_t name
-)
-{
-	lip_clear_last_error(&runtime->last_error);
-	lip_compiler_begin(&runtime->compiler, name);
-	lip_parser_reset(&runtime->parser, stream);
-
-	while(true)
-	{
-		lip_sexp_t sexp;
-		lip_stream_status_t stream_status =
-			lip_parser_next_sexp(&runtime->parser, &sexp);
-
-		switch(stream_status)
-		{
-			case LIP_STREAM_OK:
-				{
-					const lip_error_t* compile_error =
-						lip_compiler_add_sexp(&runtime->compiler, &sexp);
-					if(compile_error != NULL)
-					{
-						lip_set_last_error(
-							&runtime->last_error,
-							LIP_STAGE_COMPILER,
-							compile_error->location,
-							compile_error->extra
-						);
-						return NULL;
-					}
-				}
-				break;
-			case LIP_STREAM_ERROR:
-				{
-					const lip_error_t* parse_error = lip_parser_last_error(&runtime->parser);
-					bool is_lex_error = parse_error->code == LIP_PARSE_LEX_ERROR;
-					lip_error_stage_t stage = is_lex_error ? LIP_STAGE_LEXER : LIP_STAGE_PARSER;
-					const void* extra = is_lex_error ? parse_error->extra : parse_error;
-
-					lip_set_last_error(
-						&runtime->last_error,
-						stage,
-						parse_error->location,
-						extra
-					);
-					return NULL;
-				}
-				break;
-			case LIP_STREAM_END:
-				return lip_compiler_end(&runtime->compiler);
-		}
-	}
 }
 
 lip_vm_t*

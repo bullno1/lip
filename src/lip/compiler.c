@@ -80,7 +80,7 @@ lip_begin_scope(lip_compiler_t* compiler)
 }
 
 static lip_function_t*
-lip_end_scope(lip_compiler_t* compiler)
+lip_end_scope(lip_compiler_t* compiler, lip_allocator_t* allocator)
 {
 	lip_scope_t* scope = compiler->current_scope;
 
@@ -88,7 +88,7 @@ lip_end_scope(lip_compiler_t* compiler)
 	scope->parent = compiler->free_scopes;
 	compiler->free_scopes = scope;
 
-	return lip_asm_end(&scope->lasm);
+	return lip_asm_end(&scope->lasm, allocator);
 }
 
 
@@ -449,9 +449,8 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 	CHECK(lip_compile_block(compiler, ast->data.lambda.body));
 
 	LASM(compiler, LIP_OP_RET, 0, LIP_LOC_NOWHERE);
-	lip_function_t* function = lip_end_scope(compiler);
+	lip_function_t* function = lip_end_scope(compiler, compiler->temp_allocator);
 	function->num_args = lip_array_len(ast->data.lambda.arguments);
-	lip_array_push(compiler->nested_functions, function);
 
 	// Compiler closure capture
 	lip_asm_index_t function_index =
@@ -514,9 +513,6 @@ lip_compiler_init(lip_compiler_t* compiler, lip_allocator_t* allocator)
 	compiler->free_scopes = NULL;
 	compiler->error.code = 0;
 	compiler->error.location = LIP_LOC_NOWHERE;
-	compiler->nested_functions = lip_array_create(
-		compiler->allocator, lip_function_t*, 1
-	);
 	compiler->free_var_names = lip_array_create(
 		compiler->allocator, lip_string_ref_t, 1
 	);
@@ -538,12 +534,6 @@ lip_compiler_reset(lip_compiler_t* compiler)
 	}
 
 	lip_temp_allocator_reset(compiler->temp_allocator);
-
-	lip_array_foreach(lip_function_t*, function, compiler->nested_functions)
-	{
-		lip_free(compiler->allocator, *function);
-	}
-	lip_array_clear(compiler->nested_functions);
 }
 
 void
@@ -568,7 +558,6 @@ lip_compiler_cleanup(lip_compiler_t* compiler)
 
 	lip_array_destroy(compiler->free_var_indices);
 	lip_array_destroy(compiler->free_var_names);
-	lip_array_destroy(compiler->nested_functions);
 	lip_temp_allocator_destroy(compiler->temp_allocator);
 }
 
@@ -596,8 +585,8 @@ lip_compiler_add_sexp(lip_compiler_t* compiler, const lip_sexp_t* sexp)
 }
 
 lip_function_t*
-lip_compiler_end(lip_compiler_t* compiler)
+lip_compiler_end(lip_compiler_t* compiler, lip_allocator_t* allocator)
 {
 	LASM(compiler, LIP_OP_RET, 0, LIP_LOC_NOWHERE);
-	return lip_end_scope(compiler);
+	return lip_end_scope(compiler, allocator);
 }

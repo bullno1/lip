@@ -45,7 +45,7 @@ lip_asm_index_t
 lip_asm_alloc_string_constant(lip_asm_t* lasm, lip_string_ref_t string);
 
 lip_function_t*
-lip_asm_end(lip_asm_t* lasm);
+lip_asm_end(lip_asm_t* lasm, lip_allocator_t* allocator);
 
 LIP_MAYBE_UNUSED static inline lip_instruction_t
 lip_asm(lip_opcode_t opcode, lip_operand_t operand)

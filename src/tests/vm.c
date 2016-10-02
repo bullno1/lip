@@ -48,7 +48,7 @@ fibonacci(const MunitParameter params[], void* fixture)
 	lip_asm_add(lasm, LIP_OP_LABEL, done_label, LIP_LOC_NOWHERE);
 	lip_asm_add(lasm, LIP_OP_RET, 0, LIP_LOC_NOWHERE);
 
-	lip_function_t* fib_fn = lip_asm_end(lasm);
+	lip_function_t* fib_fn = lip_asm_end(lasm, lip_default_allocator);
 
 	lip_asm_begin(lasm, lip_string_ref("fib.lip"));
 	lip_asm_index_t n1 = lip_asm_new_local(lasm);
@@ -72,7 +72,7 @@ fibonacci(const MunitParameter params[], void* fixture)
 	lip_asm_add(lasm, LIP_OP_CALL, 1, LIP_LOC_NOWHERE);
 	lip_asm_add(lasm, LIP_OP_RET, 0, LIP_LOC_NOWHERE);
 
-	lip_function_t* fn = lip_asm_end(lasm);
+	lip_function_t* fn = lip_asm_end(lasm, lip_default_allocator);
 	lip_free(lip_default_allocator, fib_fn);
 	lip_asm_destroy(lasm);
 

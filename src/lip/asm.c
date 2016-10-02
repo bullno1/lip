@@ -177,7 +177,7 @@ lip_asm_add(
 }
 
 lip_function_t*
-lip_asm_end(lip_asm_t* lasm)
+lip_asm_end(lip_asm_t* lasm, lip_allocator_t* allocator)
 {
 	// Eliminate [NIL; POP 1] sequences where POP 1 is not the last instruction
 	{
@@ -387,8 +387,7 @@ lip_asm_end(lip_asm_t* lasm)
 	);
 	// Only basic scalar types are used so no need to worry about alignment of
 	// header
-	lip_function_t* function =
-		lip_malloc(lasm->allocator, block_info.num_elements);
+	lip_function_t* function = lip_malloc(allocator, block_info.num_elements);
 	memset(function, 0, block_info.num_elements);
 
 	function->size = block_info.num_elements;

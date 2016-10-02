@@ -4,6 +4,7 @@
 #include <lip/ex/vm.h>
 #include <lip/ex/asm.h>
 #include <lip/utils.h>
+#include <lip/ex/fmt_allocator.h>
 #include "munit.h"
 #include "test_helpers.h"
 
@@ -27,15 +28,20 @@ empty(const MunitParameter params[], void* fixture)
 {
 	(void)params;
 
+	lip_allocator_t* fmt_allocator = lip_fmt_allocator_create(lip_default_allocator);
 	lip_asm_t* lasm = fixture;
 	lip_asm_begin(lasm, lip_string_ref(__func__));
-	lip_function_t* function = lip_asm_end(lasm);
+	lip_function_t* function = lip_asm_end(lasm, fmt_allocator);
 
 	munit_assert_size(0, ==, function->num_functions);
 	munit_assert_size(0, ==, function->num_instructions);
 	munit_assert_size(0, ==, function->num_locals);
+	lip_fmt_allocator_t* allocator =
+		LIP_CONTAINER_OF(fmt_allocator, lip_fmt_allocator_t, vtable);
+	munit_assert_ptr_equal(allocator->mem, function);
 
-	lip_free(lip_default_allocator, function);
+	lip_free(fmt_allocator, function);
+	lip_fmt_allocator_destroy(fmt_allocator);
 
 	return MUNIT_OK;
 }
@@ -72,7 +78,7 @@ dedupe(const MunitParameter params[], void* fixture)
 	munit_assert_uint32(3, ==, const_two);
 	munit_assert_uint32(2, ==, const_one2);
 
-	lip_function_t* function = lip_asm_end(lasm);
+	lip_function_t* function = lip_asm_end(lasm, lip_default_allocator);
 
 	lip_function_layout_t function_layout;
 	lip_function_layout(function, &function_layout);
@@ -129,7 +135,7 @@ normal(const MunitParameter params[], void* fixture)
 	{
 		lip_asm_begin(lasm2, lip_string_ref("nested"));
 		lip_asm_add(lasm2, LIP_OP_NOP, i, dummy_loc);
-		lip_function_t* nested_function = lip_asm_end(lasm2);
+		lip_function_t* nested_function = lip_asm_end(lasm2, lip_default_allocator);
 
 		lip_function_layout_t function_layout;
 		lip_function_layout(nested_function, &function_layout);
@@ -152,7 +158,7 @@ normal(const MunitParameter params[], void* fixture)
 		});
 	}
 
-	lip_function_t* function = lip_asm_end(lasm);
+	lip_function_t* function = lip_asm_end(lasm, lip_default_allocator);
 	lip_array_foreach(lip_function_t*, function, nested_functions)
 	{
 		lip_free(lip_default_allocator, *function);
@@ -257,7 +263,7 @@ lip_assert_asm_(
 		lip_asm_add(lasm, opcode, operand, location);
 	}
 
-	lip_function_t* function = lip_asm_end(lasm);
+	lip_function_t* function = lip_asm_end(lasm, lip_default_allocator);
 
 	lip_function_layout_t function_layout;
 	lip_function_layout(function, &function_layout);
