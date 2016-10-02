@@ -2,7 +2,6 @@
 #include "ex/vm.h"
 #include "utils.h"
 #include "array.h"
-#include "io.h"
 
 LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(lip_asm)
 
@@ -405,8 +404,8 @@ lip_asm_end(lip_asm_t* lasm, lip_allocator_t* allocator)
 	lip_import_t* imports = lip_locate_memblock(function, &import_block);
 	for(uint32_t i = 0; i < num_imports; ++i)
 	{
-		uint32_t import_index = lasm->imports[i];
-		imports[i].name = lasm->string_layout[import_index].offset;
+		uint32_t import_string_index = lasm->imports[i];
+		imports[i].name = lasm->string_layout[import_string_index].offset;
 		imports[i].value = (lip_value_t){
 			.type = LIP_VAL_NIL,
 			.data = { .reference = NULL }

@@ -21,6 +21,9 @@
 #define lip_array_quick_remove(ARRAY, INDEX) \
 	((ARRAY)[(INDEX)] = (ARRAY)[lip_array_len((ARRAY)) - 1], \
 	 lip_array_resize((ARRAY), lip_array_len((ARRAY)) - 1))
+#define lip_array_alloc(ARRAY) \
+	((ARRAY) = lip_array__prepare_push((ARRAY)), \
+	 &(ARRAY)[lip_array_len((ARRAY)) - 1])
 
 void
 lip_array_destroy(void* array);

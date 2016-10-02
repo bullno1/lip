@@ -87,6 +87,12 @@ lip_print_value(
 		case LIP_VAL_PLACEHOLDER:
 			lip_printf(allocator, output, "<placeholder: #%u>\n", value.data.index);
 			break;
+		case LIP_VAL_NATIVE:
+			lip_printf(
+				allocator, output, "<native: 0x%" PRIxPTR ">\n",
+				(uintptr_t)value.data.reference
+			);
+			break;
 	}
 }
 
@@ -122,11 +128,11 @@ lip_print_function(
 	for(uint16_t i = 0; i < function->num_imports; ++i)
 	{
 		lip_import_t import = layout.imports[i];
-		lip_string_ref_t* import_name =
+		lip_string_t* import_name =
 			lip_function_resource(function, import.name);
 		lip_printf(
 			allocator, output, "%*s%.*s: ",
-			indent * 2 + 1, "", (int)import_name->length, import_name->ptr
+			indent * 2 + 2, "", (int)import_name->length, import_name->ptr
 		);
 		lip_print_value(allocator, depth - 1, indent + 1, output, import.value);
 	}

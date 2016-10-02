@@ -4,6 +4,7 @@
 #include "../runtime.h"
 #include "parser.h"
 #include "compiler.h"
+#include "universe.h"
 
 struct lip_runtime_s
 {
@@ -11,6 +12,7 @@ struct lip_runtime_s
 	lip_runtime_config_t config;
 	lip_parser_t parser;
 	lip_compiler_t compiler;
+	lip_universe_t universe;
 	lip_last_error_t last_error;
 	lip_vm_t* default_vm;
 };

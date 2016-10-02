@@ -86,11 +86,12 @@ lip_vm_loop(lip_vm_t* vm)
 	}
 }
 
-void
+lip_exec_status_t
 lip_vm_do_call(lip_vm_t* vm, uint8_t num_args)
 {
 	lip_value_t* value = --vm->sp;
 	lip_closure_t* closure = (lip_closure_t*)value->data.reference;
+	vm->fp->closure = closure;
 
 	bool is_native = closure->is_native;
 	vm->fp->is_native = is_native;
@@ -107,15 +108,18 @@ lip_vm_do_call(lip_vm_t* vm, uint8_t num_args)
 		// Ensure that a value is always returned
 		vm->sp->type = LIP_VAL_NIL;
 		lip_value_t* next_sp = vm->sp + 1;
-		closure->function.native(vm);
+		lip_exec_status_t status = closure->function.native(vm);
 		vm->sp = next_sp;
 		--vm->fp;
+
+		return status;
 	}
 	else
 	{
 		lip_function_layout_t layout;
 		lip_function_layout(closure->function.lip, &layout);
 		vm->fp->pc = layout.instructions;
-		vm->fp->closure = closure;
+
+		return LIP_EXEC_OK;
 	}
 }

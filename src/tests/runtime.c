@@ -326,6 +326,33 @@ syntax_error(const MunitParameter params[], void* fixture_)
 	return MUNIT_OK;
 }
 
+static MunitResult
+builtins(const MunitParameter params[], void* fixture_)
+{
+	(void)params;
+
+	lip_fixture_t* fixture = fixture_;
+	lip_runtime_t* runtime = fixture->runtime;
+
+	lip_value_t result;
+
+	munit_assert_true(
+		lip_runtime_exec_string(
+			runtime,
+			"(identity 4.5)",
+			&result));
+	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
+	munit_assert_double_equal(4.5, result.data.number, 3);
+
+	munit_assert_true(
+		lip_runtime_exec_string(
+			runtime,
+			"print",
+			&result));
+	lip_assert_enum(lip_value_type_t, LIP_VAL_FUNCTION, ==, result.type);
+
+	return MUNIT_OK;
+}
 
 static MunitTest tests[] = {
 	{
@@ -337,6 +364,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/syntax_error",
 		.test = syntax_error,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/builtins",
+		.test = builtins,
 		.setup = setup,
 		.tear_down = teardown
 	},

@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "vm.h"
+#include "lni.h"
 
 #define LIP_ERROR_STAGE(F) \
 	F(LIP_STAGE_LEXER) \

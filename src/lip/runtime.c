@@ -1,6 +1,7 @@
 #include "ex/runtime.h"
 #include "utils.h"
 #include "memory.h"
+#include "builtins.h"
 
 LIP_IMPLEMENT_DESTRUCTOR(lip_runtime)
 
@@ -80,6 +81,8 @@ lip_runtime_init(
 	runtime->config = *config;
 	lip_parser_init(&runtime->parser, allocator);
 	lip_compiler_init(&runtime->compiler, allocator);
+	lip_universe_init(&runtime->universe, allocator);
+	lip_builtins_open(lip_universe_lni(&runtime->universe));
 	lip_clear_last_error(&runtime->last_error);
 	runtime->default_vm = NULL;
 }
@@ -92,6 +95,7 @@ lip_runtime_cleanup(lip_runtime_t* runtime)
 		lip_vm_destroy(runtime->allocator, runtime->default_vm);\
 	}
 
+	lip_universe_cleanup(&runtime->universe);
 	lip_compiler_cleanup(&runtime->compiler);
 	lip_parser_cleanup(&runtime->parser);
 }
@@ -116,11 +120,15 @@ lip_runtime_exec(
 	lip_function_t* function = lip_runtime_compile(runtime, stream, name);
 	if(function == NULL) { return false; }
 
+
 	char mem[sizeof(lip_closure_t) + LIP_MAX_ALIGNMENT - 1];
 	lip_closure_t* closure = lip_align_ptr(mem, LIP_MAX_ALIGNMENT);
 	closure->function.lip = function;
 	closure->is_native = false;
+	closure->native_arity = 0;
 	closure->env_len = 0;
+
+	lip_universe_link_function(&runtime->universe, function);
 
 	if(!vm)
 	{

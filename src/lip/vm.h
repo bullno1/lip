@@ -51,7 +51,7 @@ lip_exec_status_t
 lip_vm_call(lip_vm_t* vm, uint8_t num_args, lip_value_t* result);
 
 lip_value_t
-lip_vm_get_arg(lip_vm_t* vm, uint8_t index);
+lip_vm_get_arg(lip_vm_t* vm, int16_t index);
 
 LIP_MAYBE_UNUSED static inline void
 lip_vm_push_nil(lip_vm_t* vm)

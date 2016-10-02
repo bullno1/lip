@@ -16,7 +16,32 @@ BEGIN_OP(LDL)
 END_OP(LDL)
 
 BEGIN_OP(LDS)
-	*(sp++) = fn.imports[operand].value;
+	lip_value_t val = fn.imports[operand].value;
+	if(val.type != LIP_VAL_PLACEHOLDER)
+	{
+		*(sp++) = val;
+	}
+	else
+	{
+		*(sp++) = (lip_value_t) {
+			.type = LIP_VAL_NATIVE,
+			.data = { .reference = &fn.imports[operand] }
+		};
+		*(sp++) = (lip_value_t) {
+			.type = LIP_VAL_NATIVE,
+			.data = {
+				.reference = lip_function_resource(
+					fp->closure->function.lip, fn.imports[operand].name
+				)
+			}
+		};
+		*(sp++) = val;
+		SAVE_CONTEXT();
+		++vm->fp;
+		*(vm->fp) = *(vm->fp - 1);
+		lip_vm_do_call(vm, 2);
+		LOAD_CONTEXT();
+	}
 END_OP(LDS)
 
 BEGIN_OP(LDI)

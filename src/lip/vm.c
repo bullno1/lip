@@ -105,9 +105,9 @@ lip_vm_call(lip_vm_t* vm, uint8_t num_args, lip_value_t* result)
 	vm->fp->is_native = true;
 	*(++vm->fp) = *old_fp;
 
-	lip_vm_do_call(vm, num_args);
+	lip_exec_status_t status = lip_vm_do_call(vm, num_args);
+	if(status != LIP_EXEC_OK) { return status; }
 
-	lip_exec_status_t status;
 	if(vm->fp == old_fp)
 	{
 		status = LIP_EXEC_OK;
@@ -122,7 +122,10 @@ lip_vm_call(lip_vm_t* vm, uint8_t num_args, lip_value_t* result)
 }
 
 lip_value_t
-lip_vm_get_arg(lip_vm_t* vm, uint8_t index)
+lip_vm_get_arg(lip_vm_t* vm, int16_t index)
 {
-	return *(vm->fp->ep - (int32_t)index - 1);
+	++index;
+	return *(
+		index > 0 ? vm->fp->ep - index : vm->fp->closure->environment - index
+	);
 }
