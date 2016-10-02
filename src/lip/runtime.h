@@ -55,13 +55,6 @@ lip_runtime_repl(
 	void* context
 );
 
-lip_function_t*
-lip_runtime_compile(
-	lip_runtime_t* runtime,
-	lip_in_t* stream,
-	lip_string_ref_t name
-);
-
 lip_vm_t*
 lip_runtime_alloc_vm(lip_runtime_t* runtime, lip_vm_config_t* config);
 
