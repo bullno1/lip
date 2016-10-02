@@ -8,7 +8,7 @@
 	F(lexer) \
 	F(parser) \
 	F(assembler) \
-	F(temp_allocator) \
+	F(arena_allocator) \
 	F(vm) \
 	F(runtime)
 

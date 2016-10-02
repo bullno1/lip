@@ -1,7 +1,7 @@
 #include <lip/ex/vm.h>
 #include <lip/asm.h>
 #include <lip/memory.h>
-#include <lip/temp_allocator.h>
+#include <lip/arena_allocator.h>
 #include "munit.h"
 #include "test_helpers.h"
 
@@ -81,10 +81,10 @@ fibonacci(const MunitParameter params[], void* fixture)
 	closure->env_len = 0;
 	closure->function.lip = fn;
 
-	lip_allocator_t* temp_allocator =
-		lip_temp_allocator_create(lip_default_allocator, 2048);
+	lip_allocator_t* arena_allocator =
+		lip_arena_allocator_create(lip_default_allocator, 2048);
 	lip_vm_config_t vm_config = {
-		.allocator = temp_allocator,
+		.allocator = arena_allocator,
 		.os_len = 256,
 		.cs_len = 256,
 		.env_len = 256
@@ -104,7 +104,7 @@ fibonacci(const MunitParameter params[], void* fixture)
 	lip_vm_destroy(lip_default_allocator, vm);
 	lip_free(lip_default_allocator, closure);
 	lip_free(lip_default_allocator, fn);
-	lip_temp_allocator_destroy(temp_allocator);
+	lip_arena_allocator_destroy(arena_allocator);
 
 	return MUNIT_OK;
 }

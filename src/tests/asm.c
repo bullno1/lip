@@ -4,7 +4,7 @@
 #include <lip/ex/vm.h>
 #include <lip/ex/asm.h>
 #include <lip/utils.h>
-#include <lip/ex/fmt_allocator.h>
+#include <lip/ex/temp_allocator.h>
 #include "munit.h"
 #include "test_helpers.h"
 
@@ -28,20 +28,20 @@ empty(const MunitParameter params[], void* fixture)
 {
 	(void)params;
 
-	lip_allocator_t* fmt_allocator = lip_fmt_allocator_create(lip_default_allocator);
+	lip_allocator_t* temp_allocator = lip_temp_allocator_create(lip_default_allocator);
 	lip_asm_t* lasm = fixture;
 	lip_asm_begin(lasm, lip_string_ref(__func__));
-	lip_function_t* function = lip_asm_end(lasm, fmt_allocator);
+	lip_function_t* function = lip_asm_end(lasm, temp_allocator);
 
 	munit_assert_size(0, ==, function->num_functions);
 	munit_assert_size(0, ==, function->num_instructions);
 	munit_assert_size(0, ==, function->num_locals);
-	lip_fmt_allocator_t* allocator =
-		LIP_CONTAINER_OF(fmt_allocator, lip_fmt_allocator_t, vtable);
+	lip_temp_allocator_t* allocator =
+		LIP_CONTAINER_OF(temp_allocator, lip_temp_allocator_t, vtable);
 	munit_assert_ptr_equal(allocator->mem, function);
 
-	lip_free(fmt_allocator, function);
-	lip_fmt_allocator_destroy(fmt_allocator);
+	lip_free(temp_allocator, function);
+	lip_temp_allocator_destroy(temp_allocator);
 
 	return MUNIT_OK;
 }

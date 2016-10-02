@@ -2,7 +2,7 @@
 #include <lip/lexer.h>
 #include <lip/parser.h>
 #include <lip/memory.h>
-#include <lip/temp_allocator.h>
+#include <lip/arena_allocator.h>
 #include <lip/io.h>
 #include "munit.h"
 #include "test_helpers.h"
@@ -11,7 +11,7 @@ typedef struct lip_fixture_s lip_fixture_t;
 
 struct lip_fixture_s
 {
-	lip_allocator_t* temp_allocator;
+	lip_allocator_t* arena_allocator;
 	lip_runtime_t* runtime;
 };
 
@@ -22,14 +22,14 @@ setup(const MunitParameter params[], void* data)
 	(void)data;
 
 	lip_fixture_t* fixture = lip_new(lip_default_allocator, lip_fixture_t);
-	lip_allocator_t* temp_allocator = lip_temp_allocator_create(lip_default_allocator, 1024);
+	lip_allocator_t* arena_allocator = lip_arena_allocator_create(lip_default_allocator, 1024);
 	lip_vm_config_t vm_config = {
-		.allocator = temp_allocator,
+		.allocator = arena_allocator,
 		.os_len = 256,
 		.cs_len = 256,
 		.env_len = 256
 	};
-	fixture->temp_allocator = temp_allocator;
+	fixture->arena_allocator = arena_allocator;
 	lip_runtime_config_t runtime_config = {
 		.vm_config = vm_config
 	};
@@ -43,7 +43,7 @@ teardown(void* fixture_)
 {
 	lip_fixture_t* fixture = fixture_;
 	lip_runtime_destroy(fixture->runtime);
-	lip_temp_allocator_destroy(fixture->temp_allocator);
+	lip_arena_allocator_destroy(fixture->arena_allocator);
 	lip_free(lip_default_allocator, fixture);
 }
 

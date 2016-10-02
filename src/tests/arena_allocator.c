@@ -1,4 +1,4 @@
-#include <lip/temp_allocator.h>
+#include <lip/arena_allocator.h>
 #include <lip/memory.h>
 #include <lip/array.h>
 #include "munit.h"
@@ -75,7 +75,7 @@ no_leak(const MunitParameter params[], void* fixture_)
 {
 	(void)params;
 	fixture_t* fixture = fixture_;
-	lip_allocator_t* allocator = lip_temp_allocator_create(
+	lip_allocator_t* allocator = lip_arena_allocator_create(
 		&fixture->base_allocator.vtable,
 		128
 	);
@@ -88,7 +88,7 @@ no_leak(const MunitParameter params[], void* fixture_)
 	int num_rounds = munit_rand_int_range(0, 50);
 	for(int i = 0; i < num_rounds; ++i)
 	{
-		lip_temp_allocator_reset(allocator);
+		lip_arena_allocator_reset(allocator);
 		lip_array_clear(pointers);
 
 		int num_small_allocs = munit_rand_int_range(0, 30);
@@ -131,7 +131,7 @@ no_leak(const MunitParameter params[], void* fixture_)
 	}
 
 	lip_array_destroy(pointers);
-	lip_temp_allocator_destroy(allocator);
+	lip_arena_allocator_destroy(allocator);
 
 	return MUNIT_OK;
 }
@@ -143,7 +143,7 @@ min_chunk_size(const MunitParameter params[], void* fixture_)
 	(void)fixture_;
 
 	fixture_t* fixture = fixture_;
-	lip_allocator_t* allocator = lip_temp_allocator_create(
+	lip_allocator_t* allocator = lip_arena_allocator_create(
 		&fixture->base_allocator.vtable,
 		4
 	);
@@ -151,7 +151,7 @@ min_chunk_size(const MunitParameter params[], void* fixture_)
 	munit_assert_ptr_not_null(lip_malloc(allocator, 2));
 	munit_assert_ptr_not_null(lip_malloc(allocator, 16));
 
-	lip_temp_allocator_destroy(allocator);
+	lip_arena_allocator_destroy(allocator);
 
 	return MUNIT_OK;
 }
@@ -172,7 +172,7 @@ static MunitTest tests[] = {
 	{ .test = NULL }
 };
 
-MunitSuite temp_allocator = {
-	.prefix = "/temp_allocator",
+MunitSuite arena_allocator = {
+	.prefix = "/arena_allocator",
 	.tests = tests
 };

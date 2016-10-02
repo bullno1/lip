@@ -449,7 +449,7 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 	CHECK(lip_compile_block(compiler, ast->data.lambda.body));
 
 	LASM(compiler, LIP_OP_RET, 0, LIP_LOC_NOWHERE);
-	lip_function_t* function = lip_end_scope(compiler, compiler->temp_allocator);
+	lip_function_t* function = lip_end_scope(compiler, compiler->arena_allocator);
 	function->num_args = lip_array_len(ast->data.lambda.arguments);
 
 	// Compiler closure capture
@@ -507,7 +507,7 @@ void
 lip_compiler_init(lip_compiler_t* compiler, lip_allocator_t* allocator)
 {
 	compiler->allocator = allocator;
-	compiler->temp_allocator = lip_temp_allocator_create(allocator, 1024);
+	compiler->arena_allocator = lip_arena_allocator_create(allocator, 1024);
 	compiler->source_name = lip_string_ref("");
 	compiler->current_scope = NULL;
 	compiler->free_scopes = NULL;
@@ -533,7 +533,7 @@ lip_compiler_reset(lip_compiler_t* compiler)
 		compiler->free_scopes = scope;
 	}
 
-	lip_temp_allocator_reset(compiler->temp_allocator);
+	lip_arena_allocator_reset(compiler->arena_allocator);
 }
 
 void
@@ -558,7 +558,7 @@ lip_compiler_cleanup(lip_compiler_t* compiler)
 
 	lip_array_destroy(compiler->free_var_indices);
 	lip_array_destroy(compiler->free_var_names);
-	lip_temp_allocator_destroy(compiler->temp_allocator);
+	lip_arena_allocator_destroy(compiler->arena_allocator);
 }
 
 void
@@ -575,7 +575,7 @@ lip_compiler_begin(lip_compiler_t* compiler, lip_string_ref_t source_name)
 const lip_error_t*
 lip_compiler_add_sexp(lip_compiler_t* compiler, const lip_sexp_t* sexp)
 {
-	lip_result_t result = lip_translate_sexp(compiler->temp_allocator, sexp);
+	lip_result_t result = lip_translate_sexp(compiler->arena_allocator, sexp);
 	if(!result.success) { return result.value; }
 
 	LASM(compiler, LIP_OP_POP, 1, LIP_LOC_NOWHERE); // previous exp's result
