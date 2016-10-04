@@ -3,6 +3,8 @@
 
 #include <lip/common.h>
 #include <lip/token.h>
+#include <lip/runtime.h>
+#include <lip/io.h>
 #include "munit.h"
 
 #define lip_assert_enum(ENUM_TYPE, EXPECTED, OP, ACTUAL) \
@@ -83,5 +85,23 @@
 			); \
 		} \
 	} while (0)
+
+LIP_MAYBE_UNUSED static inline bool
+lip_runtime_exec_string(
+	lip_runtime_t* runtime,
+	const char* string,
+	lip_value_t* result
+)
+{
+	struct lip_sstream_s sstream;
+
+	return lip_runtime_exec(
+		runtime,
+		lip_make_sstream(lip_string_ref(string), &sstream),
+		lip_string_ref(__func__),
+		NULL,
+		result
+	);
+}
 
 #endif

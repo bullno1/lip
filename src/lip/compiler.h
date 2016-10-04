@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "sexp.h"
+#include "ast.h"
 
 typedef struct lip_compiler_s lip_compiler_t;
 
@@ -14,6 +15,11 @@ lip_compiler_destroy(lip_compiler_t* compiler);
 
 void
 lip_compiler_begin(lip_compiler_t* compiler, lip_string_ref_t source_name);
+
+void
+lip_compiler_add_ast_transform(
+	lip_compiler_t* compiler, lip_ast_transform_t* transform
+);
 
 const lip_error_t*
 lip_compiler_add_sexp(lip_compiler_t* compiler, const lip_sexp_t* sexp);

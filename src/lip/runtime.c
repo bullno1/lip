@@ -14,6 +14,10 @@ lip_runtime_compile(
 {
 	lip_clear_last_error(&runtime->last_error);
 	lip_compiler_begin(&runtime->compiler, name);
+	lip_compiler_add_ast_transform(
+		&runtime->compiler,
+		lip_universe_ast_transform(&runtime->universe)
+	);
 	lip_parser_reset(&runtime->parser, stream);
 
 	while(true)
@@ -128,7 +132,7 @@ lip_runtime_exec(
 	closure->native_arity = 0;
 	closure->env_len = 0;
 
-	lip_universe_link_function(&runtime->universe, function);
+	lip_universe_begin_load(&runtime->universe, function);
 
 	if(!vm)
 	{
@@ -150,6 +154,8 @@ lip_runtime_exec(
 			);
 			return false;
 	}
+
+	lip_universe_end_load(&runtime->universe, function);
 
 	return false;
 }

@@ -6,7 +6,7 @@
 #define CHECK_SEXP(sexp, cond, msg) \
 	do { \
 		if(!(cond)) { \
-			return lip_error(allocator, sexp, msg); \
+			return lip_syntax_error(allocator, sexp->location, msg); \
 		} \
 	} while(0)
 
@@ -28,28 +28,6 @@
 		TRANSLATE(exp, &(sexps)[i]); \
 		lip_array_push(var, exp); \
 	}
-
-static lip_result_t
-lip_success(void* result)
-{
-	return (lip_result_t){
-		.success = true,
-		.value = result
-	};
-}
-
-static lip_result_t
-lip_error(lip_allocator_t* allocator, const lip_sexp_t* sexp, const char* msg)
-{
-	lip_error_t* error = lip_new(allocator, lip_error_t);
-	error->code = 0;
-	error->extra = msg;
-	error->location = sexp->location;
-	return (lip_result_t){
-		.success = false,
-		.value = error
-	};
-}
 
 static lip_ast_t*
 lip_alloc_ast(lip_allocator_t* allocator, const lip_sexp_t* sexp)
@@ -158,7 +136,9 @@ lip_translate_lambda(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 		{
 			if(lip_string_ref_equal(*previous_arg, arg->data.string))
 			{
-				return lip_error(allocator, arg, "Duplicated parameter name");
+				return lip_syntax_error(
+					allocator, arg->location, "Duplicated parameter name"
+				);
 			}
 		}
 
@@ -239,7 +219,9 @@ lip_translate_sexp(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 		case LIP_SEXP_LIST:
 			if(lip_array_len(sexp->data.list) == 0)
 			{
-				return lip_error(allocator, sexp, "Empty list is invalid");
+				return lip_syntax_error(
+					allocator, sexp->location, "Empty list is invalid"
+				);
 			}
 			else if(sexp->data.list[0].type == LIP_SEXP_SYMBOL)
 			{
@@ -282,5 +264,5 @@ lip_translate_sexp(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	}
 
 	// Impossibru!!
-	return lip_error(allocator, sexp, "Unknown error");
+	return lip_syntax_error(allocator, sexp->location, "Unknown error");
 }

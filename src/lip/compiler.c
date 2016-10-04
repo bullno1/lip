@@ -514,6 +514,9 @@ lip_compiler_init(lip_compiler_t* compiler, lip_allocator_t* allocator)
 	compiler->free_scopes = NULL;
 	compiler->error.code = 0;
 	compiler->error.location = LIP_LOC_NOWHERE;
+	compiler->ast_transforms = lip_array_create(
+		compiler->allocator, lip_ast_transform_t*, 1
+	);
 	compiler->free_var_names = lip_array_create(
 		compiler->allocator, lip_string_ref_t, 1
 	);
@@ -535,6 +538,7 @@ lip_compiler_reset(lip_compiler_t* compiler)
 	}
 
 	lip_arena_allocator_reset(&compiler->arena_allocator.vtable);
+	lip_array_clear(compiler->ast_transforms);
 }
 
 void
@@ -559,6 +563,7 @@ lip_compiler_cleanup(lip_compiler_t* compiler)
 
 	lip_array_destroy(compiler->free_var_indices);
 	lip_array_destroy(compiler->free_var_names);
+	lip_array_destroy(compiler->ast_transforms);
 	lip_arena_allocator_cleanup(&compiler->arena_allocator);
 }
 
@@ -580,10 +585,26 @@ lip_compiler_add_sexp(lip_compiler_t* compiler, const lip_sexp_t* sexp)
 		lip_translate_sexp(&compiler->arena_allocator.vtable, sexp);
 	if(!result.success) { return result.value; }
 
+	lip_array_foreach(lip_ast_transform_t*, transform, compiler->ast_transforms)
+	{
+		result = lip_transform_ast(
+			*transform, &compiler->arena_allocator.vtable, result.value
+		);
+		if(!result.success) { return result.value; }
+	}
+
 	LASM(compiler, LIP_OP_POP, 1, LIP_LOC_NOWHERE); // previous exp's result
 	if(!lip_compile_exp(compiler, result.value)) { return &compiler->error; }
 
 	return NULL;
+}
+
+void
+lip_compiler_add_ast_transform(
+	lip_compiler_t* compiler, lip_ast_transform_t* transform
+)
+{
+	lip_array_push(compiler->ast_transforms, transform);
 }
 
 lip_function_t*

@@ -22,6 +22,7 @@ struct lip_namespace_s
 struct lip_universe_s
 {
 	lip_lni_t lni;
+	lip_ast_transform_t ast_transform;
 	lip_allocator_t* allocator;
 	lip_array(lip_namespace_t) namespaces;
 	lip_closure_t* link_stub;

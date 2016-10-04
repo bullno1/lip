@@ -39,7 +39,8 @@ BEGIN_OP(LDS)
 		SAVE_CONTEXT();
 		++vm->fp;
 		*(vm->fp) = *(vm->fp - 1);
-		lip_vm_do_call(vm, 2);
+		lip_exec_status_t status = lip_vm_do_call(vm, 2);
+		if(status != LIP_EXEC_OK) { return status; }
 		LOAD_CONTEXT();
 	}
 END_OP(LDS)
@@ -83,14 +84,16 @@ BEGIN_OP(CALL)
 	SAVE_CONTEXT();
 	++vm->fp;
 	*(vm->fp) = *(vm->fp - 1);
-	lip_vm_do_call(vm, operand);
+	lip_exec_status_t status = lip_vm_do_call(vm, operand);
+	if(status != LIP_EXEC_OK) { return status; }
 	LOAD_CONTEXT();
 END_OP(CALL)
 
 BEGIN_OP(TAIL)
 	SAVE_CONTEXT();
 	vm->fp->ep = (vm->fp - 1)->ep;
-	lip_vm_do_call(vm, operand);
+	lip_exec_status_t status = lip_vm_do_call(vm, operand);
+	if(status != LIP_EXEC_OK) { return status; }
 	if(vm->fp->is_native) { return LIP_EXEC_OK; }
 	LOAD_CONTEXT();
 END_OP(TAIL)

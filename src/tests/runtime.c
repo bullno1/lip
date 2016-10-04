@@ -47,24 +47,6 @@ teardown(void* fixture_)
 	lip_free(lip_default_allocator, fixture);
 }
 
-static bool
-lip_runtime_exec_string(
-	lip_runtime_t* runtime,
-	const char* string,
-	lip_value_t* result
-)
-{
-	struct lip_sstream_s sstream;
-
-	return lip_runtime_exec(
-		runtime,
-		lip_make_sstream(lip_string_ref(string), &sstream),
-		lip_string_ref(__func__),
-		NULL,
-		result
-	);
-}
-
 static MunitResult
 basic_forms(const MunitParameter params[], void* fixture_)
 {

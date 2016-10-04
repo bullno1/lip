@@ -31,7 +31,8 @@ lip_identity(lip_vm_t* vm)
 	return LIP_EXEC_OK;
 }
 
-void lip_builtins_open(lip_lni_t* lni)
+void
+lip_builtins_open(lip_lni_t* lni)
 {
 	lip_native_function_t functions[] = {
 		LIP_NATIVE_FN(nop, lip_nop, 0),

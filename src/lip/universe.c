@@ -5,6 +5,38 @@
 LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(lip_universe)
 
 static lip_exec_status_t
+lip_ns(lip_vm_t* vm)
+{
+	(void)vm;
+	return LIP_EXEC_OK;
+}
+
+static void
+lip_universe_open(lip_lni_t* lni)
+{
+	lip_universe_t* universe = LIP_CONTAINER_OF(lni, lip_universe_t, lni);
+	lip_value_t env[] = {
+		{ .type = LIP_VAL_NATIVE, .data = { .reference = universe } }
+	};
+
+	lip_native_function_t  functions[] = {
+		{
+			.name = lip_string_ref("ns"),
+			.fn = lip_ns,
+			.arity = 1,
+			.environment = env,
+			.env_len = LIP_STATIC_ARRAY_LEN(env)
+		}
+	};
+
+	lip_lni_register(
+		lni,
+		lip_string_ref("(*universe*)"),
+		functions, LIP_STATIC_ARRAY_LEN(functions)
+	);
+}
+
+static lip_exec_status_t
 lip_link_stub(lip_vm_t* vm)
 {
 	lip_string_t* symbol = lip_vm_get_arg(vm, 0).data.reference;
@@ -120,11 +152,60 @@ lip_universe_register(
 	}
 }
 
+static lip_result_t
+lip_transform_ns(
+	lip_universe_t* universe,
+	lip_allocator_t* allocator,
+	lip_ast_t* ast
+)
+{
+	(void)universe;
+
+	LIP_AST_CHECK(
+		lip_array_len(ast->data.application.arguments) == 1
+		&& ast->data.application.arguments[0]->type == LIP_AST_IDENTIFIER,
+		"'ns' must have the form: (ns <name>)"
+	);
+
+	ast->data.application.function->data.string = lip_string_ref("(*universe*)/ns");
+	ast->data.application.arguments[0]->type = LIP_AST_STRING;
+
+	return lip_success(ast);
+}
+
+static lip_result_t
+lip_universe_transform_ast(
+	lip_ast_transform_t* context,
+	lip_allocator_t* allocator,
+	lip_ast_t* ast
+)
+{
+	if(ast->type != LIP_AST_APPLICATION) { return lip_success(ast); }
+	if(ast->data.application.function->type != LIP_AST_IDENTIFIER)
+	{
+		return lip_success(ast);
+	}
+
+	lip_universe_t* universe =
+		LIP_CONTAINER_OF(context, lip_universe_t, ast_transform);
+
+	lip_string_ref_t fn_name = ast->data.application.function->data.string;
+	if(lip_string_ref_equal(fn_name, lip_string_ref("ns")))
+	{
+		return lip_transform_ns(universe, allocator, ast);
+	}
+	else
+	{
+		return lip_success(ast);
+	}
+}
+
 void
 lip_universe_init(lip_universe_t* universe, lip_allocator_t* allocator)
 {
 	universe->allocator = allocator;
 	universe->lni.reg = lip_universe_register;
+	universe->ast_transform.transform = lip_universe_transform_ast;
 	universe->namespaces = lip_array_create(allocator, lip_namespace_t, 1);
 	lip_closure_t* link_stub =
 		lip_malloc(allocator, sizeof(lip_closure_t) + sizeof(lip_value_t));
@@ -135,6 +216,8 @@ lip_universe_init(lip_universe_t* universe, lip_allocator_t* allocator)
 	link_stub->native_arity = 2;
 	link_stub->function.native = lip_link_stub;
 	universe->link_stub = link_stub;
+
+	lip_universe_open(&universe->lni);
 }
 
 void
@@ -159,7 +242,7 @@ lip_universe_cleanup(lip_universe_t* universe)
 }
 
 void
-lip_universe_link_function(lip_universe_t* universe, lip_function_t* function)
+lip_universe_begin_load(lip_universe_t* universe, lip_function_t* function)
 {
 	lip_function_layout_t layout;
 	lip_function_layout(function, &layout);
@@ -174,11 +257,18 @@ lip_universe_link_function(lip_universe_t* universe, lip_function_t* function)
 	// Recursively link nested functions
 	for(uint16_t i = 0; i < function->num_functions; ++i)
 	{
-		lip_universe_link_function(
+		lip_universe_begin_load(
 			universe,
 			lip_function_resource(function, layout.function_offsets[i])
 		);
 	}
+}
+
+void
+lip_universe_end_load(lip_universe_t* universe, lip_function_t* function)
+{
+	(void)universe;
+	(void)function;
 }
 
 lip_lni_t*
@@ -221,4 +311,10 @@ lip_universe_find_symbol(
 
 	*result = sym->value;
 	return true;
+}
+
+lip_ast_transform_t*
+lip_universe_ast_transform(lip_universe_t* universe)
+{
+	return &universe->ast_transform;
 }

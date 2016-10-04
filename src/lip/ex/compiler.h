@@ -23,6 +23,7 @@ struct lip_compiler_s
 	lip_string_ref_t source_name;
 	lip_scope_t* current_scope;
 	lip_scope_t* free_scopes;
+	lip_array(lip_ast_transform_t*) ast_transforms;
 	lip_array(lip_string_ref_t) free_var_names;
 	lip_array(lip_operand_t) free_var_indices;
 	lip_error_t error;
