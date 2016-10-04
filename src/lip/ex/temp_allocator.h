@@ -14,4 +14,12 @@ struct lip_temp_allocator_s
 	bool freed;
 };
 
+void
+lip_temp_allocator_init(
+	lip_temp_allocator_t* allocator, lip_allocator_t* backing_allocator
+);
+
+void
+lip_temp_allocator_cleanup(lip_temp_allocator_t* allocator);
+
 #endif

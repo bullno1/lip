@@ -1,4 +1,5 @@
 #include "ex/temp_allocator.h"
+#include "utils.h"
 
 static void*
 lip_temp_allocator_realloc(lip_allocator_t* vtable, void* old, size_t size)
@@ -44,12 +45,7 @@ lip_allocator_t*
 lip_temp_allocator_create(lip_allocator_t* allocator)
 {
 	lip_temp_allocator_t* temp_allocator = lip_new(allocator, lip_temp_allocator_t);
-	temp_allocator->allocator = allocator;
-	temp_allocator->size = 0;
-	temp_allocator->mem = NULL;
-	temp_allocator->freed = true;
-	temp_allocator->vtable.realloc = lip_temp_allocator_realloc;
-	temp_allocator->vtable.free = lip_temp_allocator_free;
+	lip_temp_allocator_init(temp_allocator, allocator);
 	return &temp_allocator->vtable;
 }
 
@@ -58,9 +54,28 @@ lip_temp_allocator_destroy(lip_allocator_t* allocator)
 {
 	lip_temp_allocator_t* temp_allocator =
 		LIP_CONTAINER_OF(allocator, lip_temp_allocator_t, vtable);
+	lip_temp_allocator_cleanup(temp_allocator);
+	lip_free(temp_allocator->allocator, temp_allocator);
+}
+
+void
+lip_temp_allocator_init(
+	lip_temp_allocator_t* temp_allocator, lip_allocator_t* backing_allocator
+)
+{
+	temp_allocator->allocator = backing_allocator;
+	temp_allocator->size = 0;
+	temp_allocator->mem = NULL;
+	temp_allocator->freed = true;
+	temp_allocator->vtable.realloc = lip_temp_allocator_realloc;
+	temp_allocator->vtable.free = lip_temp_allocator_free;
+}
+
+void
+lip_temp_allocator_cleanup(lip_temp_allocator_t* temp_allocator)
+{
 	if(temp_allocator->mem)
 	{
 		lip_free(temp_allocator->allocator, temp_allocator->mem);
 	}
-	lip_free(temp_allocator->allocator, temp_allocator);
 }
