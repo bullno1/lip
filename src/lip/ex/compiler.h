@@ -19,7 +19,7 @@ struct lip_scope_s
 struct lip_compiler_s
 {
 	lip_allocator_t* allocator;
-	lip_allocator_t* arena_allocator;
+	lip_arena_allocator_t arena_allocator;
 	lip_string_ref_t source_name;
 	lip_scope_t* current_scope;
 	lip_scope_t* free_scopes;

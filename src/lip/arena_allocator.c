@@ -111,13 +111,7 @@ lip_arena_allocator_create(lip_allocator_t* allocator, size_t chunk_size)
 {
 	lip_arena_allocator_t* arena_allocator =
 		lip_new(allocator, lip_arena_allocator_t);
-	arena_allocator->vtable.realloc = lip_arena_allocator_realloc;
-	arena_allocator->vtable.free = lip_arena_allocator_free;
-	arena_allocator->backing_allocator = allocator;
-	arena_allocator->current_chunks = NULL;
-	arena_allocator->chunks = NULL;
-	arena_allocator->large_allocs = NULL;
-	arena_allocator->chunk_size = LIP_MAX(chunk_size, sizeof(lip_large_alloc_t));
+	lip_arena_allocator_init(arena_allocator, allocator, chunk_size);
 	return &arena_allocator->vtable;
 }
 
@@ -128,6 +122,30 @@ lip_arena_allocator_destroy(lip_allocator_t* allocator)
 
 	lip_arena_allocator_t* arena_allocator =
 		LIP_CONTAINER_OF(allocator, lip_arena_allocator_t, vtable);
+	lip_arena_allocator_cleanup(arena_allocator);
+	lip_free(arena_allocator->backing_allocator, arena_allocator);
+}
+
+
+void
+lip_arena_allocator_init(
+	lip_arena_allocator_t* arena_allocator,
+	lip_allocator_t* backing_allocator,
+	size_t chunk_size
+)
+{
+	arena_allocator->vtable.realloc = lip_arena_allocator_realloc;
+	arena_allocator->vtable.free = lip_arena_allocator_free;
+	arena_allocator->backing_allocator = backing_allocator;
+	arena_allocator->current_chunks = NULL;
+	arena_allocator->chunks = NULL;
+	arena_allocator->large_allocs = NULL;
+	arena_allocator->chunk_size = LIP_MAX(chunk_size, sizeof(lip_large_alloc_t));
+}
+
+void
+lip_arena_allocator_cleanup(lip_arena_allocator_t* arena_allocator)
+{
 	for(
 		lip_arena_chunk_t* chunk = arena_allocator->chunks;
 		chunk != NULL;
@@ -137,8 +155,6 @@ lip_arena_allocator_destroy(lip_allocator_t* allocator)
 		lip_free(arena_allocator->backing_allocator, chunk);
 		chunk = next_chunk;
 	}
-
-	lip_free(arena_allocator->backing_allocator, arena_allocator);
 }
 
 void

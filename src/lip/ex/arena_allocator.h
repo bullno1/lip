@@ -34,4 +34,14 @@ struct lip_arena_chunk_s
 	char start[];
 };
 
+void
+lip_arena_allocator_init(
+	lip_arena_allocator_t* arena_allocator,
+	lip_allocator_t* backing_allocator,
+	size_t chunk_size
+);
+
+void
+lip_arena_allocator_cleanup(lip_arena_allocator_t* arena_allocator);
+
 #endif
