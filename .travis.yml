@@ -32,7 +32,6 @@ matrix:
         - WITH_UB_SAN=1
         - WITH_ADDR_SAN=1
 install:
-  - sudo apt-get install -y valgrind
   - pip install --user cpp-coveralls
 script:
   - ./numake tests
