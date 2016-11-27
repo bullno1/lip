@@ -2,10 +2,22 @@
 #include "utils.h"
 #include "ast.h"
 #include "array.h"
+#include "xxhash.h"
 
 #define CHECK(cond) do { if(!cond) { return false; } } while(0)
 #define LASM(compiler, opcode, operand, location) \
 	lip_asm_add(&compiler->current_scope->lasm, opcode, operand, location)
+#define lip_string_ref_hash(str) XXH32(str.ptr, str.length, __LINE__)
+
+__KHASH_IMPL(
+	lip_string_ref_set,
+	LIP_MAYBE_UNUSED,
+	lip_string_ref_t,
+	char,
+	0,
+	lip_string_ref_hash,
+	lip_string_ref_equal
+)
 
 LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(lip_compiler)
 
@@ -313,36 +325,25 @@ lip_compile_letrec(lip_compiler_t* compiler, const lip_ast_t* ast)
 }
 
 static void
-lip_set_add(lip_array(lip_string_ref_t)* set, lip_string_ref_t elem)
+lip_set_add(khash_t(lip_string_ref_set)* set, lip_string_ref_t elem)
 {
-	lip_array_foreach(lip_string_ref_t, str, *set)
-	{
-		if(lip_string_ref_equal(*str, elem)) { return; }
-	}
-
-	lip_array_push(*set, elem);
+	int ret;
+	kh_put(lip_string_ref_set, set, elem, &ret);
 }
 
 static void
-lip_set_remove(lip_array(lip_string_ref_t)* set, lip_string_ref_t elem)
+lip_set_remove(khash_t(lip_string_ref_set)* set, lip_string_ref_t elem)
 {
-	size_t num_elems = lip_array_len(*set);
-	for(size_t i = 0; i < num_elems; ++i)
-	{
-		if(lip_string_ref_equal((*set)[i], elem))
-		{
-			lip_array_quick_remove(*set, i);
-			return;
-		}
-	}
+	khiter_t iter = kh_get(lip_string_ref_set, set, elem);
+	if(iter != kh_end(set)) { kh_del(lip_string_ref_set, set, iter); }
 }
 
 static void
-lip_find_free_vars(const lip_ast_t* ast, lip_array(lip_string_ref_t)* out);
+lip_find_free_vars(const lip_ast_t* ast, khash_t(lip_string_ref_set)* out);
 
 static void
 lip_find_free_vars_in_block(
-	lip_array(lip_ast_t*) block, lip_array(lip_string_ref_t)* out
+	lip_array(lip_ast_t*) block, khash_t(lip_string_ref_set)* out
 )
 {
 	lip_array_foreach(lip_ast_t*, sub_exp, block)
@@ -352,7 +353,7 @@ lip_find_free_vars_in_block(
 }
 
 static void
-lip_find_free_vars(const lip_ast_t* ast, lip_array(lip_string_ref_t)* out)
+lip_find_free_vars(const lip_ast_t* ast, khash_t(lip_string_ref_set)* out)
 {
 	switch(ast->type)
 	{
@@ -425,20 +426,27 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 	}
 
 	// Allocate free vars
-	lip_array_clear(compiler->free_var_names);
-	lip_find_free_vars(ast, &compiler->free_var_names);
+	kh_clear(lip_string_ref_set, compiler->free_var_names);
+	lip_find_free_vars(ast, compiler->free_var_names);
 
 	lip_array_clear(compiler->free_var_indices);
 	lip_scope_t* scope = compiler->current_scope;
 	lip_operand_t free_var_index = 0;
-	size_t num_free_vars = lip_array_len(compiler->free_var_names);
 	size_t num_captures = 0;
-	for(size_t i = 0; i < num_free_vars; ++i)
+
+	for(
+		khint_t itr = kh_begin(compiler->free_var_names);
+		itr != kh_end(compiler->free_var_names);
+		++itr
+	)
 	{
+		if (!kh_exist(compiler->free_var_names, itr)) { continue; }
+
+		lip_string_ref_t var_name = kh_key(compiler->free_var_names, itr);
 		lip_operand_t local_index;
-		if(lip_find_local(compiler, compiler->free_var_names[i], &local_index))
+		if(lip_find_local(compiler, var_name, &local_index))
 		{
-			lip_array_push(scope->var_names, compiler->free_var_names[i]);
+			lip_array_push(scope->var_names, var_name);
 			lip_array_push(scope->var_indices, free_var_index--);
 			lip_array_push(compiler->free_var_indices, local_index);
 			++num_captures;
@@ -514,15 +522,9 @@ lip_compiler_init(lip_compiler_t* compiler, lip_allocator_t* allocator)
 	compiler->free_scopes = NULL;
 	compiler->error.code = 0;
 	compiler->error.location = LIP_LOC_NOWHERE;
-	compiler->ast_transforms = lip_array_create(
-		compiler->allocator, lip_ast_transform_t*, 1
-	);
-	compiler->free_var_names = lip_array_create(
-		compiler->allocator, lip_string_ref_t, 1
-	);
-	compiler->free_var_indices = lip_array_create(
-		compiler->allocator, lip_operand_t, 1
-	);
+	compiler->ast_transforms = lip_array_create(allocator, lip_ast_transform_t*, 1);
+	compiler->free_var_names = kh_init(lip_string_ref_set, allocator);
+	compiler->free_var_indices = lip_array_create(allocator, lip_operand_t, 1);
 	compiler->error.extra = NULL;
 }
 
@@ -562,7 +564,7 @@ lip_compiler_cleanup(lip_compiler_t* compiler)
 	}
 
 	lip_array_destroy(compiler->free_var_indices);
-	lip_array_destroy(compiler->free_var_names);
+	kh_destroy(lip_string_ref_set, compiler->free_var_names);
 	lip_array_destroy(compiler->ast_transforms);
 	lip_arena_allocator_cleanup(&compiler->arena_allocator);
 }
