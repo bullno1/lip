@@ -2,7 +2,7 @@
 #include "utils.h"
 #include "ast.h"
 #include "array.h"
-#include "xxhash.h"
+#include "vendor/xxhash.h"
 
 #define CHECK(cond) do { if(!cond) { return false; } } while(0)
 #define LASM(compiler, opcode, operand, location) \

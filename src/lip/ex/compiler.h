@@ -4,7 +4,7 @@
 #include "../compiler.h"
 #include "asm.h"
 #include "arena_allocator.h"
-#include "../khash.h"
+#include "../vendor/khash.h"
 
 KHASH_DECLARE(lip_string_ref_set, lip_string_ref_t, char)
 
