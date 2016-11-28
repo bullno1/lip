@@ -12,7 +12,7 @@ lip_universe_t*
 lip_universe_create(lip_allocator_t* allocator);
 
 void
-lip_lms_destroy(lip_universe_t* universe);
+lip_universe_destroy(lip_universe_t* allocator);
 
 void
 lip_universe_begin_load(lip_universe_t* universe, lip_function_t* function);

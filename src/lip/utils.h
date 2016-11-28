@@ -3,6 +3,9 @@
 
 #include "memory.h"
 #include "ex/vm.h"
+#include "vendor/xxhash.h"
+
+#define lip_string_ref_hash(str) XXH32(str.ptr, str.length, __LINE__)
 
 #define LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(TYPE) \
 	LIP_IMPLEMENT_CONSTRUCTOR(TYPE) \

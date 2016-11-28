@@ -2,6 +2,26 @@
 #include "utils.h"
 #include "array.h"
 
+__KHASH_IMPL(
+	lip_namespace,
+	LIP_MAYBE_UNUSED,
+	lip_string_ref_t,
+	lip_value_t,
+	1,
+	lip_string_ref_hash,
+	lip_string_ref_equal
+)
+
+__KHASH_IMPL(
+	lip_environment,
+	LIP_MAYBE_UNUSED,
+	lip_string_ref_t,
+	khash_t(lip_namespace)*,
+	1,
+	lip_string_ref_hash,
+	lip_string_ref_equal
+)
+
 LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(lip_universe)
 
 static lip_exec_status_t
@@ -61,39 +81,29 @@ lip_link_stub(lip_vm_t* vm)
 	return LIP_EXEC_OK;
 }
 
-static lip_namespace_t*
+static khash_t(lip_namespace)*
 lip_universe_find_namespace(lip_universe_t* universe, lip_string_ref_t name)
 {
-	lip_array_foreach(lip_namespace_t, namespace, universe->namespaces)
-	{
-		if(true
-			&& namespace->name->length == name.length
-			&& (name.ptr == NULL ||
-				memcmp(namespace->name->ptr, name.ptr, name.length) == 0)
-		)
-		{
-			return namespace;
-		}
-	}
-
-	return NULL;
+	khiter_t itr = kh_get(lip_environment, universe->environment, name);
+	return itr == kh_end(universe->environment) ?
+		NULL : kh_val(universe->environment, itr);
 }
 
-static lip_symbol_t*
-lip_namespace_find_symbol(lip_namespace_t* namespace, lip_string_ref_t name)
+static bool
+lip_namespace_find_symbol(
+	khash_t(lip_namespace)* ns, lip_string_ref_t name, lip_value_t* result
+)
 {
-	lip_array_foreach(lip_symbol_t, symbol, namespace->symbols)
+	khiter_t itr = kh_get(lip_namespace, ns, name);
+	if(itr == kh_end(ns))
 	{
-		if(true
-			&& symbol->name->length == name.length
-			&& memcmp(symbol->name->ptr, name.ptr, name.length) == 0
-		)
-		{
-			return symbol;
-		}
+		return false;
 	}
-
-	return NULL;
+	else
+	{
+		*result = kh_val(ns, itr);
+		return true;
+	}
 }
 
 static void
@@ -105,34 +115,30 @@ lip_universe_register(
 )
 {
 	lip_universe_t* universe = LIP_CONTAINER_OF(lni, lip_universe_t, lni);
-	lip_namespace_t* ns = lip_universe_find_namespace(universe, namespace);
+	khash_t(lip_namespace)* ns = lip_universe_find_namespace(universe, namespace);
 	if(ns == NULL)
 	{
-		ns = lip_array_alloc(universe->namespaces);
-		ns->symbols = lip_array_create(
-			universe->allocator, lip_symbol_t, num_functions
-		);
-		ns->name = lip_malloc(
-			universe->allocator, sizeof(lip_string_t) + namespace.length
-		);
-		ns->name->length = namespace.length;
-		memcpy(ns->name->ptr, namespace.ptr, namespace.length);
+		ns = kh_init(lip_namespace, universe->allocator);
+
+		void* mem = lip_malloc(universe->allocator, namespace.length);
+		memcpy(mem, namespace.ptr, namespace.length);
+		lip_string_ref_t key = { .ptr = mem, .length = namespace.length };
+
+		int ret;
+		khiter_t itr = kh_put(lip_environment, universe->environment, key, &ret);
+		kh_value(universe->environment, itr) = ns;
 	}
 
 	for(uint32_t i = 0; i < num_functions; ++i)
 	{
 		lip_native_function_t* fn = &functions[i];
-		lip_symbol_t* sym = lip_namespace_find_symbol(ns, fn->name);
-		if(sym == NULL)
-		{
-			sym = lip_array_alloc(ns->symbols);
-		}
 
-		sym->name = lip_malloc(
-			universe->allocator, sizeof(lip_string_t) + fn->name.length
-		);
-		sym->name->length = fn->name.length;
-		memcpy(sym->name->ptr, fn->name.ptr, fn->name.length);
+		lip_value_t sym_val;
+		if(lip_namespace_find_symbol(ns, fn->name, &sym_val)) { continue; }
+
+		void* mem = lip_malloc(universe->allocator, fn->name.length);
+		memcpy(mem, fn->name.ptr, fn->name.length);
+		lip_string_ref_t key = { .ptr = mem, .length = fn->name.length };
 
 		size_t env_size = sizeof(lip_value_t) * fn->env_len;
 		lip_closure_t* closure = lip_malloc(
@@ -147,8 +153,13 @@ lip_universe_register(
 		{
 			memcpy(closure->environment, fn->environment, env_size);
 		}
-		sym->value.type = LIP_VAL_FUNCTION;
-		sym->value.data.reference = closure;
+
+		int ret;
+		khiter_t itr = kh_put(lip_namespace, ns, key, &ret);
+		kh_value(ns, itr) = (lip_value_t){
+			.type = LIP_VAL_FUNCTION,
+			.data = { .reference = closure }
+		};
 	}
 }
 
@@ -206,7 +217,7 @@ lip_universe_init(lip_universe_t* universe, lip_allocator_t* allocator)
 	universe->allocator = allocator;
 	universe->lni.reg = lip_universe_register;
 	universe->ast_transform.transform = lip_universe_transform_ast;
-	universe->namespaces = lip_array_create(allocator, lip_namespace_t, 1);
+	universe->environment = kh_init(lip_environment, allocator);
 	lip_closure_t* link_stub =
 		lip_malloc(allocator, sizeof(lip_closure_t) + sizeof(lip_value_t));
 	link_stub->is_native = true;
@@ -223,22 +234,36 @@ lip_universe_init(lip_universe_t* universe, lip_allocator_t* allocator)
 void
 lip_universe_cleanup(lip_universe_t* universe)
 {
-	lip_array_foreach(lip_namespace_t, namespace, universe->namespaces)
+	for(
+		khiter_t env_itr = kh_begin(universe->environment);
+		env_itr != kh_end(universe->environment);
+		++env_itr
+	)
 	{
-		lip_array_foreach(lip_symbol_t, symbol, namespace->symbols)
+		if(!kh_exist(universe->environment, env_itr)) { continue; }
+
+		khash_t(lip_namespace)* ns = kh_val(universe->environment, env_itr);
+
+		for(khiter_t ns_itr = kh_begin(ns); ns_itr != kh_end(ns); ++ns_itr)
 		{
-			lip_free(universe->allocator, symbol->name);
-			if(symbol->value.type == LIP_VAL_FUNCTION)
+			if(!kh_exist(ns, ns_itr)) { continue; }
+
+			lip_string_ref_t key = kh_key(ns, ns_itr);
+			lip_value_t value = kh_val(ns, ns_itr);
+
+			lip_free(universe->allocator, (void*)key.ptr);
+			if(value.type == LIP_VAL_FUNCTION)
 			{
-				lip_free(universe->allocator, symbol->value.data.reference);
+				lip_free(universe->allocator, value.data.reference);
 			}
 		}
 
-		lip_array_destroy(namespace->symbols);
-		lip_free(universe->allocator, namespace->name);
+		lip_free(universe->allocator, (void*)(kh_key(universe->environment, env_itr).ptr));
+		kh_destroy(lip_namespace, ns);
 	}
+	kh_destroy(lip_environment, universe->environment);
+
 	lip_free(universe->allocator, universe->link_stub);
-	lip_array_destroy(universe->namespaces);
 }
 
 void
@@ -297,20 +322,15 @@ lip_universe_find_symbol(
 	}
 	else
 	{
-		target_namespace.ptr = NULL;
-		target_namespace.length = 0;
+		target_namespace = lip_string_ref("");
 		target_symbol = symbol;
 	}
 
-	lip_namespace_t* namespace =
+	khash_t(lip_namespace)* ns =
 		lip_universe_find_namespace(universe, target_namespace);
-	if(namespace == NULL) { return false; }
+	if(ns == NULL) { return false; }
 
-	lip_symbol_t* sym = lip_namespace_find_symbol(namespace, target_symbol);
-	if(sym == NULL) { return false; }
-
-	*result = sym->value;
-	return true;
+	return lip_namespace_find_symbol(ns, target_symbol, result);
 }
 
 lip_ast_transform_t*
