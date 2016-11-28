@@ -36,6 +36,6 @@ install:
 script:
   - ./numake tests
 after_success:
-  - if [ "$COMPILER" = "gcc" ]; then coveralls --root . --build-root . --exclude .build/src/tests; fi
+  - if [ "$COMPILER" = "gcc" ]; then coveralls --root . --build-root . --exclude .build/src/tests --exclude .build/src/lip/vendor ; fi
 sudo: required
 dist: trusty

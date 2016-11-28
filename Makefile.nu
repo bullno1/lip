@@ -53,6 +53,7 @@ cover: tests
 		--sort-percentage \
 		--delete \
 		--filter '.*src/lip/.*' \
+		--exclude '.*src/lip/vendor/.*' \
 		--html --html-details \
 		--output $@/index.html
 
