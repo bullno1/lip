@@ -2,32 +2,34 @@ BEGIN_OP(NOP)
 END_OP(NOP)
 
 BEGIN_OP(POP)
-	--sp;
-END_OP(NOP)
+	++sp;
+END_OP(POP)
 
-BEGIN_OP(LDC)
-	*(sp++) = fn.constants[operand];
-END_OP(LDC)
+BEGIN_OP(LDK)
+	*(--sp) = fn.constants[operand];
+END_OP(LDK)
 
-BEGIN_OP(LDL)
-	lip_value_t* target =
-		operand > 0 ? ep - operand : fp->closure->environment - operand;
-	*(sp++) = *target;
-END_OP(LDL)
+BEGIN_OP(LDLV)
+	*(--sp) = ep[operand];
+END_OP(LDLV)
 
-BEGIN_OP(LDS)
+BEGIN_OP(LDCV)
+	*(--sp) = fp->closure->environment[operand];
+END_OP(LDCV)
+
+BEGIN_OP(IMP)
 	lip_value_t val = fn.imports[operand].value;
 	if(val.type != LIP_VAL_PLACEHOLDER)
 	{
-		*(sp++) = val;
+		*(--sp) = val;
 	}
 	else
 	{
-		*(sp++) = (lip_value_t) {
+		*(--sp) = (lip_value_t) {
 			.type = LIP_VAL_NATIVE,
 			.data = { .reference = &fn.imports[operand] }
 		};
-		*(sp++) = (lip_value_t) {
+		*(--sp) = (lip_value_t) {
 			.type = LIP_VAL_NATIVE,
 			.data = {
 				.reference = lip_function_resource(
@@ -35,7 +37,7 @@ BEGIN_OP(LDS)
 				)
 			}
 		};
-		*(sp++) = val;
+		*(--sp) = val;
 		SAVE_CONTEXT();
 		++vm->fp;
 		*(vm->fp) = *(vm->fp - 1);
@@ -43,28 +45,28 @@ BEGIN_OP(LDS)
 		if(status != LIP_EXEC_OK) { return status; }
 		LOAD_CONTEXT();
 	}
-END_OP(LDS)
+END_OP(IMP)
 
 BEGIN_OP(LDI)
-	lip_value_t* value = sp++;
+	lip_value_t* value = --sp;
 	value->type = LIP_VAL_NUMBER;
 	value->data.number = operand;
 END_OP(LDI)
 
 BEGIN_OP(LDB)
-	lip_value_t* value = sp++;
+	lip_value_t* value = --sp;
 	value->type = LIP_VAL_BOOLEAN;
 	value->data.boolean = operand;
 END_OP(LDB)
 
 BEGIN_OP(PLHR)
-	lip_value_t* value = ep - operand;
+	lip_value_t* value = ep + operand;
 	value->type = LIP_VAL_PLACEHOLDER;
 	value->data.index = operand;
 END_OP(PLHR)
 
 BEGIN_OP(NIL)
-	(sp++)->type = LIP_VAL_NIL;
+	(--sp)->type = LIP_VAL_NIL;
 END_OP(NIL)
 
 BEGIN_OP(JMP)
@@ -72,7 +74,7 @@ BEGIN_OP(JMP)
 END_OP(JMP)
 
 BEGIN_OP(JOF)
-	lip_value_t* top = (--sp);
+	lip_value_t* top = (sp++);
 	bool is_false =
 		(top->type == LIP_VAL_NIL)
 		|| (top->type == LIP_VAL_BOOLEAN && !top->data.boolean);
@@ -106,28 +108,27 @@ BEGIN_OP(RET)
 END_OP(RET)
 
 BEGIN_OP(LT)
-	lip_value_t* lhs = sp - 1;
-	lip_value_t* rhs = sp - 2;
+	lip_value_t* lhs = sp;
+	lip_value_t* rhs = sp + 1;
 	lip_value_t result = {
 		.type = LIP_VAL_BOOLEAN,
 		.data = { .boolean = lhs->data.number < rhs->data.number }
 	};
-	--sp;
-	*(sp - 1) = result;
+	*(++sp) = result;
 END_OP(LT)
 
 BEGIN_OP(ADD)
 	double acc = 0.0;
 	for(int i = 0; i < operand; ++i)
 	{
-		acc += (sp - 1 - i)->data.number;
+		acc += sp[i].data.number;
 	}
 	lip_value_t result = {
 		.type = LIP_VAL_NUMBER,
 		.data = { .number = acc }
 	};
-	sp -= (operand - 1);
-	*(sp - 1) = result;
+	sp += (operand - 1);
+	*sp = result;
 END_OP(ADD)
 
 BEGIN_OP(CLS)
@@ -144,11 +145,10 @@ BEGIN_OP(CLS)
 	for(unsigned int i = 0; i < num_captures; ++i)
 	{
 		lip_opcode_t opcode;
-		int32_t local_index;
-		lip_disasm(pc[i], &opcode, &local_index);
-		lip_value_t* target = local_index > 0 ?
-			ep - local_index
-			: fp->closure->environment - local_index;
+		int32_t var_index;
+		lip_disasm(pc[i], &opcode, &var_index);
+		lip_value_t* target =
+			(opcode == LIP_OP_LDLV ? ep : fp->closure->environment) + var_index;
 		closure->environment[i] = *target;
 	}
 	pc += num_captures;
@@ -156,11 +156,11 @@ BEGIN_OP(CLS)
 		.type = LIP_VAL_FUNCTION,
 		.data = { .reference = closure }
 	};
-	*(sp++) = value;
+	*(--sp) = value;
 END_OP(CLS)
 
 BEGIN_OP(RCLS)
-	lip_value_t* target = ep - operand;
+	lip_value_t* target = ep + operand;
 	if(target->type == LIP_VAL_FUNCTION)
 	{
 		lip_closure_t* closure = target->data.reference;
@@ -169,17 +169,16 @@ BEGIN_OP(RCLS)
 			lip_value_t* captured_val = &closure->environment[i];
 			if(captured_val->type == LIP_VAL_PLACEHOLDER)
 			{
-				*captured_val = *(ep - captured_val->data.index);
+				*captured_val = *(ep + captured_val->data.index);
 			}
 		}
 	}
 	else if(target->type == LIP_VAL_PLACEHOLDER)
 	{
-		*target = *(ep - target->data.index);
+		*target = *(ep + target->data.index);
 	}
 END_OP(RCLS)
 
 BEGIN_OP(SET)
-	lip_value_t* target = operand > 0 ? ep - operand : fp->closure->environment - operand;
-	*target = *(--sp);
+	ep[operand] = *(sp++);
 END_OP(SET)

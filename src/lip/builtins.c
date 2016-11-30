@@ -7,12 +7,14 @@
 static lip_exec_status_t
 lip_print(lip_vm_t* vm)
 {
+	uint8_t num_args;
+	lip_value_t* args = lip_vm_get_args(vm, &num_args);
 	lip_print_value(
 		vm->config.allocator,
 		10,
 		0,
 		lip_stdout(),
-		lip_vm_get_arg(vm, 0)
+		args[0]
 	);
 	return LIP_EXEC_OK;
 }
@@ -27,7 +29,9 @@ lip_nop(lip_vm_t* vm)
 static lip_exec_status_t
 lip_identity(lip_vm_t* vm)
 {
-	lip_vm_push_value(vm, lip_vm_get_arg(vm, 0));
+	uint8_t num_args;
+	lip_value_t* args = lip_vm_get_args(vm, &num_args);
+	lip_vm_push_value(vm, args[0]);
 	return LIP_EXEC_OK;
 }
 

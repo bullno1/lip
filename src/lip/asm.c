@@ -38,7 +38,6 @@ void lip_asm_cleanup(lip_asm_t* lasm)
 void lip_asm_begin(lip_asm_t* lasm, lip_string_ref_t source_name)
 {
 	lasm->source_name = source_name;
-	lasm->num_locals = 0;
 	lip_array_clear(lasm->labels);
 	lip_array_clear(lasm->jumps);
 	lip_array_clear(lasm->instructions);
@@ -57,12 +56,6 @@ lip_asm_new_label(lip_asm_t* lasm)
 	lip_asm_index_t index = lip_array_len(lasm->labels);
 	lip_array_push(lasm->labels, 0);
 	return index;
-}
-
-lip_asm_index_t
-lip_asm_new_local(lip_asm_t* lasm)
-{
-	return ++lasm->num_locals;
 }
 
 lip_asm_index_t
@@ -391,7 +384,7 @@ lip_asm_end(lip_asm_t* lasm, lip_allocator_t* allocator)
 
 	function->size = block_info.num_elements;
 	function->num_args = 0;
-	function->num_locals = lasm->num_locals;
+	function->num_locals = 0;
 	function->num_imports = num_imports;
 	function->num_constants = num_constants;
 	function->num_instructions = num_instructions;

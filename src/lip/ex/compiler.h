@@ -9,6 +9,7 @@
 KHASH_DECLARE(lip_string_ref_set, lip_string_ref_t, char)
 
 typedef struct lip_scope_s lip_scope_t;
+typedef struct lip_var_s lip_var_t;
 
 struct lip_scope_s
 {
@@ -16,7 +17,13 @@ struct lip_scope_s
 	lip_asm_t lasm;
 
 	lip_array(lip_string_ref_t) var_names;
-	lip_array(lip_operand_t) var_indices;
+	lip_array(lip_var_t) var_infos;
+};
+
+struct lip_var_s
+{
+	bool is_local;
+	lip_asm_index_t index;
 };
 
 struct lip_compiler_s
@@ -28,7 +35,7 @@ struct lip_compiler_s
 	lip_scope_t* free_scopes;
 	lip_array(lip_ast_transform_t*) ast_transforms;
 	khash_t(lip_string_ref_set)* free_var_names;
-	lip_array(lip_operand_t) free_var_indices;
+	lip_array(lip_var_t) free_var_infos;
 	lip_error_t error;
 };
 

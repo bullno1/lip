@@ -30,9 +30,6 @@ lip_asm_index_t
 lip_asm_new_label(lip_asm_t* lasm);
 
 lip_asm_index_t
-lip_asm_new_local(lip_asm_t* lasm);
-
-lip_asm_index_t
 lip_asm_new_function(lip_asm_t* lasm, lip_function_t* function);
 
 lip_asm_index_t

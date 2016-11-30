@@ -119,12 +119,6 @@ normal(const MunitParameter params[], void* fixture)
 	lip_asm_t* lasm = fixture;
 	lip_asm_begin(lasm, lip_string_ref(__func__));
 
-	lip_asm_index_t num_locals = munit_rand_uint32() % 20;
-	for(lip_asm_index_t i = 0; i < num_locals; ++i)
-	{
-		munit_assert_uint(i + 1, ==, lip_asm_new_local(lasm));
-	}
-
 	lip_asm_index_t num_functions = munit_rand_uint32() % 20;
 	lip_asm_t* lasm2 = lip_asm_create(lip_default_allocator);
 	lip_loc_range_t dummy_loc;
@@ -165,7 +159,6 @@ normal(const MunitParameter params[], void* fixture)
 	}
 	lip_array_destroy(nested_functions);
 
-	munit_assert_size(num_locals, ==, function->num_locals);
 	munit_assert_size(0, ==, function->num_constants);
 	munit_assert_size(0, ==, function->num_imports);
 	munit_assert_size(num_functions, ==, function->num_functions);

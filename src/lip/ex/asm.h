@@ -15,7 +15,6 @@ struct lip_tagged_instruction_s
 struct lip_asm_s
 {
 	lip_allocator_t* allocator;
-	lip_asm_index_t num_locals;
 	lip_string_ref_t source_name;
 	lip_array(lip_asm_index_t) labels;
 	lip_array(lip_asm_index_t) jumps;

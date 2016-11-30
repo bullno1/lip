@@ -60,7 +60,7 @@ struct lip_closure_s
 		lip_native_fn_t native;
 	} function;
 
-	uint16_t env_len;
+	uint8_t env_len;
 	unsigned is_native:1;
 	unsigned native_arity: 7;
 
@@ -72,6 +72,7 @@ struct lip_stack_frame_s
 	lip_closure_t* closure;
 	lip_instruction_t* pc;
 	lip_value_t* ep;
+	uint8_t num_args;
 	bool is_native;
 };
 

@@ -8,7 +8,7 @@
 #	define BEGIN_LOOP() \
 		void* dispatch_table[] = { LIP_OP(GENERATE_LABEL) }; \
 		lip_opcode_t opcode; \
-		int32_t operand; \
+		lip_operand_t operand; \
 		DISPATCH()
 #	define END_LOOP()
 #	define BEGIN_OP(OP) do_LIP_OP_##OP: {
@@ -89,9 +89,10 @@ lip_vm_loop(lip_vm_t* vm)
 lip_exec_status_t
 lip_vm_do_call(lip_vm_t* vm, uint8_t num_args)
 {
-	lip_value_t* value = --vm->sp;
-	lip_closure_t* closure = (lip_closure_t*)value->data.reference;
+	lip_value_t* fn = vm->sp++;
+	lip_closure_t* closure = (lip_closure_t*)fn->data.reference;
 	vm->fp->closure = closure;
+	vm->fp->num_args = num_args;
 
 	bool is_native = closure->is_native;
 	vm->fp->is_native = is_native;
@@ -99,15 +100,15 @@ lip_vm_do_call(lip_vm_t* vm, uint8_t num_args)
 		is_native ? num_args : closure->function.lip->num_locals;
 
 	// Pop arguments from operand stack into environment
-	vm->fp->ep += env_size;
-	vm->sp -= num_args;
-	memcpy(vm->fp->ep - num_args, vm->sp, num_args * sizeof(lip_value_t));
+	vm->fp->ep -= env_size;
+	memcpy(vm->fp->ep, vm->sp, num_args * sizeof(lip_value_t));
+	vm->sp += num_args;
 
 	if(is_native)
 	{
 		// Ensure that a value is always returned
-		vm->sp->type = LIP_VAL_NIL;
-		lip_value_t* next_sp = vm->sp + 1;
+		lip_value_t* next_sp = vm->sp - 1;
+		next_sp->type = LIP_VAL_NIL;
 		lip_exec_status_t status = closure->function.native(vm);
 		vm->sp = next_sp;
 		--vm->fp;

@@ -84,9 +84,9 @@ lip_vm_init(lip_vm_t* vm, lip_vm_config_t* config, void* mem)
 
 	lip_memblock_info_t os_block, env_block, cs_block;
 	lip_vm_memory_layout(config, &os_block, &env_block, &cs_block);
-	vm->sp = lip_locate_memblock(mem, &os_block);
+	vm->sp = (lip_value_t*)lip_locate_memblock(mem, &os_block) + config->os_len;
 	vm->fp = lip_locate_memblock(mem, &cs_block);
-	vm->fp->ep = lip_locate_memblock(mem, &env_block);
+	vm->fp->ep = (lip_value_t*)lip_locate_memblock(mem, &env_block) + config->env_len;
 	vm->fp->is_native = false;
 	vm->fp->pc = NULL;
 	vm->fp->closure = NULL;
@@ -95,7 +95,7 @@ lip_vm_init(lip_vm_t* vm, lip_vm_config_t* config, void* mem)
 void
 lip_vm_push_value(lip_vm_t* vm, lip_value_t value)
 {
-	*(vm->sp++) = value;
+	*(--vm->sp) = value;
 }
 
 lip_exec_status_t
@@ -121,11 +121,16 @@ lip_vm_call(lip_vm_t* vm, uint8_t num_args, lip_value_t* result)
 	return status;
 }
 
-lip_value_t
-lip_vm_get_arg(lip_vm_t* vm, int16_t index)
+lip_value_t*
+lip_vm_get_args(lip_vm_t* vm, uint8_t* num_args)
 {
-	++index;
-	return *(
-		index > 0 ? vm->fp->ep - index : vm->fp->closure->environment - index
-	);
+	*num_args = vm->fp->num_args;
+	return vm->fp->ep;
+}
+
+lip_value_t*
+lip_vm_get_env(lip_vm_t* vm, uint8_t* env_len)
+{
+	*env_len = vm->fp->closure->env_len;
+	return vm->fp->closure->environment;
 }

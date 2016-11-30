@@ -47,7 +47,7 @@ lip_compile_number(lip_compiler_t* compiler, const lip_ast_t* ast)
 		lip_asm_index_t index = lip_asm_alloc_numeric_constant(
 			&compiler->current_scope->lasm, number
 		);
-		LASM(compiler, LIP_OP_LDC, index, ast->location);
+		LASM(compiler, LIP_OP_LDK, index, ast->location);
 	}
 
 	return true;
@@ -59,7 +59,7 @@ lip_compile_string(lip_compiler_t* compiler, const lip_ast_t* ast)
 	lip_asm_index_t index = lip_asm_alloc_string_constant(
 		&compiler->current_scope->lasm, ast->data.string
 	);
-	LASM(compiler, LIP_OP_LDC, index, ast->location);
+	LASM(compiler, LIP_OP_LDK, index, ast->location);
 	return true;
 }
 
@@ -72,7 +72,7 @@ lip_begin_scope(lip_compiler_t* compiler)
 		scope = compiler->free_scopes;
 		compiler->free_scopes = compiler->free_scopes->parent;
 		lip_array_clear(scope->var_names);
-		lip_array_clear(scope->var_indices);
+		lip_array_clear(scope->var_infos);
 	}
 	else
 	{
@@ -81,8 +81,8 @@ lip_begin_scope(lip_compiler_t* compiler)
 		scope->var_names = lip_array_create(
 			compiler->allocator, lip_string_ref_t, 1
 		);
-		scope->var_indices = lip_array_create(
-			compiler->allocator, lip_operand_t, 1
+		scope->var_infos = lip_array_create(
+			compiler->allocator, lip_var_t, 1
 		);
 	}
 
@@ -100,7 +100,9 @@ lip_end_scope(lip_compiler_t* compiler, lip_allocator_t* allocator)
 	scope->parent = compiler->free_scopes;
 	compiler->free_scopes = scope;
 
-	return lip_asm_end(&scope->lasm, allocator);
+	lip_function_t* function = lip_asm_end(&scope->lasm, allocator);
+	function->num_locals = lip_array_len(scope->var_infos);
+	return function;
 }
 
 
@@ -120,7 +122,7 @@ static bool
 lip_find_local(
 	lip_compiler_t* compiler,
 	lip_string_ref_t name,
-	lip_operand_t* out
+	lip_var_t* out
 )
 {
 	for(
@@ -134,7 +136,7 @@ lip_find_local(
 		{
 			if(lip_string_ref_equal(name, scope->var_names[i]))
 			{
-				*out = scope->var_indices[i];
+				*out = scope->var_infos[i];
 				return true;
 			}
 		}
@@ -146,10 +148,11 @@ lip_find_local(
 static bool
 lip_compile_identifier(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
-	lip_operand_t index;
-	if(lip_find_local(compiler, ast->data.string, &index))
+	lip_var_t var;
+	if(lip_find_local(compiler, ast->data.string, &var))
 	{
-		LASM(compiler, LIP_OP_LDL, index, ast->location);
+		lip_opcode_t load_op = var.is_local ? LIP_OP_LDLV : LIP_OP_LDCV;
+		LASM(compiler, load_op, var.index, ast->location);
 	}
 	else if(lip_string_ref_equal(lip_string_ref("true"), ast->data.string))
 	{
@@ -165,11 +168,11 @@ lip_compile_identifier(lip_compiler_t* compiler, const lip_ast_t* ast)
 	}
 	else
 	{
-		lip_asm_index_t symbol_index = lip_asm_alloc_import(
+		lip_asm_index_t import_index = lip_asm_alloc_import(
 			&compiler->current_scope->lasm,
 			ast->data.string
 		);
-		LASM(compiler, LIP_OP_LDS, symbol_index, ast->location);
+		LASM(compiler, LIP_OP_IMP, import_index, ast->location);
 	}
 
 	return true;
@@ -245,16 +248,18 @@ lip_alloc_local(lip_compiler_t* compiler, lip_string_ref_t name)
 	lip_scope_t* scope = compiler->current_scope;
 	lip_array_push(scope->var_names, name);
 	size_t num_locals = lip_array_len(scope->var_names);
-	if(num_locals <= lip_array_len(scope->var_indices))
+	if(num_locals <= lip_array_len(scope->var_infos))
 	{
 		// reuse an index allocated in an earlier sibling 'let'
-		return scope->var_indices[num_locals - 1];
+		return scope->var_infos[num_locals - 1].index;
 	}
 	else
 	{
 		// allocate a new local
-		lip_asm_index_t index = lip_asm_new_local(&scope->lasm);
-		lip_array_push(scope->var_indices, index);
+		lip_asm_index_t index = lip_array_len(scope->var_infos);
+		lip_var_t* var_info = lip_array_alloc(scope->var_infos);
+		var_info->index = index;
+		var_info->is_local = true;
 		return index;
 	}
 }
@@ -300,7 +305,7 @@ lip_compile_letrec(lip_compiler_t* compiler, const lip_ast_t* ast)
 		CHECK(lip_compile_exp(compiler, binding->value));
 		LASM(
 			compiler,
-			LIP_OP_SET, compiler->current_scope->var_indices[local_index++],
+			LIP_OP_SET, compiler->current_scope->var_infos[local_index++].index,
 			binding->location
 		);
 	}
@@ -311,7 +316,7 @@ lip_compile_letrec(lip_compiler_t* compiler, const lip_ast_t* ast)
 	{
 		LASM(
 			compiler,
-			LIP_OP_RCLS, compiler->current_scope->var_indices[local_index++],
+			LIP_OP_RCLS, compiler->current_scope->var_infos[local_index++].index,
 			LIP_LOC_NOWHERE
 		);
 	}
@@ -429,10 +434,9 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 	kh_clear(lip_string_ref_set, compiler->free_var_names);
 	lip_find_free_vars(ast, compiler->free_var_names);
 
-	lip_array_clear(compiler->free_var_indices);
+	lip_array_clear(compiler->free_var_infos);
 	lip_scope_t* scope = compiler->current_scope;
-	lip_operand_t free_var_index = 0;
-	size_t num_captures = 0;
+	uint8_t captured_var_index = 0;
 
 	for(
 		khint_t itr = kh_begin(compiler->free_var_names);
@@ -443,13 +447,15 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 		if (!kh_exist(compiler->free_var_names, itr)) { continue; }
 
 		lip_string_ref_t var_name = kh_key(compiler->free_var_names, itr);
-		lip_operand_t local_index;
-		if(lip_find_local(compiler, var_name, &local_index))
+		lip_var_t local_info;
+		if(lip_find_local(compiler, var_name, &local_info))
 		{
 			lip_array_push(scope->var_names, var_name);
-			lip_array_push(scope->var_indices, free_var_index--);
-			lip_array_push(compiler->free_var_indices, local_index);
-			++num_captures;
+			lip_var_t* captured_var = lip_array_alloc(scope->var_infos);
+			captured_var->index = captured_var_index++;
+			captured_var->is_local = false;
+
+			lip_array_push(compiler->free_var_infos, local_info);
 		}
 	}
 
@@ -465,13 +471,15 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 	lip_asm_index_t function_index =
 		lip_asm_new_function(&compiler->current_scope->lasm, function);
 	lip_operand_t operand =
-		(function_index & 0xFFF) | ((num_captures & 0xFFF) << 12);
+		(function_index & 0xFFF) | ((captured_var_index & 0xFFF) << 12);
 
 	LASM(compiler, LIP_OP_CLS, operand, ast->location);
 	// Pseudo-instructions to capture local variables into closure
-	for(size_t i = 0; i < num_captures; ++i)
+	for(size_t i = 0; i < captured_var_index; ++i)
 	{
-		LASM(compiler, LIP_OP_LDL, compiler->free_var_indices[i], LIP_LOC_NOWHERE);
+		lip_var_t free_var = compiler->free_var_infos[i];
+		lip_opcode_t load_op = free_var.is_local ? LIP_OP_LDLV : LIP_OP_LDCV;
+		LASM(compiler, load_op, free_var.index, LIP_LOC_NOWHERE);
 	}
 
 	return true;
@@ -524,7 +532,7 @@ lip_compiler_init(lip_compiler_t* compiler, lip_allocator_t* allocator)
 	compiler->error.location = LIP_LOC_NOWHERE;
 	compiler->ast_transforms = lip_array_create(allocator, lip_ast_transform_t*, 1);
 	compiler->free_var_names = kh_init(lip_string_ref_set, allocator);
-	compiler->free_var_indices = lip_array_create(allocator, lip_operand_t, 1);
+	compiler->free_var_infos = lip_array_create(allocator, lip_var_t, 1);
 	compiler->error.extra = NULL;
 }
 
@@ -556,14 +564,14 @@ lip_compiler_cleanup(lip_compiler_t* compiler)
 		lip_scope_t* next_scope = scope->parent;
 
 		lip_asm_cleanup(&scope->lasm);
-		lip_array_destroy(scope->var_indices);
+		lip_array_destroy(scope->var_infos);
 		lip_array_destroy(scope->var_names);
 		lip_free(compiler->allocator, scope);
 
 		scope = next_scope;
 	}
 
-	lip_array_destroy(compiler->free_var_indices);
+	lip_array_destroy(compiler->free_var_infos);
 	kh_destroy(lip_string_ref_set, compiler->free_var_names);
 	lip_array_destroy(compiler->ast_transforms);
 	lip_arena_allocator_cleanup(&compiler->arena_allocator);
