@@ -117,7 +117,8 @@ lip_vm_call(lip_vm_t* vm, uint8_t num_args, lip_value_t* result)
 		status = lip_vm_loop(vm);
 	}
 
-	if(result) { *result = *(--vm->sp); }
+	++vm->sp;
+	if(result) { *result = *(vm->sp - 1); }
 	return status;
 }
 
