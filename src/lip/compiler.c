@@ -7,17 +7,6 @@
 #define CHECK(cond) do { if(!cond) { return false; } } while(0)
 #define LASM(compiler, opcode, operand, location) \
 	lip_asm_add(&compiler->current_scope->lasm, opcode, operand, location)
-#define lip_string_ref_hash(str) XXH32(str.ptr, str.length, __LINE__)
-
-__KHASH_IMPL(
-	lip_string_ref_set,
-	LIP_MAYBE_UNUSED,
-	lip_string_ref_t,
-	char,
-	0,
-	lip_string_ref_hash,
-	lip_string_ref_equal
-)
 
 LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(lip_compiler)
 

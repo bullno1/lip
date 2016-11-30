@@ -54,6 +54,7 @@ cover: tests
 		--delete \
 		--filter '.*src/lip/.*' \
 		--exclude '.*src/lip/vendor/.*' \
+		--exclude '.*src/lip/khash_impl.c' \
 		--html --html-details \
 		--output $@/index.html
 

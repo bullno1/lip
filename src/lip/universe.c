@@ -2,26 +2,6 @@
 #include "utils.h"
 #include "array.h"
 
-__KHASH_IMPL(
-	lip_namespace,
-	LIP_MAYBE_UNUSED,
-	lip_string_ref_t,
-	lip_value_t,
-	1,
-	lip_string_ref_hash,
-	lip_string_ref_equal
-)
-
-__KHASH_IMPL(
-	lip_environment,
-	LIP_MAYBE_UNUSED,
-	lip_string_ref_t,
-	khash_t(lip_namespace)*,
-	1,
-	lip_string_ref_hash,
-	lip_string_ref_equal
-)
-
 LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(lip_universe)
 
 static lip_exec_status_t
