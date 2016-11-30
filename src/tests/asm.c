@@ -147,7 +147,7 @@ normal(const MunitParameter params[], void* fixture)
 	for(lip_asm_index_t i = 0; i < num_instructions; ++i)
 	{
 		lip_asm_add(lasm, LIP_OP_NOP, i, (lip_loc_range_t) {
-			.start = { .line = i, .column = i},
+			.start = { .line = i, .column = i },
 			.end = { .line = i, .column = i + 1}
 		});
 	}

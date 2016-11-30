@@ -22,7 +22,7 @@ struct lip_scope_s
 
 struct lip_var_s
 {
-	bool is_local;
+	lip_opcode_t load_op;
 	lip_asm_index_t index;
 };
 

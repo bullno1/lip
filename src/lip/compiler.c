@@ -151,8 +151,7 @@ lip_compile_identifier(lip_compiler_t* compiler, const lip_ast_t* ast)
 	lip_var_t var;
 	if(lip_find_local(compiler, ast->data.string, &var))
 	{
-		lip_opcode_t load_op = var.is_local ? LIP_OP_LDLV : LIP_OP_LDCV;
-		LASM(compiler, load_op, var.index, ast->location);
+		LASM(compiler, var.load_op, var.index, ast->location);
 	}
 	else if(lip_string_ref_equal(lip_string_ref("true"), ast->data.string))
 	{
@@ -259,7 +258,7 @@ lip_alloc_local(lip_compiler_t* compiler, lip_string_ref_t name)
 		lip_asm_index_t index = lip_array_len(scope->var_infos);
 		lip_var_t* var_info = lip_array_alloc(scope->var_infos);
 		var_info->index = index;
-		var_info->is_local = true;
+		var_info->load_op = LIP_OP_LDLV;
 		return index;
 	}
 }
@@ -453,7 +452,7 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 			lip_array_push(scope->var_names, var_name);
 			lip_var_t* captured_var = lip_array_alloc(scope->var_infos);
 			captured_var->index = captured_var_index++;
-			captured_var->is_local = false;
+			captured_var->load_op = LIP_OP_LDCV;
 
 			lip_array_push(compiler->free_var_infos, local_info);
 		}
@@ -478,8 +477,7 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 	for(size_t i = 0; i < captured_var_index; ++i)
 	{
 		lip_var_t free_var = compiler->free_var_infos[i];
-		lip_opcode_t load_op = free_var.is_local ? LIP_OP_LDLV : LIP_OP_LDCV;
-		LASM(compiler, load_op, free_var.index, LIP_LOC_NOWHERE);
+		LASM(compiler, free_var.load_op, free_var.index, LIP_LOC_NOWHERE);
 	}
 
 	return true;
