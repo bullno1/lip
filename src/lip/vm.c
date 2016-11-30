@@ -125,13 +125,13 @@ lip_vm_call(lip_vm_t* vm, uint8_t num_args, lip_value_t* result)
 lip_value_t*
 lip_vm_get_args(lip_vm_t* vm, uint8_t* num_args)
 {
-	*num_args = vm->fp->num_args;
+	if(num_args) { *num_args = vm->fp->num_args; }
 	return vm->fp->ep;
 }
 
 lip_value_t*
 lip_vm_get_env(lip_vm_t* vm, uint8_t* env_len)
 {
-	*env_len = vm->fp->closure->env_len;
+	if(env_len) { *env_len = vm->fp->closure->env_len; }
 	return vm->fp->closure->environment;
 }

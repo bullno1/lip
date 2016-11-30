@@ -59,12 +59,11 @@ lip_universe_open(lip_lni_t* lni)
 static lip_exec_status_t
 lip_link_stub(lip_vm_t* vm)
 {
-	uint8_t num_args, env_len;
-	lip_value_t* args = lip_vm_get_args(vm, &num_args);
+	lip_value_t* args = lip_vm_get_args(vm, NULL);
 	lip_string_t* symbol = args[0].data.reference;
 	lip_import_t* import = args[1].data.reference;
 
-	lip_value_t* env = lip_vm_get_env(vm, &env_len);
+	lip_value_t* env = lip_vm_get_env(vm, NULL);
 	lip_universe_t* universe = env[0].data.reference;
 
 	lip_value_t result;
