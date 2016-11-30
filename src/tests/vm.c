@@ -125,10 +125,58 @@ fibonacci(const MunitParameter params[], void* fixture)
 	return MUNIT_OK;
 }
 
+static lip_exec_status_t
+identity(lip_vm_t* vm)
+{
+	uint8_t num_args;
+	lip_value_t* args = lip_vm_get_args(vm, &num_args);
+	lip_vm_push_value(vm, args[0]);
+	return LIP_EXEC_OK;
+}
+
+static MunitResult
+call_native(const MunitParameter params[], void* fixture)
+{
+	(void)params;
+	(void)fixture;
+
+	lip_allocator_t* arena_allocator =
+		lip_arena_allocator_create(lip_default_allocator, 2048);
+
+	lip_vm_config_t vm_config = {
+		.allocator = arena_allocator,
+		.os_len = 256,
+		.cs_len = 256,
+		.env_len = 256
+	};
+	lip_vm_t* vm = lip_vm_create(arena_allocator, &vm_config);
+	lip_closure_t* closure = lip_new(arena_allocator, lip_closure_t);
+	closure->function.native = identity;
+	closure->is_native = true;
+	closure->native_arity = 1;
+	closure->env_len = 0;
+
+	lip_vm_push_number(vm, 42);
+	lip_vm_push_closure(vm, closure);
+	lip_value_t result;
+	lip_vm_call(vm, 1, &result);
+	munit_assert_double_equal(42, result.data.number, 2);
+
+	lip_arena_allocator_destroy(arena_allocator);
+
+	return MUNIT_OK;
+}
+
 static MunitTest tests[] = {
 	{
 		.name = "/fibonacci",
 		.test = fibonacci,
+		.setup = NULL,
+		.tear_down = NULL
+	},
+	{
+		.name = "/call_native",
+		.test = call_native,
 		.setup = NULL,
 		.tear_down = NULL
 	},
