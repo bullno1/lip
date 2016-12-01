@@ -47,10 +47,10 @@ $BUILD_DIR/%.lib: << sources BUILD_DIR ar AR
 
 COMPILE = $(readlink -f compile.sh)
 
-$BUILD_DIR/%.c.o: %.c << COMPILE cc CC c_flags C_FLAGS
+$BUILD_DIR/%.c.o: %.c << COMPILE cc CC c_flags C_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX
 	${NUMAKE} --depend ${COMPILE} # Compilation depends on the compile script too
 	${COMPILE} "${deps}" "$@" "${cc:-${CC}}" "${c_flags:-${C_FLAGS}}"
 
-$BUILD_DIR/%.cpp.o: %.cpp << COMPILE compile cxx CXX cpp_flags CPP_FLAGS
+$BUILD_DIR/%.cpp.o: %.cpp << COMPILE compile cxx CXX cpp_flags CPP_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX
 	${NUMAKE} --depend ${COMPILE}
 	${COMPILE} "${deps}" "$@" "${cxx:-${CXX}}" "${cpp_flags:-${C_FLAGS}}"
