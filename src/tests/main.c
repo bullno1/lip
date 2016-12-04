@@ -9,9 +9,7 @@
 	F(parser) \
 	F(assembler) \
 	F(arena_allocator) \
-	F(vm) \
-	F(runtime) \
-	F(universe)
+	F(vm)
 
 #define DECLARE_SUITE(S) extern MunitSuite S;
 
