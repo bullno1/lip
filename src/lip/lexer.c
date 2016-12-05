@@ -2,9 +2,6 @@
 #include <ctype.h>
 #include "array.h"
 #include "io.h"
-#include "utils.h"
-
-LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(lip_lexer)
 
 void
 lip_lexer_init(lip_lexer_t* lexer, lip_allocator_t* allocator)

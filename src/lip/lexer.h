@@ -1,7 +1,7 @@
 #ifndef LIP_LEXER_H
 #define LIP_LEXER_H
 
-#include "common.h"
+#include "ex/common.h"
 #include "token.h"
 
 #define LIP_LEX_ERROR(F) \
@@ -12,11 +12,11 @@ LIP_ENUM(lip_lex_error_t, LIP_LEX_ERROR)
 
 typedef struct lip_lexer_s lip_lexer_t;
 
-lip_lexer_t*
-lip_lexer_create(lip_allocator_t* allocator);
+void
+lip_lexer_init(lip_lexer_t* lexer, lip_allocator_t* allocator);
 
 void
-lip_lexer_destroy(lip_lexer_t* lexer);
+lip_lexer_cleanup(lip_lexer_t* lexer);
 
 void
 lip_lexer_reset(lip_lexer_t* lexer, lip_in_t* input);

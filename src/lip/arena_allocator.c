@@ -1,6 +1,5 @@
 #include "ex/arena_allocator.h"
 #include "memory.h"
-#include "utils.h"
 
 static void*
 lip_alloc_from_chunk(lip_arena_chunk_t* chunk, size_t size)

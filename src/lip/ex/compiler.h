@@ -33,16 +33,9 @@ struct lip_compiler_s
 	lip_string_ref_t source_name;
 	lip_scope_t* current_scope;
 	lip_scope_t* free_scopes;
-	lip_array(lip_ast_transform_t*) ast_transforms;
 	khash_t(lip_string_ref_set)* free_var_names;
 	lip_array(lip_var_t) free_var_infos;
 	lip_error_t error;
 };
-
-void
-lip_compiler_init(lip_compiler_t* compiler, lip_allocator_t* allocator);
-
-void
-lip_compiler_cleanup(lip_compiler_t* compiler);
 
 #endif

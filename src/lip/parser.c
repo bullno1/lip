@@ -2,7 +2,6 @@
 #include "ex/lexer.h"
 #include "token.h"
 #include "array.h"
-#include "utils.h"
 
 static lip_stream_status_t
 lip_parser_parse_list(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp)
@@ -110,8 +109,6 @@ lip_parser_parse(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp)
 	// Impossibru!!
 	return LIP_STREAM_ERROR;
 }
-
-LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(lip_parser)
 
 void
 lip_parser_init(lip_parser_t* parser, lip_allocator_t* allocator)

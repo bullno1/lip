@@ -2,9 +2,9 @@
 #define LIP_VM_EX_H
 
 #include "../vm.h"
+#include "common.h"
 #include "../opcode.h"
 #include "../memory.h"
-#include "../utils.h"
 
 typedef struct lip_stack_frame_s lip_stack_frame_t;
 typedef struct lip_function_layout_s lip_function_layout_t;
@@ -60,9 +60,10 @@ struct lip_closure_s
 		lip_native_fn_t native;
 	} function;
 
-	uint8_t env_len;
+	unsigned env_len:8;
+	unsigned native_arity:8;
 	unsigned is_native:1;
-	unsigned native_arity: 7;
+	unsigned no_gc:1;
 
 	lip_value_t environment[];
 };

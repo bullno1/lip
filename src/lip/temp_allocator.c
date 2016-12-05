@@ -1,5 +1,4 @@
 #include "ex/temp_allocator.h"
-#include "utils.h"
 
 static void*
 lip_temp_allocator_realloc(lip_allocator_t* vtable, void* old, size_t size)

@@ -1,9 +1,7 @@
 #ifndef LIP_AST_H
 #define LIP_AST_H
 
-#include "common.h"
-#include "opcode.h"
-#include "memory.h"
+#include "ex/common.h"
 #include "sexp.h"
 
 #define LIP_AST(F) \
@@ -19,17 +17,9 @@
 
 LIP_ENUM(lip_ast_type_t, LIP_AST)
 
-#define LIP_AST_CHECK(cond, msg) \
-	do { \
-		if(!(cond)) { \
-			return lip_syntax_error(allocator, ast->location, msg); \
-		} \
-	} while(0)
-
 typedef struct lip_ast_s lip_ast_t;
 typedef struct lip_let_binding_s lip_let_binding_t;
-typedef struct lip_result_s lip_result_t;
-typedef struct lip_ast_transform_s lip_ast_transform_t;
+typedef lip_error_m(lip_ast_t*) lip_ast_result_t;
 
 struct lip_let_binding_s
 {
@@ -76,52 +66,7 @@ struct lip_ast_s
 	} data;
 };
 
-struct lip_result_s
-{
-	bool success;
-	void* value;
-};
-
-struct lip_ast_transform_s
-{
-	lip_result_t(*transform)(
-		lip_ast_transform_t* context, lip_allocator_t* allocator, lip_ast_t* ast
-	);
-};
-
-lip_result_t
+lip_ast_result_t
 lip_translate_sexp(lip_allocator_t* allocator, const lip_sexp_t* sexp);
-
-LIP_MAYBE_UNUSED static inline lip_result_t
-lip_success(void* result)
-{
-	return (lip_result_t){
-		.success = true,
-		.value = result
-	};
-}
-
-LIP_MAYBE_UNUSED static inline lip_result_t
-lip_syntax_error(
-	lip_allocator_t* allocator, lip_loc_range_t location, const char* msg
-)
-{
-	lip_error_t* error = lip_new(allocator, lip_error_t);
-	error->code = 0;
-	error->extra = msg;
-	error->location = location;
-	return (lip_result_t){
-		.success = false,
-		.value = error
-	};
-}
-
-LIP_MAYBE_UNUSED static inline lip_result_t
-lip_transform_ast(
-	lip_ast_transform_t* transform, lip_allocator_t* allocator, lip_ast_t* ast
-)
-{
-	return transform->transform(transform, allocator, ast);
-}
 
 #endif

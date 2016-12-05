@@ -1,9 +1,6 @@
 #include "ex/asm.h"
 #include "ex/vm.h"
-#include "utils.h"
 #include "array.h"
-
-LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(lip_asm)
 
 void
 lip_asm_init(lip_asm_t* lasm, lip_allocator_t* allocator)

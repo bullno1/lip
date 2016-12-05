@@ -28,10 +28,4 @@ struct lip_asm_s
 	lip_array(lip_memblock_info_t*) function_layout;
 };
 
-void
-lip_asm_init(lip_asm_t* lasm, lip_allocator_t* allocator);
-
-void
-lip_asm_cleanup(lip_asm_t* lasm);
-
 #endif

@@ -4,6 +4,9 @@
 #include <lip/common.h>
 #include <lip/token.h>
 #include <lip/io.h>
+#include <lip/ex/asm.h>
+#include <lip/ex/parser.h>
+#include <lip/ex/lexer.h>
 #include "munit.h"
 
 #define lip_assert_enum(ENUM_TYPE, EXPECTED, OP, ACTUAL) \
@@ -84,5 +87,22 @@
 			); \
 		} \
 	} while (0)
+
+#define LIP_CONSTRUCTOR_AND_DESTRUCTOR(T) \
+	LIP_MAYBE_UNUSED static inline T##_t* \
+	T##_create(lip_allocator_t* allocator) { \
+		T##_t* instance = lip_new(allocator, T##_t); \
+		T##_init(instance, allocator); \
+		return instance; \
+	} \
+	LIP_MAYBE_UNUSED static inline void \
+	T##_destroy(T##_t* instance) { \
+		T##_cleanup(instance); \
+		lip_free(instance->allocator, instance); \
+	}
+
+LIP_CONSTRUCTOR_AND_DESTRUCTOR(lip_lexer)
+LIP_CONSTRUCTOR_AND_DESTRUCTOR(lip_parser)
+LIP_CONSTRUCTOR_AND_DESTRUCTOR(lip_asm)
 
 #endif

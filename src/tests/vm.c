@@ -157,7 +157,10 @@ call_native(const MunitParameter params[], void* fixture)
 	closure->env_len = 0;
 
 	lip_vm_push_number(vm, 42);
-	lip_vm_push_closure(vm, closure);
+	lip_vm_push_value(vm, (lip_value_t){
+		.type = LIP_VAL_FUNCTION,
+		.data = { .reference = closure }
+	});
 	lip_value_t result;
 	lip_vm_call(vm, 1, &result);
 	munit_assert_double_equal(42, result.data.number, 2);

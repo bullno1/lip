@@ -17,10 +17,4 @@ struct lip_lexer_s
 	bool eos;
 };
 
-void
-lip_lexer_init(lip_lexer_t* lexer, lip_allocator_t* allocator);
-
-void
-lip_lexer_cleanup(lip_lexer_t* lexer);
-
 #endif

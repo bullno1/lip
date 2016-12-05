@@ -13,11 +13,4 @@ struct lip_parser_s
 	lip_array(lip_array(lip_sexp_t)) lists;
 };
 
-void
-lip_parser_init(lip_parser_t* parser, lip_allocator_t* allocator);
-
-void
-lip_parser_cleanup(lip_parser_t* parser);
-
-
 #endif

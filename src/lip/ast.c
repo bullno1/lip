@@ -1,12 +1,12 @@
 #include "ast.h"
+#include <stdlib.h>
 #include "memory.h"
-#include "stdlib.h"
 #include "array.h"
 
 #define CHECK_SEXP(sexp, cond, msg) \
 	do { \
 		if(!(cond)) { \
-			return lip_syntax_error(allocator, sexp->location, msg); \
+			return lip_syntax_error(sexp->location, msg); \
 		} \
 	} while(0)
 
@@ -15,9 +15,9 @@
 #define TRANSLATE(var, sexp) \
 	lip_ast_t* var; \
 	do { \
-		lip_result_t result = lip_translate_sexp(allocator, sexp); \
+		lip_ast_result_t result = lip_translate_sexp(allocator, sexp); \
 		if(!result.success) { return result; } \
-		var = result.value; \
+		var = result.value.result; \
 	} while(0)
 
 #define TRANSLATE_BLOCK(var, sexps, num_sexps) \
@@ -29,6 +29,29 @@
 		lip_array_push(var, exp); \
 	}
 
+static lip_ast_result_t
+lip_syntax_error(lip_loc_range_t location, const char* msg)
+{
+	return (lip_ast_result_t){
+		.success = true,
+		.value = {
+			.error = {
+				.location = location,
+				.extra = msg
+			}
+		}
+	};
+}
+
+static lip_ast_result_t
+lip_success(lip_ast_t* ast)
+{
+	return (lip_ast_result_t){
+		.success = true,
+		.value = {.result = ast}
+	};
+}
+
 static lip_ast_t*
 lip_alloc_ast(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
@@ -37,7 +60,7 @@ lip_alloc_ast(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	return ast;
 }
 
-static lip_result_t
+static lip_ast_result_t
 lip_translate_if(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	lip_sexp_t* list = sexp->data.list;
@@ -52,9 +75,9 @@ lip_translate_if(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	lip_ast_t* else_ = NULL;
 	if(arity == 3)
 	{
-		lip_result_t result = lip_translate_sexp(allocator, &list[3]);
+		lip_ast_result_t result = lip_translate_sexp(allocator, &list[3]);
 		if(!result.success) { return result; }
-		else_ = result.value;
+		else_ = result.value.result;
 	}
 
 	lip_ast_t* if_ = lip_alloc_ast(allocator, sexp);
@@ -65,7 +88,7 @@ lip_translate_if(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	return lip_success(if_);
 }
 
-static lip_result_t
+static lip_ast_result_t
 lip_translate_let(
 	lip_allocator_t* allocator, const lip_sexp_t* sexp, bool recursive
 )
@@ -111,7 +134,7 @@ lip_translate_let(
 	return lip_success(let);
 }
 
-static lip_result_t
+static lip_ast_result_t
 lip_translate_lambda(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	lip_sexp_t* list = sexp->data.list;
@@ -136,9 +159,7 @@ lip_translate_lambda(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 		{
 			if(lip_string_ref_equal(*previous_arg, arg->data.string))
 			{
-				return lip_syntax_error(
-					allocator, arg->location, "Duplicated parameter name"
-				);
+				return lip_syntax_error(arg->location, "Duplicated parameter name");
 			}
 		}
 
@@ -154,7 +175,7 @@ lip_translate_lambda(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	return lip_success(lambda);
 }
 
-static lip_result_t
+static lip_ast_result_t
 lip_translate_do(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	TRANSLATE_BLOCK(
@@ -167,7 +188,7 @@ lip_translate_do(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	return lip_success(do_);
 }
 
-static lip_result_t
+static lip_ast_result_t
 lip_translate_application(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	lip_sexp_t* list = sexp->data.list;
@@ -183,7 +204,7 @@ lip_translate_application(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	return lip_success(application);
 }
 
-static lip_result_t
+static lip_ast_result_t
 lip_translate_identifier(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	lip_ast_t* identifier = lip_alloc_ast(allocator, sexp);
@@ -192,7 +213,7 @@ lip_translate_identifier(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	return lip_success(identifier);
 }
 
-static lip_result_t
+static lip_ast_result_t
 lip_translate_string(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	lip_ast_t* string = lip_alloc_ast(allocator, sexp);
@@ -201,7 +222,7 @@ lip_translate_string(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	return lip_success(string);
 }
 
-static lip_result_t
+static lip_ast_result_t
 lip_translate_number(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	lip_ast_t* number = lip_alloc_ast(allocator, sexp);
@@ -211,7 +232,7 @@ lip_translate_number(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	return lip_success(number);
 }
 
-lip_result_t
+lip_ast_result_t
 lip_translate_sexp(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	switch(sexp->type)
@@ -219,9 +240,7 @@ lip_translate_sexp(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 		case LIP_SEXP_LIST:
 			if(lip_array_len(sexp->data.list) == 0)
 			{
-				return lip_syntax_error(
-					allocator, sexp->location, "Empty list is invalid"
-				);
+				return lip_syntax_error(sexp->location, "Empty list is invalid");
 			}
 			else if(sexp->data.list[0].type == LIP_SEXP_SYMBOL)
 			{
@@ -264,5 +283,5 @@ lip_translate_sexp(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	}
 
 	// Impossibru!!
-	return lip_syntax_error(allocator, sexp->location, "Unknown error");
+	return lip_syntax_error(sexp->location, "Unknown error");
 }

@@ -27,6 +27,12 @@ struct lip_ofstream_s
 	FILE* file;
 };
 
+struct lip_ifstream_s
+{
+	lip_in_t vtable;
+	FILE* file;
+};
+
 lip_in_t*
 lip_stdin();
 
@@ -59,5 +65,8 @@ lip_make_sstream(lip_string_ref_t str, struct lip_sstream_s* sstream);
 
 lip_out_t*
 lip_make_ofstream(FILE* file, struct lip_ofstream_s* ofstream);
+
+lip_in_t*
+lip_make_ifstream(FILE* file, struct lip_ifstream_s* ifstream);
 
 #endif

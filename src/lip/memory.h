@@ -3,7 +3,6 @@
 
 #include "common.h"
 
-#define LIP_ALIGN_OF(TYPE) offsetof(struct { char c; TYPE t;}, t)
 #define lip_new(ALLOCATOR, TYPE) (TYPE*)(lip_malloc(ALLOCATOR, sizeof(TYPE)))
 #define LIP_ARRAY_BLOCK(TYPE, LENGTH) \
 	{ \

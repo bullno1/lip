@@ -1,7 +1,7 @@
 #ifndef LIP_ASM_H
 #define LIP_ASM_H
 
-#include "common.h"
+#include "ex/common.h"
 #include "opcode.h"
 
 #define LIP_OP_LABEL 0xFF
@@ -9,11 +9,11 @@
 typedef uint32_t lip_asm_index_t;
 typedef struct lip_asm_s lip_asm_t;
 
-lip_asm_t*
-lip_asm_create(lip_allocator_t* allocator);
+void
+lip_asm_init(lip_asm_t* lasm, lip_allocator_t* allocator);
 
 void
-lip_asm_destroy(lip_asm_t* lasm);
+lip_asm_cleanup(lip_asm_t* lasm);
 
 void
 lip_asm_begin(lip_asm_t* lasm, lip_string_ref_t source_name);

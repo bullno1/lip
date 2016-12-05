@@ -1,14 +1,11 @@
 #include "ex/compiler.h"
-#include "utils.h"
+#include "ex/vm.h"
 #include "ast.h"
 #include "array.h"
-#include "vendor/xxhash.h"
 
 #define CHECK(cond) do { if(!cond) { return false; } } while(0)
 #define LASM(compiler, opcode, operand, location) \
 	lip_asm_add(&compiler->current_scope->lasm, opcode, operand, location)
-
-LIP_IMPLEMENT_CONSTRUCTOR_AND_DESTRUCTOR(lip_compiler)
 
 static void
 lip_set_error(
@@ -517,7 +514,6 @@ lip_compiler_init(lip_compiler_t* compiler, lip_allocator_t* allocator)
 	compiler->free_scopes = NULL;
 	compiler->error.code = 0;
 	compiler->error.location = LIP_LOC_NOWHERE;
-	compiler->ast_transforms = lip_array_create(allocator, lip_ast_transform_t*, 1);
 	compiler->free_var_names = kh_init(lip_string_ref_set, allocator);
 	compiler->free_var_infos = lip_array_create(allocator, lip_var_t, 1);
 	compiler->error.extra = NULL;
@@ -535,7 +531,6 @@ lip_compiler_reset(lip_compiler_t* compiler)
 	}
 
 	lip_arena_allocator_reset(&compiler->arena_allocator.vtable);
-	lip_array_clear(compiler->ast_transforms);
 }
 
 void
@@ -560,7 +555,6 @@ lip_compiler_cleanup(lip_compiler_t* compiler)
 
 	lip_array_destroy(compiler->free_var_infos);
 	kh_destroy(lip_string_ref_set, compiler->free_var_names);
-	lip_array_destroy(compiler->ast_transforms);
 	lip_arena_allocator_cleanup(&compiler->arena_allocator);
 }
 
@@ -578,30 +572,18 @@ lip_compiler_begin(lip_compiler_t* compiler, lip_string_ref_t source_name)
 const lip_error_t*
 lip_compiler_add_sexp(lip_compiler_t* compiler, const lip_sexp_t* sexp)
 {
-	lip_result_t result =
+	lip_ast_result_t result =
 		lip_translate_sexp(&compiler->arena_allocator.vtable, sexp);
-	if(!result.success) { return result.value; }
-
-	lip_array_foreach(lip_ast_transform_t*, transform, compiler->ast_transforms)
+	if(!result.success)
 	{
-		result = lip_transform_ast(
-			*transform, &compiler->arena_allocator.vtable, result.value
-		);
-		if(!result.success) { return result.value; }
+		compiler->error = result.value.error;
+		return &compiler->error;
 	}
 
 	LASM(compiler, LIP_OP_POP, 1, LIP_LOC_NOWHERE); // previous exp's result
-	if(!lip_compile_exp(compiler, result.value)) { return &compiler->error; }
+	if(!lip_compile_exp(compiler, result.value.result)) { return &compiler->error; }
 
 	return NULL;
-}
-
-void
-lip_compiler_add_ast_transform(
-	lip_compiler_t* compiler, lip_ast_transform_t* transform
-)
-{
-	lip_array_push(compiler->ast_transforms, transform);
 }
 
 lip_function_t*
