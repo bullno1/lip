@@ -95,6 +95,7 @@ fibonacci(const MunitParameter params[], void* fixture)
 		.env_len = 256
 	};
 	lip_vm_t* vm = lip_vm_create(lip_default_allocator, &vm_config);
+	lip_vm_t old_vm_state = *vm;
 	lip_vm_push_number(vm, 8);
 	lip_vm_push_value(vm, (lip_value_t){
 		.type = LIP_VAL_FUNCTION,
@@ -105,17 +106,7 @@ fibonacci(const MunitParameter params[], void* fixture)
 	munit_assert_int(LIP_EXEC_OK, ==, lip_vm_call(vm, 1, &result));
 	munit_assert_int(LIP_VAL_NUMBER, ==, result.type);
 	munit_assert_double_equal(34.0, result.data.number, 0);
-
-	lip_vm_t old_vm_state = *vm;
-	lip_stack_frame_t old_stack_frame = *vm->fp;
-	lip_vm_push_number(vm, 8);
-	lip_vm_push_value(vm, (lip_value_t){
-		.type = LIP_VAL_FUNCTION,
-		.data = {.reference = closure}
-	});
-	munit_assert_int(LIP_EXEC_OK, ==, lip_vm_call(vm, 1, NULL));
 	munit_assert_memory_equal(sizeof(lip_vm_t), &old_vm_state, vm);
-	munit_assert_memory_equal(sizeof(lip_stack_frame_t), &old_stack_frame, vm->fp);
 
 	lip_vm_destroy(lip_default_allocator, vm);
 	lip_free(lip_default_allocator, closure);
