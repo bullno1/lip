@@ -109,6 +109,12 @@ lip_vm_memory_required(lip_vm_config_t* config);
 void
 lip_vm_init(lip_vm_t* vm, lip_vm_config_t* config, void* mem);
 
+lip_vm_t*
+lip_vm_create(lip_allocator_t* allocator, lip_vm_config_t* config);
+
+void
+lip_vm_destroy(lip_allocator_t* allocator, lip_vm_t* vm);
+
 LIP_MAYBE_UNUSED static inline void
 lip_function_layout(const lip_function_t* function, lip_function_layout_t* layout)
 {

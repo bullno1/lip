@@ -3,7 +3,7 @@
 #include <lip/array.h>
 #include <lip/ex/vm.h>
 #include <lip/ex/asm.h>
-#include <lip/ex/temp_allocator.h>
+#include <lip/temp_allocator.h>
 #include "munit.h"
 #include "test_helpers.h"
 
@@ -35,9 +35,6 @@ empty(const MunitParameter params[], void* fixture)
 	munit_assert_size(0, ==, function->num_functions);
 	munit_assert_size(0, ==, function->num_instructions);
 	munit_assert_size(0, ==, function->num_locals);
-	lip_temp_allocator_t* allocator =
-		LIP_CONTAINER_OF(temp_allocator, lip_temp_allocator_t, vtable);
-	munit_assert_ptr_equal(allocator->mem, function);
 
 	lip_free(temp_allocator, function);
 	lip_temp_allocator_destroy(temp_allocator);

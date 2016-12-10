@@ -32,14 +32,8 @@ struct lip_vm_hook_s
 	lip_vm_hook_fn_t hook_fn;
 };
 
-lip_vm_t*
-lip_vm_create(lip_allocator_t* allocator, lip_vm_config_t* config);
-
 void
 lip_vm_reset(lip_vm_t* vm);
-
-void
-lip_vm_destroy(lip_allocator_t* allocator, lip_vm_t* vm);
 
 lip_vm_hook_t*
 lip_vm_set_hook(lip_vm_t* vm, lip_vm_hook_t* hook);
