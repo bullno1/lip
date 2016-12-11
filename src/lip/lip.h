@@ -43,10 +43,10 @@ lip_context_t*
 lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator);
 
 void
-lip_destroy_context(lip_runtime_t* runtime, lip_context_t* context);
+lip_destroy_context(lip_runtime_t* runtime, lip_context_t* ctx);
 
 const lip_context_error_t*
-lip_get_error(lip_context_t* context);
+lip_get_error(lip_context_t* ctx);
 
 lip_vm_t*
 lip_create_vm(lip_context_t* ctx, lip_vm_config_t* config);

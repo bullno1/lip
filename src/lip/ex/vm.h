@@ -9,6 +9,16 @@
 typedef struct lip_stack_frame_s lip_stack_frame_t;
 typedef struct lip_function_layout_s lip_function_layout_t;
 typedef struct lip_import_s lip_import_t;
+typedef struct lip_runtime_interface_s lip_runtime_interface_t;
+
+struct lip_runtime_interface_s
+{
+	bool(*resolve_import)(
+		lip_runtime_interface_t* rt, lip_string_ref_t symbol, lip_value_t* result
+	);
+	lip_closure_t*(*alloc_closure)(lip_runtime_interface_t* rt, uint8_t env_len);
+	lip_string_t*(*alloc_string)(lip_runtime_interface_t* rt, size_t env_len);
+};
 
 struct lip_import_s
 {
@@ -80,6 +90,7 @@ struct lip_stack_frame_s
 struct lip_vm_s
 {
 	lip_vm_config_t config;
+	lip_runtime_interface_t* rt;
 
 	void* mem;
 	lip_value_t* sp;
@@ -107,10 +118,14 @@ size_t
 lip_vm_memory_required(lip_vm_config_t* config);
 
 void
-lip_vm_init(lip_vm_t* vm, lip_vm_config_t* config, void* mem);
+lip_vm_init(
+	lip_vm_t* vm, lip_vm_config_t* config, lip_runtime_interface_t* rt, void* mem
+);
 
 lip_vm_t*
-lip_vm_create(lip_allocator_t* allocator, lip_vm_config_t* config);
+lip_vm_create(
+	lip_allocator_t* allocator, lip_vm_config_t* config, lip_runtime_interface_t* rt
+);
 
 void
 lip_vm_destroy(lip_allocator_t* allocator, lip_vm_t* vm);

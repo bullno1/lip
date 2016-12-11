@@ -5,6 +5,22 @@
 #include "munit.h"
 #include "test_helpers.h"
 
+struct dummy_runtime_interface_s
+{
+	lip_runtime_interface_t vtable;
+	lip_allocator_t* allocator;
+};
+
+static lip_closure_t*
+alloc_closure(lip_runtime_interface_t* vtable, uint8_t env_len)
+{
+	struct dummy_runtime_interface_s* self =
+		LIP_CONTAINER_OF(vtable, struct dummy_runtime_interface_s, vtable);
+	return lip_malloc(
+		self->allocator, sizeof(lip_closure_t) + sizeof(lip_value_t) * env_len
+	);
+}
+
 static MunitResult
 fibonacci(const MunitParameter params[], void* fixture)
 {
@@ -89,12 +105,15 @@ fibonacci(const MunitParameter params[], void* fixture)
 	lip_allocator_t* arena_allocator =
 		lip_arena_allocator_create(lip_default_allocator, 2048);
 	lip_vm_config_t vm_config = {
-		.allocator = arena_allocator,
 		.os_len = 256,
 		.cs_len = 256,
 		.env_len = 256
 	};
-	lip_vm_t* vm = lip_vm_create(lip_default_allocator, &vm_config);
+	struct dummy_runtime_interface_s rt = {
+		.allocator = arena_allocator,
+		.vtable = { .alloc_closure = alloc_closure }
+	};
+	lip_vm_t* vm = lip_vm_create(lip_default_allocator, &vm_config, &rt.vtable);
 	lip_vm_t old_vm_state = *vm;
 	lip_vm_push_number(vm, 8);
 	lip_vm_push_value(vm, (lip_value_t){
@@ -135,12 +154,15 @@ call_native(const MunitParameter params[], void* fixture)
 		lip_arena_allocator_create(lip_default_allocator, 2048);
 
 	lip_vm_config_t vm_config = {
-		.allocator = arena_allocator,
 		.os_len = 256,
 		.cs_len = 256,
 		.env_len = 256
 	};
-	lip_vm_t* vm = lip_vm_create(arena_allocator, &vm_config);
+	struct dummy_runtime_interface_s rt = {
+		.allocator = arena_allocator,
+		.vtable = { .alloc_closure = alloc_closure }
+	};
+	lip_vm_t* vm = lip_vm_create(arena_allocator, &vm_config, &rt.vtable);
 	lip_closure_t* closure = lip_new(arena_allocator, lip_closure_t);
 	closure->function.native = identity;
 	closure->is_native = true;

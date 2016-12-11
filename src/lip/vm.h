@@ -21,7 +21,6 @@ struct lip_value_s
 
 struct lip_vm_config_s
 {
-	lip_allocator_t* allocator;
 	uint32_t os_len;
 	uint32_t cs_len;
 	uint32_t env_len;

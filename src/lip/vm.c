@@ -3,7 +3,9 @@
 #include "vm_dispatch.h"
 
 lip_vm_t*
-lip_vm_create(lip_allocator_t* allocator, lip_vm_config_t* config)
+lip_vm_create(
+	lip_allocator_t* allocator, lip_vm_config_t* config, lip_runtime_interface_t* rt
+)
 {
 	lip_memblock_info_t vm_block = {
 		.element_size = sizeof(lip_vm_t),
@@ -24,7 +26,7 @@ lip_vm_create(lip_allocator_t* allocator, lip_vm_config_t* config)
 	void* mem = lip_malloc(allocator, block_info.num_elements);
 	lip_vm_t* vm = lip_locate_memblock(mem, &vm_block);
 	void* vm_mem = lip_locate_memblock(mem, &vm_mem_block);
-	lip_vm_init(vm, config, vm_mem);
+	lip_vm_init(vm, config, rt, vm_mem);
 
 	return vm;
 }
@@ -72,13 +74,16 @@ lip_vm_memory_required(lip_vm_config_t* config)
 void
 lip_vm_reset(lip_vm_t* vm)
 {
-	lip_vm_init(vm, &vm->config, vm->mem);
+	lip_vm_init(vm, &vm->config, vm->rt, vm->mem);
 }
 
 void
-lip_vm_init(lip_vm_t* vm, lip_vm_config_t* config, void* mem)
+lip_vm_init(
+	lip_vm_t* vm, lip_vm_config_t* config, lip_runtime_interface_t* rt, void* mem
+)
 {
 	vm->config = *config;
+	vm->rt = rt;
 	vm->hook = NULL;
 	vm->mem = mem;
 

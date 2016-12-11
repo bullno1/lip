@@ -134,9 +134,7 @@ END_OP(ADD)
 BEGIN_OP(CLS)
 	unsigned int function_index = operand & 0xFFF;
 	unsigned int num_captures = (operand >> 12) & 0xFFF;
-	size_t env_size = num_captures * sizeof(lip_value_t);
-	size_t closure_size = sizeof(lip_closure_t) + env_size;
-	lip_closure_t* closure = lip_malloc(vm->config.allocator, closure_size);
+	lip_closure_t* closure = vm->rt->alloc_closure(vm->rt, num_captures);
 	closure->is_native = false;
 	closure->function.lip = lip_function_resource(
 		fp->closure->function.lip, fn.function_offsets[function_index]

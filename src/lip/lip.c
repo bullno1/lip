@@ -17,10 +17,19 @@
 
 KHASH_DECLARE(lip_ptr_set, void*, char)
 
+typedef struct lip_runtime_link_s lip_runtime_link_t;
+
 struct lip_runtime_s
 {
 	lip_allocator_t* allocator;
 	khash_t(lip_ptr_set)* contexts;
+};
+
+struct lip_runtime_link_s
+{
+	lip_runtime_interface_t vtable;
+	lip_allocator_t* allocator;
+	lip_context_t* ctx;
 };
 
 struct lip_context_s
@@ -56,6 +65,9 @@ lip_do_unload_script(lip_context_t* ctx, lip_script_t* script)
 static void
 lip_do_destroy_vm(lip_context_t* ctx, lip_vm_t* vm)
 {
+	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
+	lip_arena_allocator_destroy(rt->allocator);
+	lip_free(ctx->allocator, rt);
 	lip_vm_destroy(ctx->allocator, vm);
 }
 
@@ -134,7 +146,6 @@ lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator)
 	return ctx;
 }
 
-
 void
 lip_destroy_context(lip_runtime_t* runtime, lip_context_t* ctx)
 {
@@ -152,10 +163,27 @@ lip_get_error(lip_context_t* ctx)
 	return &ctx->error;
 }
 
+static lip_closure_t*
+lip_rt_alloc_closure(lip_runtime_interface_t* vtable, uint8_t env_len)
+{
+	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vtable, lip_runtime_link_t, vtable);
+	return lip_malloc(
+		rt->allocator, sizeof(lip_closure_t) + sizeof(lip_value_t) * env_len
+	);
+}
+
 lip_vm_t*
 lip_create_vm(lip_context_t* ctx, lip_vm_config_t* config)
 {
-	lip_vm_t* vm = lip_vm_create(ctx->allocator, config);
+	lip_runtime_link_t* rt = lip_new(ctx->allocator, lip_runtime_link_t);
+	*rt = (lip_runtime_link_t) {
+		.allocator = lip_arena_allocator_create(ctx->allocator, 1024),
+		.ctx = ctx,
+		.vtable = {
+			.alloc_closure = lip_rt_alloc_closure
+		}
+	};
+	lip_vm_t* vm = lip_vm_create(ctx->allocator, config, &rt->vtable);
 
 	int tmp;
 	kh_put(lip_ptr_set, ctx->vms, vm, &tmp);
@@ -295,6 +323,9 @@ lip_unload_script(lip_context_t* ctx, lip_script_t* script)
 lip_exec_status_t
 lip_exec_script(lip_vm_t* vm, lip_script_t* script, lip_value_t* result)
 {
+	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
+	lip_arena_allocator_reset(rt->allocator);
+
 	lip_vm_push_value(vm, (lip_value_t){
 		.type = LIP_VAL_FUNCTION,
 		.data = { .reference = script }
