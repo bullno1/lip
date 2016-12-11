@@ -35,7 +35,6 @@ struct lip_compiler_s
 	lip_scope_t* free_scopes;
 	khash_t(lip_string_ref_set)* free_var_names;
 	lip_array(lip_var_t) free_var_infos;
-	lip_error_t error;
 };
 
 #endif

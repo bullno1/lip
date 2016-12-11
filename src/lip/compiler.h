@@ -16,7 +16,7 @@ lip_compiler_cleanup(lip_compiler_t* compiler);
 void
 lip_compiler_begin(lip_compiler_t* compiler, lip_string_ref_t source_name);
 
-const lip_error_t*
+void
 lip_compiler_add_ast(lip_compiler_t* compiler, const lip_ast_t* ast);
 
 lip_function_t*

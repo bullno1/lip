@@ -3,20 +3,10 @@
 #include "ast.h"
 #include "array.h"
 
-#define CHECK(cond) do { if(!cond) { return false; } } while(0)
 #define LASM(compiler, opcode, operand, location) \
 	lip_asm_add(&compiler->current_scope->lasm, opcode, operand, location)
 
 static void
-lip_set_error(
-	lip_compiler_t* compiler, lip_loc_range_t location, const char* message
-)
-{
-	compiler->error.location = location;
-	compiler->error.extra = message;
-}
-
-static bool
 lip_compile_exp(lip_compiler_t* compiler, const lip_ast_t* ast);
 
 static bool
@@ -92,16 +82,14 @@ lip_end_scope(lip_compiler_t* compiler, lip_allocator_t* allocator)
 }
 
 
-static bool
+static void
 lip_compile_arguments(lip_compiler_t* compiler, lip_array(lip_ast_t*) args)
 {
 	size_t arity = lip_array_len(args);
 	for(size_t i = 0; i < arity; ++i)
 	{
-		CHECK(lip_compile_exp(compiler, args[arity - i - 1]));
+		lip_compile_exp(compiler, args[arity - i - 1]);
 	}
-
-	return true;
 }
 
 static bool
@@ -166,8 +154,8 @@ lip_compile_identifier(lip_compiler_t* compiler, const lip_ast_t* ast)
 static bool
 lip_compile_application(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
-	CHECK(lip_compile_arguments(compiler, ast->data.application.arguments));
-	CHECK(lip_compile_exp(compiler, ast->data.application.function));
+	lip_compile_arguments(compiler, ast->data.application.arguments);
+	lip_compile_exp(compiler, ast->data.application.function);
 	LASM(
 		compiler,
 		LIP_OP_CALL, lip_array_len(ast->data.application.arguments),
@@ -179,18 +167,18 @@ lip_compile_application(lip_compiler_t* compiler, const lip_ast_t* ast)
 static bool
 lip_compile_if(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
-	CHECK(lip_compile_exp(compiler, ast->data.if_.condition));
+	lip_compile_exp(compiler, ast->data.if_.condition);
 
 	lip_scope_t* scope = compiler->current_scope;
 	lip_asm_index_t else_label = lip_asm_new_label(&scope->lasm);
 	lip_asm_index_t done_label = lip_asm_new_label(&scope->lasm);
 	LASM(compiler, LIP_OP_JOF, else_label, LIP_LOC_NOWHERE);
-	CHECK(lip_compile_exp(compiler, ast->data.if_.then));
+	lip_compile_exp(compiler, ast->data.if_.then);
 	LASM(compiler, LIP_OP_JMP, done_label, LIP_LOC_NOWHERE);
 	LASM(compiler, LIP_OP_LABEL, else_label, LIP_LOC_NOWHERE);
 	if(ast->data.if_.else_)
 	{
-		CHECK(lip_compile_exp(compiler, ast->data.if_.else_));
+		lip_compile_exp(compiler, ast->data.if_.else_);
 	}
 	else
 	{
@@ -201,7 +189,7 @@ lip_compile_if(lip_compiler_t* compiler, const lip_ast_t* ast)
 	return true;
 }
 
-static bool
+static void
 lip_compile_block(lip_compiler_t* compiler, lip_array(lip_ast_t*) block)
 {
 	size_t block_size = lip_array_len(block);
@@ -209,21 +197,19 @@ lip_compile_block(lip_compiler_t* compiler, lip_array(lip_ast_t*) block)
 	if(block_size == 0)
 	{
 		LASM(compiler, LIP_OP_NIL, 0, LIP_LOC_NOWHERE);
-		return true;
 	}
 	else if(block_size == 1)
 	{
-		return lip_compile_exp(compiler, block[0]);
+		lip_compile_exp(compiler, block[0]);
 	}
 	else
 	{
 		for(size_t i = 0; i < block_size - 1; ++i)
 		{
-			CHECK(lip_compile_exp(compiler, block[i]));
+			lip_compile_exp(compiler, block[i]);
 		}
 		LASM(compiler, LIP_OP_POP, block_size - 1, LIP_LOC_NOWHERE);
-		CHECK(lip_compile_exp(compiler, block[block_size - 1]));
-		return true;
+		lip_compile_exp(compiler, block[block_size - 1]);
 	}
 }
 
@@ -257,13 +243,13 @@ lip_compile_let(lip_compiler_t* compiler, const lip_ast_t* ast)
 	// Compile bindings
 	lip_array_foreach(lip_let_binding_t, binding, ast->data.let.bindings)
 	{
-		CHECK(lip_compile_exp(compiler, binding->value));
+		lip_compile_exp(compiler, binding->value);
 		lip_asm_index_t local = lip_alloc_local(compiler, binding->name);
 		LASM(compiler, LIP_OP_SET, local, binding->location);
 	}
 
 	// Compile body
-	CHECK(lip_compile_block(compiler, ast->data.let.body));
+	lip_compile_block(compiler, ast->data.let.body);
 
 	lip_array_resize(compiler->current_scope->var_names, num_vars);
 
@@ -287,7 +273,7 @@ lip_compile_letrec(lip_compiler_t* compiler, const lip_ast_t* ast)
 	lip_asm_index_t local_index = num_vars;
 	lip_array_foreach(lip_let_binding_t, binding, ast->data.let.bindings)
 	{
-		CHECK(lip_compile_exp(compiler, binding->value));
+		lip_compile_exp(compiler, binding->value);
 		LASM(
 			compiler,
 			LIP_OP_SET, compiler->current_scope->var_infos[local_index++].index,
@@ -307,7 +293,7 @@ lip_compile_letrec(lip_compiler_t* compiler, const lip_ast_t* ast)
 	}
 
 	// Compile body
-	CHECK(lip_compile_block(compiler, ast->data.let.body));
+	lip_compile_block(compiler, ast->data.let.body);
 
 	lip_array_resize(compiler->current_scope->var_names, num_vars);
 
@@ -445,7 +431,7 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 	}
 
 	// Compile body
-	CHECK(lip_compile_block(compiler, ast->data.lambda.body));
+	lip_compile_block(compiler, ast->data.lambda.body);
 
 	LASM(compiler, LIP_OP_RET, 0, LIP_LOC_NOWHERE);
 	lip_function_t* function = lip_end_scope(compiler, compiler->arena_allocator);
@@ -468,39 +454,45 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 	return true;
 }
 
-static bool
+static void
 lip_compile_do(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
-	return lip_compile_block(compiler, ast->data.do_);
+	lip_compile_block(compiler, ast->data.do_);
 }
 
-static bool
+static void
 lip_compile_exp(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
 	switch(ast->type)
 	{
 		case LIP_AST_NUMBER:
-			return lip_compile_number(compiler, ast);
+			lip_compile_number(compiler, ast);
+			break;
 		case LIP_AST_STRING:
-			return lip_compile_string(compiler, ast);
+			lip_compile_string(compiler, ast);
+			break;
 		case LIP_AST_IDENTIFIER:
-			return lip_compile_identifier(compiler, ast);
+			lip_compile_identifier(compiler, ast);
+			break;
 		case LIP_AST_APPLICATION:
-			return lip_compile_application(compiler, ast);
+			lip_compile_application(compiler, ast);
+			break;
 		case LIP_AST_IF:
-			return lip_compile_if(compiler, ast);
+			lip_compile_if(compiler, ast);
+			break;
 		case LIP_AST_LET:
-			return lip_compile_let(compiler, ast);
+			lip_compile_let(compiler, ast);
+			break;
 		case LIP_AST_LETREC:
-			return lip_compile_letrec(compiler, ast);
+			lip_compile_letrec(compiler, ast);
+			break;
 		case LIP_AST_LAMBDA:
-			return lip_compile_lambda(compiler, ast);
+			lip_compile_lambda(compiler, ast);
+			break;
 		case LIP_AST_DO:
-			return lip_compile_do(compiler, ast);
+			lip_compile_do(compiler, ast);
+			break;
 	}
-
-	lip_set_error(compiler, ast->location, "Unknown error");
-	return false;
 }
 
 void
@@ -511,11 +503,8 @@ lip_compiler_init(lip_compiler_t* compiler, lip_allocator_t* allocator)
 	compiler->source_name = lip_string_ref("");
 	compiler->current_scope = NULL;
 	compiler->free_scopes = NULL;
-	compiler->error.code = 0;
-	compiler->error.location = LIP_LOC_NOWHERE;
 	compiler->free_var_names = kh_init(lip_string_ref_set, allocator);
 	compiler->free_var_infos = lip_array_create(allocator, lip_var_t, 1);
-	compiler->error.extra = NULL;
 }
 
 static void
@@ -568,13 +557,11 @@ lip_compiler_begin(lip_compiler_t* compiler, lip_string_ref_t source_name)
 	LASM(compiler, LIP_OP_NIL, 0, LIP_LOC_NOWHERE);
 }
 
-const lip_error_t*
+void
 lip_compiler_add_ast(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
 	LASM(compiler, LIP_OP_POP, 1, LIP_LOC_NOWHERE); // previous exp's result
-	if(!lip_compile_exp(compiler, ast)) { return &compiler->error; }
-
-	return NULL;
+	lip_compile_exp(compiler, ast);
 }
 
 lip_function_t*
