@@ -39,16 +39,6 @@ teardown(void* fixture_)
 	lip_free(lip_default_allocator, fixture);
 }
 
-static bool
-lip_exec_string(lip_context_t* ctx, lip_vm_t* vm, const char* string, lip_value_t* result)
-{
-	struct lip_sstream_s sstream;
-	lip_in_t* input = lip_make_sstream(lip_string_ref(string), &sstream);
-	lip_script_t* script = lip_load_script(ctx, lip_string_ref("test"), input);
-	munit_assert_not_null(script);
-	return lip_exec_script(vm, script, result) == LIP_EXEC_OK;
-}
-
 static MunitResult
 basic_forms(const MunitParameter params[], void* fixture_)
 {
@@ -58,175 +48,93 @@ basic_forms(const MunitParameter params[], void* fixture_)
 	lip_context_t* ctx = fixture->context;
 	lip_vm_t* vm = fixture->vm;
 
-	lip_value_t result;
+#define lip_assert_result(code, result_value) \
+	do { \
+		struct lip_sstream_s sstream; \
+		lip_in_t* input = lip_make_sstream(lip_string_ref(code), &sstream); \
+		lip_script_t* script = lip_load_script(ctx, lip_string_ref("test"), input); \
+		munit_assert_not_null(script); \
+		lip_value_t result; \
+		lip_assert_enum(lip_exec_status_t, LIP_EXEC_OK, ==, lip_exec_script(vm, script, &result)); \
+		lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type); \
+		munit_assert_double_equal(result_value, result.data.number, 3); \
+	} while(0)
 
-	munit_assert_true(lip_exec_string(ctx, vm, "2", &result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.0, result.data.number, 3);
+	lip_assert_result("2", 2.0);
+	lip_assert_result("((fn (x y) (x y)) (fn (x) x) 3.5)", 3.5);
+	lip_assert_result(
+		"(let ((x 1)"
+		"      (y 2.5))"
+		"    y)",
+		2.5
+	);
+	lip_assert_result(
+		"(let ((x 1)"
+		"      (y 2.5))"
+		"    y)",
+		2.5
+	);
+	lip_assert_result(
+		"(let ((x 1.6)"
+		"      (y 2.5))"
+		"    (let ((x 2.3)) x))",
+		2.3
+	);
+	lip_assert_result(
+		"(let ((x 1.6)"
+		"      (y 2.5))"
+		"    (let ((x 2.3)) y))",
+		2.5
+	);
+	lip_assert_result(
+		"(let ((x 1.6)"
+		"      (y 2.5))"
+		"    (let ((test-capture (fn () x)))"
+		"      (let ((x 4)) (test-capture))))",
+		1.6
+	);
+	lip_assert_result(
+		"(letrec ((test-capture (let ((y x)) (fn () y)))"
+		"         (x 2.5))"
+		"    (test-capture))",
+		2.5
+	);
+	lip_assert_result(
+		"(letrec ((y x)"
+		"         (x 2.5))"
+		"    y)",
+		2.5
+	);
+	lip_assert_result("(if true 2 3)", 2.0);
+	lip_assert_result("(if false 2 3)", 3.0);
+	lip_assert_result("(if nil 2 3)", 3.0);
+	lip_assert_result("(if 0 2 3)", 2.0);
+	lip_assert_result(
+		"(do"
+		" (let ((x 2)) x)"
+		" (let ((y 3) (x 1)) x))",
+		1.0
+	);
+	lip_assert_result(
+		"(let ((x 2))"
+		" (let ((y 3)"
+		"       (x 1))"
+		"  nil)"
+		" (let ((z 8)) x))",
+		2.0
+	);
+	lip_assert_result(
+		"(let ((x 2))"
+		" (let ((y 3)"
+		"       (x 1))"
+		"  nil)"
+		" (let ((z 6) (h x) (w 4)) h))",
+		2.0
+	);
+	lip_assert_result("(if (if true 2) 1 2)", 1.0);
+	lip_assert_result("(if (if false 2) 1 2)", 2.0);
 
-	munit_assert_true(
-		lip_exec_string(
-			ctx, vm, "((fn (x y) (x y)) (fn (x) x) 3.5)", &result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(3.5, result.data.number, 3);
-
-	munit_assert_true(
-		lip_exec_string(
-			ctx,
-			vm,
-			"(let ((x 1)"
-			"      (y 2.5))"
-			"    y)",
-			&result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.5, result.data.number, 3);
-
-	munit_assert_true(
-		lip_exec_string(
-			ctx,
-			vm,
-			"(let ((x 1.6)"
-			"      (y 2.5))"
-			"    (let ((x 2.3)) x))",
-			&result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.3, result.data.number, 3);
-
-	munit_assert_true(
-		lip_exec_string(
-			ctx,
-			vm,
-			"(let ((x 1.6)"
-			"      (y 2.5))"
-			"    (let ((x 2.3)) y))",
-			&result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.5, result.data.number, 3);
-
-	munit_assert_true(
-		lip_exec_string(
-			ctx,
-			vm,
-			"(let ((x 1.6)"
-			"      (y 2.5))"
-			"    (let ((test-capture (fn () x)))"
-			"      (let ((x 4)) (test-capture))))",
-			&result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(1.6, result.data.number, 3);
-
-	munit_assert_true(
-		lip_exec_string(
-			ctx,
-			vm,
-			"(letrec ((test-capture (let ((y x)) (fn () y)))"
-			"         (x 2.5))"
-			"    (test-capture))",
-			&result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.5, result.data.number, 3);
-
-	munit_assert_true(
-		lip_exec_string(
-			ctx,
-			vm,
-			"(letrec ((y x)"
-			"         (x 2.5))"
-			"    y)",
-			&result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.5, result.data.number, 3);
-
-	munit_assert_true(
-		lip_exec_string(
-			ctx,
-			vm,
-			"(if true 2 3)",
-			&result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.0, result.data.number, 3);
-
-	munit_assert_true(
-		lip_exec_string(
-			ctx,
-			vm,
-			"(if false 2 3)",
-			&result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(3.0, result.data.number, 3);
-
-	munit_assert_true(
-		lip_exec_string(
-			ctx,
-			vm,
-			"(if nil 2 3)",
-			&result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(3.0, result.data.number, 3);
-
-	munit_assert_true(
-		lip_exec_string(
-			ctx,
-			vm,
-			"(if 0 2 3)",
-			&result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.0, result.data.number, 3);
-
-	munit_assert_true(
-		lip_exec_string(
-			ctx,
-			vm,
-			"(do"
-		    " (let ((x 2)) x)"
-			" (let ((y 3) (x 1)) x))",
-			&result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(1.0, result.data.number, 3);
-
-	munit_assert_true(
-		lip_exec_string(
-			ctx,
-			vm,
-		    "(let ((x 2))"
-			" (let ((y 3)"
-			"       (x 1))"
-			"  nil)"
-			" (let ((z 8)) x))",
-			&result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.0, result.data.number, 3);
-
-	munit_assert_true(
-		lip_exec_string(
-			ctx,
-			vm,
-		    "(let ((x 2))"
-			" (let ((y 3)"
-			"       (x 1))"
-			"  nil)"
-			" (let ((z 6) (h x) (w 4)) h))",
-			&result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.0, result.data.number, 3);
-
-	munit_assert_true(
-		lip_exec_string(
-			ctx,
-			vm,
-			"(if (if true 2) 1 2)",
-			&result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(1.0, result.data.number, 3);
-
-	munit_assert_true(
-		lip_exec_string(
-			ctx,
-			vm,
-			"(if (if false 2) 1 2)",
-			&result));
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
-	munit_assert_double_equal(2.0, result.data.number, 3);
+#undef lip_assert_result
 
 	return MUNIT_OK;
 }
