@@ -33,7 +33,7 @@ static lip_ast_result_t
 lip_syntax_error(lip_loc_range_t location, const char* msg)
 {
 	return (lip_ast_result_t){
-		.success = true,
+		.success = false,
 		.value = {
 			.error = {
 				.location = location,
