@@ -1,49 +1,19 @@
-#include "lip.h"
-#include "vendor/khash.h"
-#include "ex/vm.h"
-#include "ex/compiler.h"
-#include "ex/parser.h"
+#include "ex/lip.h"
+#include <stdio.h>
 #include "array.h"
 #include "ast.h"
-#include "io.h"
 
-#define CHECK(cond, msg) \
+#define lip_assert(ctx, cond) \
 	do { \
 		if(!(cond)) { \
-			ctx->error.message = lip_string_ref(msg); \
-			return false; \
+			lip_panic( \
+				ctx, \
+				__FILE__ ":" lip_stringify(__LINE__) ": Assertion '" #cond "' failed." \
+			); \
 		} \
 	} while(0)
-
-KHASH_DECLARE(lip_ptr_set, void*, char)
-
-typedef struct lip_runtime_link_s lip_runtime_link_t;
-
-struct lip_runtime_s
-{
-	lip_allocator_t* allocator;
-	khash_t(lip_ptr_set)* contexts;
-};
-
-struct lip_runtime_link_s
-{
-	lip_runtime_interface_t vtable;
-	lip_allocator_t* allocator;
-	lip_context_t* ctx;
-};
-
-struct lip_context_s
-{
-	lip_runtime_t* runtime;
-	lip_allocator_t* allocator;
-	lip_allocator_t* arena_allocator;
-	lip_array(lip_error_record_t) error_records;
-	lip_context_error_t error;
-	lip_parser_t parser;
-	lip_compiler_t compiler;
-	khash_t(lip_ptr_set)* scripts;
-	khash_t(lip_ptr_set)* vms;
-};
+#define lip_stringify(x) lip_stringify2(x)
+#define lip_stringify2(x) #x
 
 lip_runtime_t*
 lip_create_runtime(lip_allocator_t* allocator)
@@ -51,8 +21,10 @@ lip_create_runtime(lip_allocator_t* allocator)
 	lip_runtime_t* runtime = lip_new(allocator, lip_runtime_t);
 	*runtime = (lip_runtime_t){
 		.allocator = allocator,
-		.contexts = kh_init(lip_ptr_set, allocator)
+		.contexts = kh_init(lip_ptr_set, allocator),
+		.symtab = kh_init(lip_symtab, allocator),
 	};
+	lip_rwlock_init(&runtime->symtab_lock);
 	return runtime;
 }
 
@@ -97,6 +69,17 @@ lip_do_destroy_context(lip_runtime_t* runtime, lip_context_t* ctx)
 	lip_free(ctx->allocator, ctx);
 }
 
+static void
+lip_purge_ns(lip_runtime_t* runtime, khash_t(lip_ns)* ns)
+{
+	kh_foreach(i, ns)
+	{
+		lip_free(runtime->allocator, (void*)kh_key(ns, i).ptr);
+		lip_free(runtime->allocator, kh_val(ns, i).value);
+	}
+	kh_clear(lip_ns, ns);
+}
+
 void
 lip_destroy_runtime(lip_runtime_t* runtime)
 {
@@ -105,8 +88,32 @@ lip_destroy_runtime(lip_runtime_t* runtime)
 		lip_do_destroy_context(runtime, kh_key(runtime->contexts, itr));
 	}
 
+	kh_foreach(itr, runtime->symtab)
+	{
+		lip_free(runtime->allocator, (void*)kh_key(runtime->symtab, itr).ptr);
+		khash_t(lip_ns)* ns = kh_val(runtime->symtab, itr);
+		lip_purge_ns(runtime, ns);
+		kh_destroy(lip_ns, ns);
+	}
+
+	lip_rwlock_destroy(&runtime->symtab_lock);
+	kh_destroy(lip_symtab, runtime->symtab);
 	kh_destroy(lip_ptr_set, runtime->contexts);
 	lip_free(runtime->allocator, runtime);
+}
+
+static void
+lip_panic(lip_context_t* ctx, const char* msg)
+{
+	ctx->panic_handler(ctx, msg);
+}
+
+static void
+lip_default_panic_handler(lip_context_t* ctx, const char* msg)
+{
+	(void)ctx;
+	fprintf(stderr, "%s\n", msg);
+	abort();
 }
 
 lip_context_t*
@@ -121,7 +128,8 @@ lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator)
 		.arena_allocator = lip_arena_allocator_create(allocator, 2048),
 		.error_records = lip_array_create(allocator, lip_error_record_t, 1),
 		.scripts = kh_init(lip_ptr_set, allocator),
-		.vms = kh_init(lip_ptr_set, allocator)
+		.vms = kh_init(lip_ptr_set, allocator),
+		.panic_handler = lip_default_panic_handler
 	};
 	lip_parser_init(&ctx->parser, allocator);
 	lip_compiler_init(&ctx->compiler, allocator);
@@ -130,6 +138,14 @@ lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator)
 	kh_put(lip_ptr_set, runtime->contexts, ctx, &tmp);
 
 	return ctx;
+}
+
+lip_panic_fn_t
+lip_set_panic_handler(lip_context_t* ctx, lip_panic_fn_t panic_handler)
+{
+	lip_panic_fn_t old_handler = ctx->panic_handler;
+	ctx->panic_handler = panic_handler;
+	return old_handler;
 }
 
 void
@@ -149,6 +165,112 @@ lip_get_error(lip_context_t* ctx)
 	return &ctx->error;
 }
 
+lip_ns_context_t*
+lip_begin_ns(lip_context_t* ctx, lip_string_ref_t name)
+{
+	lip_ns_context_t* ns_context = lip_new(ctx->allocator, lip_ns_context_t);
+	*ns_context = (lip_ns_context_t){
+		.allocator = lip_arena_allocator_create(ctx->allocator, 20480),
+		.content = kh_init(lip_ns, ctx->allocator),
+		.name = name
+	};
+	return ns_context;
+}
+
+static void
+lip_commit_ns_locked(lip_context_t* ctx, lip_ns_context_t* ns_ctx)
+{
+	lip_runtime_t* runtime = ctx->runtime;
+	khash_t(lip_symtab)* symtab = runtime->symtab;
+	khiter_t itr = kh_get(lip_symtab, symtab, ns_ctx->name);
+
+	khash_t(lip_ns)* ns;
+	if(itr != kh_end(symtab))
+	{
+		ns = kh_val(symtab, itr);
+		lip_purge_ns(runtime, ns);
+	}
+	else
+	{
+		void* str_buff = lip_malloc(runtime->allocator, ns_ctx->name.length);
+		memcpy(str_buff, ns_ctx->name.ptr, ns_ctx->name.length);
+		lip_string_ref_t ns_name = {.ptr = str_buff, .length = ns_ctx->name.length};
+		ns = kh_init(lip_ns, runtime->allocator);
+
+		int ret;
+		khiter_t itr = kh_put(lip_symtab, symtab, ns_name, &ret);
+		kh_val(symtab, itr) = ns;
+	}
+
+	kh_foreach(i, ns_ctx->content)
+	{
+		lip_string_ref_t symbol_name = kh_key(ns_ctx->content, i);
+		lip_symbol_t symbol_value = kh_val(ns_ctx->content, i);
+
+		void* str_buff = lip_malloc(runtime->allocator, symbol_name.length);
+		memcpy(str_buff, symbol_name.ptr, symbol_name.length);
+		symbol_name.ptr = str_buff;
+
+		size_t closure_size =
+			sizeof(lip_closure_t) +
+			sizeof(lip_value_t) * symbol_value.value->env_len;
+		lip_closure_t* closure = lip_malloc(runtime->allocator, closure_size);
+		memcpy(closure, symbol_value.value, closure_size);
+		symbol_value.value = closure;
+
+		int ret;
+		khiter_t itr = kh_put(lip_ns, ns, symbol_name, &ret);
+		kh_val(ns, itr) = symbol_value;
+	}
+}
+
+void
+lip_end_ns(lip_context_t* ctx, lip_ns_context_t* ns)
+{
+	lip_assert(ctx, lip_rwlock_begin_write(&ctx->runtime->symtab_lock));
+	lip_commit_ns_locked(ctx, ns);
+	lip_rwlock_end_write(&ctx->runtime->symtab_lock);
+
+	kh_destroy(lip_ns, ns->content);
+	lip_arena_allocator_destroy(ns->allocator);
+	lip_free(ctx->allocator, ns);
+}
+
+void
+lip_declare_function(
+	lip_ns_context_t* ns, lip_string_ref_t name, lip_native_fn_t fn
+)
+{
+	int ret;
+	khiter_t itr  = kh_put(lip_ns, ns->content, name, &ret);
+
+	lip_closure_t* closure = lip_new(ns->allocator, lip_closure_t);
+	*closure = (lip_closure_t){
+		.is_native = true,
+		.native_arity = 0,
+		.no_gc = 1,
+		.env_len = 0,
+		.function = { .native = fn }
+	};
+
+	kh_val(ns->content, itr).value = closure;
+}
+
+static bool
+lip_rt_resolve_import(
+	lip_runtime_interface_t* vtable,
+	lip_string_t* symbol_name,
+	lip_value_t* result
+)
+{
+	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vtable, lip_runtime_link_t, vtable);
+	lip_string_ref_t symbol_name_ref = {
+		.ptr = symbol_name->ptr,
+		.length = symbol_name->length
+	};
+	return lip_lookup_symbol(rt->ctx, symbol_name_ref, result);
+}
+
 static lip_closure_t*
 lip_rt_alloc_closure(lip_runtime_interface_t* vtable, uint8_t env_len)
 {
@@ -166,6 +288,7 @@ lip_create_vm(lip_context_t* ctx, lip_vm_config_t* config)
 		.allocator = lip_arena_allocator_create(ctx->allocator, 1024),
 		.ctx = ctx,
 		.vtable = {
+			.resolve_import = lip_rt_resolve_import,
 			.alloc_closure = lip_rt_alloc_closure
 		}
 	};
@@ -228,6 +351,56 @@ lip_set_compile_error(
 	ctx->error.message = message;
 	ctx->error.num_records = 1;
 	ctx->error.records = ctx->error_records;
+}
+
+static bool
+lip_lookup_symbol_locked(
+	lip_context_t* ctx,
+	lip_string_ref_t namespace,
+	lip_string_ref_t symbol,
+	lip_value_t* result
+)
+{
+	khash_t(lip_symtab)* symtab = ctx->runtime->symtab;
+	khiter_t itr = kh_get(lip_symtab, symtab, namespace);
+	if(itr == kh_end(symtab)) { return false; }
+
+	khash_t(lip_ns)* ns = kh_val(symtab, itr);
+	itr = kh_get(lip_ns, ns, symbol);
+	if(itr == kh_end(ns)) { return false; }
+
+	*result = (lip_value_t){
+		.type = LIP_VAL_FUNCTION,
+		.data = { .reference = kh_val(ns, itr).value }
+	};
+	return true;
+}
+
+bool
+lip_lookup_symbol(lip_context_t* ctx, lip_string_ref_t symbol_name, lip_value_t* result)
+{
+	char* pos = memchr(symbol_name.ptr, '/', symbol_name.length);
+	lip_string_ref_t namespace;
+	lip_string_ref_t symbol;
+
+	if(pos)
+	{
+		namespace.ptr = symbol_name.ptr;
+		namespace.length = pos - symbol_name.ptr;
+		symbol.ptr = pos + 1;
+		symbol.length = symbol_name.length - namespace.length - 1;
+	}
+	else
+	{
+		namespace = lip_string_ref("");
+		symbol = symbol_name;
+	}
+
+	lip_assert(ctx, lip_rwlock_begin_read(&ctx->runtime->symtab_lock));
+	bool ret_val = lip_lookup_symbol_locked(ctx, namespace, symbol, result);
+	lip_rwlock_end_read(&ctx->runtime->symtab_lock);
+
+	return ret_val;
 }
 
 lip_script_t*

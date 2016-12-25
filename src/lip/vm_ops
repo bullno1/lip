@@ -25,25 +25,18 @@ BEGIN_OP(IMP)
 	}
 	else
 	{
-		*(--sp) = (lip_value_t) {
-			.type = LIP_VAL_NATIVE,
-			.data = { .reference = &fn.imports[operand] }
-		};
-		*(--sp) = (lip_value_t) {
-			.type = LIP_VAL_NATIVE,
-			.data = {
-				.reference = lip_function_resource(
-					fp->closure->function.lip, fn.imports[operand].name
-				)
-			}
-		};
-		*(--sp) = val;
+		lip_value_t result;
+		lip_string_t* symbol_name = lip_function_resource(
+			fp->closure->function.lip, fn.imports[operand].name
+		);
+
 		SAVE_CONTEXT();
-		++vm->fp;
-		*(vm->fp) = *(vm->fp - 1);
-		lip_exec_status_t status = lip_vm_do_call(vm, 2);
-		if(status != LIP_EXEC_OK) { return status; }
+		bool resolved = vm->rt->resolve_import(vm->rt, symbol_name, &result);
+		if(!resolved) { return LIP_EXEC_ERROR; }
 		LOAD_CONTEXT();
+
+		fn.imports[operand].value = result;
+		*(--sp) = result;
 	}
 END_OP(IMP)
 

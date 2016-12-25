@@ -14,7 +14,9 @@ typedef struct lip_runtime_interface_s lip_runtime_interface_t;
 struct lip_runtime_interface_s
 {
 	bool(*resolve_import)(
-		lip_runtime_interface_t* rt, lip_string_ref_t symbol, lip_value_t* result
+		lip_runtime_interface_t* rt,
+		lip_string_t* symbol_name,
+		lip_value_t* result
 	);
 	lip_closure_t*(*alloc_closure)(lip_runtime_interface_t* rt, uint8_t env_len);
 	lip_string_t*(*alloc_string)(lip_runtime_interface_t* rt, size_t env_len);

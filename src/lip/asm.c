@@ -68,7 +68,7 @@ lip_asm_new_function(lip_asm_t* lasm, lip_function_t* function)
 	return index;
 }
 
-uint32_t
+static uint32_t
 lip_asm_alloc_string(lip_asm_t* lasm, lip_string_ref_t string)
 {
 	uint32_t num_strings = lip_array_len(lasm->string_pool);
@@ -397,7 +397,7 @@ lip_asm_end(lip_asm_t* lasm, lip_allocator_t* allocator)
 		uint32_t import_string_index = lasm->imports[i];
 		imports[i].name = lasm->string_layout[import_string_index].offset;
 		imports[i].value = (lip_value_t){
-			.type = LIP_VAL_NIL,
+			.type = LIP_VAL_PLACEHOLDER,
 			.data = { .reference = NULL }
 		};
 	}

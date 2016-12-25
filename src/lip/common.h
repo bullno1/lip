@@ -1,15 +1,19 @@
 #ifndef LIP_COMMON_H
 #define LIP_COMMON_H
 
+#if defined(__GNUC__) || defined(__clang__)
+#	define _XOPEN_SOURCE 700
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
 
 #if defined(__GNUC__) || defined(__clang__)
-#define LIP_MAYBE_UNUSED __attribute__((unused))
+#	define LIP_MAYBE_UNUSED __attribute__((unused))
 #else
-#define LIP_MAYBE_UNUSED
+#	define LIP_MAYBE_UNUSED
 #endif
 
 #define LIP_ENUM(NAME, FOREACH) \

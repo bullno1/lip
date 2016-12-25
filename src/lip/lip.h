@@ -11,6 +11,8 @@ typedef struct lip_script_s lip_script_t;
 typedef struct lip_repl_handler_s lip_repl_handler_t;
 typedef struct lip_context_error_s lip_context_error_t;
 typedef struct lip_error_record_s lip_error_record_t;
+typedef struct lip_ns_context_s lip_ns_context_t;
+typedef void(*lip_panic_fn_t)(lip_context_t* ctx, const char* msg);
 
 struct lip_repl_handler_s
 {
@@ -45,8 +47,25 @@ lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator);
 void
 lip_destroy_context(lip_runtime_t* runtime, lip_context_t* ctx);
 
+lip_panic_fn_t
+lip_set_panic_handler(lip_context_t* ctx, lip_panic_fn_t panic_handler);
+
 const lip_context_error_t*
 lip_get_error(lip_context_t* ctx);
+
+lip_ns_context_t*
+lip_begin_ns(lip_context_t* ctx, lip_string_ref_t name);
+
+void
+lip_end_ns(lip_context_t* ctx, lip_ns_context_t* ns);
+
+void
+lip_discard_ns(lip_context_t* ctx, lip_ns_context_t* ns);
+
+void
+lip_declare_function(
+	lip_ns_context_t* ns, lip_string_ref_t name, lip_native_fn_t fn
+);
 
 lip_vm_t*
 lip_create_vm(lip_context_t* ctx, lip_vm_config_t* config);
@@ -68,5 +87,8 @@ lip_exec_script(lip_vm_t* vm, lip_script_t* script, lip_value_t* result);
 
 void
 lip_repl(lip_vm_t* vm, lip_repl_handler_t* repl_handler);
+
+void
+lip_load_builtins(lip_context_t* ctx);
 
 #endif

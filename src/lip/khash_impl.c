@@ -1,7 +1,8 @@
 #include "common.h"
+#include "memory.h"
+#include "ex/lip.h"
 #include "vendor/khash.h"
 #include "vendor/xxhash.h"
-#include "ex/compiler.h"
 
 #define lip_string_ref_hash(str) XXH32(str.ptr, str.length, __LINE__)
 #define lip_value_hash(ptr) XXH32(&ptr, sizeof(ptr), __LINE__)
@@ -17,7 +18,27 @@ __KHASH_IMPL(
 	lip_string_ref_equal
 )
 
-KHASH_INIT2(
+__KHASH_IMPL(
+	lip_ns,
+	,
+	lip_string_ref_t,
+	lip_symbol_t,
+	1,
+	lip_string_ref_hash,
+	lip_string_ref_equal
+)
+
+__KHASH_IMPL(
+	lip_symtab,
+	,
+	lip_string_ref_t,
+	khash_t(lip_ns)*,
+	1,
+	lip_string_ref_hash,
+	lip_string_ref_equal
+)
+
+__KHASH_IMPL(
 	lip_ptr_set,
 	,
 	void*,
