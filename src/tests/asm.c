@@ -3,7 +3,7 @@
 #include <lip/array.h>
 #include <lip/ex/vm.h>
 #include <lip/ex/asm.h>
-#include <lip/temp_allocator.h>
+#include "temp_allocator.h"
 #include "munit.h"
 #include "test_helpers.h"
 

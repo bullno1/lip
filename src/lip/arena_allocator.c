@@ -124,7 +124,7 @@ lip_arena_allocator_realloc(lip_allocator_t* vtable, void* old, size_t size)
 	}
 	else
 	{
-		return  lip_arena_allocator_small_alloc(allocator, size);
+		return lip_arena_allocator_small_alloc(allocator, size);
 	}
 }
 

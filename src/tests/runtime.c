@@ -183,13 +183,14 @@ syntax_error(const MunitParameter params[], void* fixture_)
 		lip_script_t* script = lip_load_script(ctx, lip_string_ref("test"), input); \
 		munit_assert_null(script); \
 		const lip_context_error_t* error = lip_get_error(ctx); \
-		lip_assert_string_ref_equal(lip_string_ref(error_msg), error->message); \
+		lip_assert_string_ref_equal(lip_string_ref("Syntax error"), error->message); \
 		munit_assert_uint(1, ==, error->num_records); \
 		lip_assert_loc_range_equal(error->records[0].location, ((lip_loc_range_t){ \
 			.start = { .line = start_line, .column = start_col }, \
 			.end = { .line = end_line, .column = end_col } \
 		})); \
-		lip_assert_string_ref_equal(lip_string_ref("test"), error->records[0].message); \
+		lip_assert_string_ref_equal(lip_string_ref("test"), error->records[0].filename); \
+		lip_assert_string_ref_equal(lip_string_ref(error_msg), error->records[0].message); \
 	} while(0)
 
 	lip_assert_syntax_error(" 1a  ", "Malformed number", 1, 2, 1, 3);

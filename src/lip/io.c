@@ -4,9 +4,9 @@
 #include "memory.h"
 #include "vendor/format/format.h"
 
-struct lip_ofstream_s lip_stdout_ofstream;
-struct lip_ofstream_s lip_stderr_ofstream;
-struct lip_ifstream_s lip_stdin_ifstream;
+static struct lip_ofstream_s lip_stdout_ofstream;
+static struct lip_ofstream_s lip_stderr_ofstream;
+static struct lip_ifstream_s lip_stdin_ifstream;
 
 
 static size_t
@@ -118,7 +118,7 @@ lip_stderr(void)
 	static lip_out_t* out = NULL;
 	if(!out)
 	{
-		out = lip_make_ofstream(stderr, &lip_stdout_ofstream);
+		out = lip_make_ofstream(stderr, &lip_stderr_ofstream);
 	}
 
 	return out;
