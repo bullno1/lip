@@ -2,7 +2,7 @@
 #include <lip/memory.h>
 #include <lip/array.h>
 #include <lip/ex/vm.h>
-#include <lip/ex/asm.h>
+#include <lip/asm.h>
 #include "temp_allocator.h"
 #include "munit.h"
 #include "test_helpers.h"

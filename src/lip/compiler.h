@@ -2,10 +2,25 @@
 #define LIP_COMPILER_H
 
 #include "ex/common.h"
-#include "sexp.h"
 #include "ast.h"
+#include "vendor/khash.h"
 
 typedef struct lip_compiler_s lip_compiler_t;
+typedef struct lip_scope_s lip_scope_t;
+typedef struct lip_var_s lip_var_t;
+
+KHASH_DECLARE(lip_string_ref_set, lip_string_ref_t, char)
+
+struct lip_compiler_s
+{
+	lip_allocator_t* allocator;
+	lip_allocator_t* arena_allocator;
+	lip_string_ref_t source_name;
+	lip_scope_t* current_scope;
+	lip_scope_t* free_scopes;
+	khash_t(lip_string_ref_set)* free_var_names;
+	lip_array(lip_var_t) free_var_infos;
+};
 
 void
 lip_compiler_init(lip_compiler_t* compiler, lip_allocator_t* allocator);

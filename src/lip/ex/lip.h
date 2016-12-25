@@ -1,12 +1,13 @@
 #ifndef LIP_LIP_EX_H
 #define LIP_LIP_EX_H
 
+#include "../lip.h"
 #include "../platform.h"
 #include "../vendor/khash.h"
 #include "vm.h"
-#include "compiler.h"
-#include "parser.h"
-#include "../lip.h"
+#include "../compiler.h"
+#include "../parser.h"
+#include "../arena_allocator.h"
 
 typedef struct lip_runtime_link_s lip_runtime_link_t;
 typedef struct lip_symbol_s lip_symbol_t;

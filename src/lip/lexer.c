@@ -1,4 +1,4 @@
-#include "ex/lexer.h"
+#include "lexer.h"
 #include <ctype.h>
 #include "array.h"
 #include "io.h"

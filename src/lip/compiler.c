@@ -1,10 +1,27 @@
-#include "ex/compiler.h"
+#include "compiler.h"
 #include "ex/vm.h"
 #include "ast.h"
+#include "asm.h"
 #include "array.h"
+#include "arena_allocator.h"
 
 #define LASM(compiler, opcode, operand, location) \
 	lip_asm_add(&compiler->current_scope->lasm, opcode, operand, location)
+
+struct lip_scope_s
+{
+	lip_scope_t* parent;
+	lip_asm_t lasm;
+
+	lip_array(lip_string_ref_t) var_names;
+	lip_array(lip_var_t) var_infos;
+};
+
+struct lip_var_s
+{
+	lip_opcode_t load_op;
+	lip_asm_index_t index;
+};
 
 static void
 lip_compile_exp(lip_compiler_t* compiler, const lip_ast_t* ast);

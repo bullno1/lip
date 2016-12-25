@@ -2,11 +2,10 @@
 #define LIP_TEST_HELPERS_H
 
 #include <lip/common.h>
-#include <lip/token.h>
 #include <lip/io.h>
-#include <lip/ex/asm.h>
-#include <lip/ex/parser.h>
-#include <lip/ex/lexer.h>
+#include <lip/asm.h>
+#include <lip/parser.h>
+#include <lip/lexer.h>
 #include "munit.h"
 
 #define lip_assert_enum(ENUM_TYPE, EXPECTED, OP, ACTUAL) \

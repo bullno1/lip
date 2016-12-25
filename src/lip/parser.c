@@ -1,6 +1,4 @@
-#include "ex/parser.h"
-#include "ex/lexer.h"
-#include "token.h"
+#include "parser.h"
 #include "array.h"
 
 static lip_stream_status_t
