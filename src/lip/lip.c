@@ -49,8 +49,10 @@ lip_runtime_t*
 lip_create_runtime(lip_allocator_t* allocator)
 {
 	lip_runtime_t* runtime = lip_new(allocator, lip_runtime_t);
-	runtime->allocator = allocator;
-	runtime->contexts = kh_init(lip_ptr_set, allocator);
+	*runtime = (lip_runtime_t){
+		.allocator = allocator,
+		.contexts = kh_init(lip_ptr_set, allocator)
+	};
 	return runtime;
 }
 
@@ -131,14 +133,16 @@ lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator)
 	if(allocator == NULL) { allocator = runtime->allocator; }
 
 	lip_context_t* ctx = lip_new(allocator, lip_context_t);
-	ctx->allocator = allocator;
-	ctx->runtime = runtime;
-	ctx->arena_allocator = lip_arena_allocator_create(allocator, 2048);
-	ctx->error_records = lip_array_create(allocator, lip_error_record_t, 1);
+	*ctx = (lip_context_t) {
+		.allocator = allocator,
+		.runtime = runtime,
+		.arena_allocator = lip_arena_allocator_create(allocator, 2048),
+		.error_records = lip_array_create(allocator, lip_error_record_t, 1),
+		.scripts = kh_init(lip_ptr_set, allocator),
+		.vms = kh_init(lip_ptr_set, allocator)
+	};
 	lip_parser_init(&ctx->parser, allocator);
 	lip_compiler_init(&ctx->compiler, allocator);
-	ctx->scripts = kh_init(lip_ptr_set, allocator);
-	ctx->vms = kh_init(lip_ptr_set, allocator);
 
 	int tmp;
 	kh_put(lip_ptr_set, runtime->contexts, ctx, &tmp);
@@ -279,10 +283,12 @@ lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 				{
 					lip_function_t* fn = lip_compiler_end(&ctx->compiler, ctx->allocator);
 					lip_closure_t* closure = lip_new(ctx->allocator, lip_closure_t);
-					closure->function.lip = fn;
-					closure->is_native = false;
-					closure->env_len = 0;
-					closure->no_gc = true;
+					*closure = (lip_closure_t){
+						.function = { .lip = fn },
+						.is_native = false,
+						.env_len = 0,
+						.no_gc = true
+					};
 
 					int tmp;
 					kh_put(lip_ptr_set, ctx->scripts, closure, &tmp);

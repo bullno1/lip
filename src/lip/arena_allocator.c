@@ -138,15 +138,18 @@ lip_arena_allocator_free(lip_allocator_t* vtable, void* ptr)
 lip_allocator_t*
 lip_arena_allocator_create(lip_allocator_t* allocator, size_t chunk_size)
 {
-	lip_arena_allocator_t* arena_allocator =
-		lip_new(allocator, lip_arena_allocator_t);
-	arena_allocator->vtable.realloc = lip_arena_allocator_realloc;
-	arena_allocator->vtable.free = lip_arena_allocator_free;
-	arena_allocator->backing_allocator = allocator;
-	arena_allocator->current_chunks = NULL;
-	arena_allocator->chunks = NULL;
-	arena_allocator->large_allocs = NULL;
-	arena_allocator->chunk_size = LIP_MAX(chunk_size, sizeof(lip_large_alloc_t));
+	lip_arena_allocator_t* arena_allocator = lip_new(allocator, lip_arena_allocator_t);
+	*arena_allocator = (lip_arena_allocator_t){
+		.backing_allocator = allocator,
+		.current_chunks = NULL,
+		.chunks = NULL,
+		.large_allocs = NULL,
+		.chunk_size = LIP_MAX(chunk_size, sizeof(lip_large_alloc_t)),
+		.vtable = {
+			.realloc = lip_arena_allocator_realloc,
+			.free = lip_arena_allocator_free
+		}
+	};
 	return &arena_allocator->vtable;
 }
 

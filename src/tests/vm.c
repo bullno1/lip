@@ -98,9 +98,11 @@ fibonacci(const MunitParameter params[], void* fixture)
 	lip_asm_destroy(lasm);
 
 	lip_closure_t* closure = lip_new(lip_default_allocator, lip_closure_t);
-	closure->is_native = false;
-	closure->env_len = 0;
-	closure->function.lip = fn;
+	*closure = (lip_closure_t) {
+		.is_native = false,
+		.env_len = 0,
+		.function = { .lip = fn }
+	};
 
 	lip_allocator_t* arena_allocator =
 		lip_arena_allocator_create(lip_default_allocator, 2048);
@@ -164,10 +166,12 @@ call_native(const MunitParameter params[], void* fixture)
 	};
 	lip_vm_t* vm = lip_vm_create(arena_allocator, &vm_config, &rt.vtable);
 	lip_closure_t* closure = lip_new(arena_allocator, lip_closure_t);
-	closure->function.native = identity;
-	closure->is_native = true;
-	closure->native_arity = 1;
-	closure->env_len = 0;
+	*closure = (lip_closure_t) {
+		.is_native = true,
+		.native_arity = 1,
+		.env_len = 0,
+		.function = { .native = identity }
+	};
 
 	lip_vm_push_number(vm, 42);
 	lip_vm_push_value(vm, (lip_value_t){

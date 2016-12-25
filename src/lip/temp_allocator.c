@@ -55,12 +55,16 @@ lip_allocator_t*
 lip_temp_allocator_create(lip_allocator_t* allocator)
 {
 	lip_temp_allocator_t* temp_allocator = lip_new(allocator, lip_temp_allocator_t);
-	temp_allocator->backing_allocator = allocator;
-	temp_allocator->size = 0;
-	temp_allocator->mem = NULL;
-	temp_allocator->freed = true;
-	temp_allocator->vtable.realloc = lip_temp_allocator_realloc;
-	temp_allocator->vtable.free = lip_temp_allocator_free;
+	*temp_allocator = (lip_temp_allocator_t){
+		.backing_allocator = allocator,
+		.size = 0,
+		.mem = NULL,
+		.freed = true,
+		.vtable = {
+			.realloc = lip_temp_allocator_realloc,
+			.free = lip_temp_allocator_free
+		}
+	};
 	return &temp_allocator->vtable;
 }
 
