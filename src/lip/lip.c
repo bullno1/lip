@@ -78,26 +78,14 @@ lip_do_destroy_context(lip_runtime_t* runtime, lip_context_t* ctx)
 {
 	(void)runtime;
 
-	for(
-		khint_t i = kh_begin(ctx->vms);
-		i != kh_end(ctx->vms);
-		++i
-	)
+	kh_foreach(itr, ctx->vms)
 	{
-		if(!kh_exist(ctx->vms, i)) { continue; }
-
-		lip_do_destroy_vm(ctx, kh_key(ctx->vms, i));
+		lip_do_destroy_vm(ctx, kh_key(ctx->vms, itr));
 	}
 
-	for(
-		khint_t i = kh_begin(ctx->scripts);
-		i != kh_end(ctx->scripts);
-		++i
-	)
+	kh_foreach(itr, ctx->scripts)
 	{
-		if(!kh_exist(ctx->scripts, i)) { continue; }
-
-		lip_do_unload_script(ctx, kh_key(ctx->scripts, i));
+		lip_do_unload_script(ctx, kh_key(ctx->scripts, itr));
 	}
 
 	kh_destroy(lip_ptr_set, ctx->vms);
@@ -112,15 +100,9 @@ lip_do_destroy_context(lip_runtime_t* runtime, lip_context_t* ctx)
 void
 lip_destroy_runtime(lip_runtime_t* runtime)
 {
-	for(
-		khint_t i = kh_begin(runtime->contexts);
-		i != kh_end(runtime->contexts);
-		++i
-	)
+	kh_foreach(itr, runtime->contexts)
 	{
-		if(!kh_exist(runtime->contexts, i)) { continue; }
-
-		lip_do_destroy_context(runtime, kh_key(runtime->contexts, i));
+		lip_do_destroy_context(runtime, kh_key(runtime->contexts, itr));
 	}
 
 	kh_destroy(lip_ptr_set, runtime->contexts);

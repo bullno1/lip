@@ -409,14 +409,8 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 	lip_scope_t* scope = compiler->current_scope;
 	uint8_t captured_var_index = 0;
 
-	for(
-		khint_t itr = kh_begin(compiler->free_var_names);
-		itr != kh_end(compiler->free_var_names);
-		++itr
-	)
+	kh_foreach(itr, compiler->free_var_names)
 	{
-		if (!kh_exist(compiler->free_var_names, itr)) { continue; }
-
 		lip_string_ref_t var_name = kh_key(compiler->free_var_names, itr);
 		lip_var_t local_info;
 		if(lip_find_local(compiler, var_name, &local_info))

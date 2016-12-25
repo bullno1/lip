@@ -78,7 +78,7 @@ lip_make_ofstream(FILE* file, struct lip_ofstream_s* ofstream)
 }
 
 lip_out_t*
-lip_stdout()
+lip_stdout(void)
 {
 	static lip_out_t* out = NULL;
 	if(!out)
@@ -90,7 +90,7 @@ lip_stdout()
 }
 
 lip_out_t*
-lip_stderr()
+lip_stderr(void)
 {
 	static lip_out_t* out = NULL;
 	if(!out)

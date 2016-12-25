@@ -34,13 +34,13 @@ struct lip_ifstream_s
 };
 
 lip_in_t*
-lip_stdin();
+lip_stdin(void);
 
 lip_out_t*
-lip_stdout();
+lip_stdout(void);
 
 lip_out_t*
-lip_stderr();
+lip_stderr(void);
 
 LIP_MAYBE_UNUSED static inline size_t
 lip_read(void* buff, size_t size, lip_in_t* input)
