@@ -69,14 +69,19 @@ bin/tests: << C_FLAGS CPP_FLAGS CC
 bin/lip: << C_FLAGS CPP_FLAGS CC
 	${NUMAKE} exe:$@ \
 		sources="`find src/repl -name '*.cpp' -or -name '*.c'`" \
-		c_flags="${C_FLAGS} -Isrc" \
-		cpp_flags="${CPP_FLAGS} -Isrc" \
-		linker="${CC}" \
-		libs="bin/liblip.a"
+		c_flags="${C_FLAGS} -Isrc -Ideps/linenoise-ng/include" \
+		cpp_flags="${CPP_FLAGS} -Isrc -Ideps/linenoise-ng/include" \
+		libs="bin/liblip.a bin/liblinenoise-ng.a"
 
 bin/liblip.a:
 	${NUMAKE} static-lib:$@ \
 		sources="`find src/lip -name '*.cpp' -or -name '*.c'`"
+
+bin/liblinenoise-ng.a:
+	${NUMAKE} static-lib:$@ \
+		c_flags="${C_FLAGS} -Ideps/linenoise-ng/include" \
+		cpp_flags="${CPP_FLAGS} -Ideps/linenoise-ng/include" \
+		sources="`find deps/linenoise-ng -name '*.cpp' -or -name '*.c'`"
 
 # Only for vm_dispatch.c, remove -pedantic because we will be using a
 # non-standard extension (computed goto) if it is available

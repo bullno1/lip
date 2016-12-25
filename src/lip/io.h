@@ -1,6 +1,7 @@
 #ifndef LIP_IO_H
 #define LIP_IO_H
 
+#include <stdarg.h>
 #include <stdio.h>
 #include "common.h"
 
@@ -55,10 +56,13 @@ lip_write(const void* buff, size_t size, lip_out_t* output)
 }
 
 #if defined(__GNUC__) || defined(__GNUG__) || defined(__clang__)
-__attribute__((format(printf, 3, 4)))
+__attribute__((format(printf, 2, 3)))
 #endif
-void
-lip_printf(lip_allocator_t* allocator, lip_out_t* output, const char* format, ...);
+size_t
+lip_printf(lip_out_t* output, const char* format, ...);
+
+size_t
+lip_vprintf(lip_out_t* output, const char* format, va_list args);
 
 lip_in_t*
 lip_make_sstream(lip_string_ref_t str, struct lip_sstream_s* sstream);

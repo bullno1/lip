@@ -7,14 +7,12 @@
 
 void
 lip_print_instruction(
-	lip_allocator_t* allocator,
 	lip_out_t* output,
 	lip_instruction_t instr
 );
 
 void
 lip_print_value(
-	lip_allocator_t* allocator,
 	unsigned int depth,
 	unsigned int indent,
 	lip_out_t* output,
@@ -23,7 +21,6 @@ lip_print_value(
 
 void
 lip_print_closure(
-	lip_allocator_t* allocator,
 	unsigned int depth,
 	unsigned int indent,
 	lip_out_t* output,
@@ -32,7 +29,6 @@ lip_print_closure(
 
 void
 lip_print_function(
-	lip_allocator_t* allocator,
 	unsigned int depth,
 	unsigned int indent,
 	lip_out_t* output,
@@ -41,7 +37,6 @@ lip_print_function(
 
 void
 lip_print_ast(
-	lip_allocator_t* allocator,
 	unsigned int depth,
 	unsigned int indent,
 	lip_out_t* output,

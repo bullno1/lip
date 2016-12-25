@@ -16,15 +16,15 @@ typedef void(*lip_panic_fn_t)(lip_context_t* ctx, const char* msg);
 
 struct lip_repl_handler_s
 {
-	lip_in_t*(*input)(lip_repl_handler_t* self);
-	void(*prompt)(lip_repl_handler_t* self);
-	void(*handle_result)(lip_repl_handler_t* self, bool error, lip_value_t result);
+	size_t(*read)(lip_repl_handler_t* self, void* buff, size_t size);
+	void(*print)(lip_repl_handler_t* self, lip_exec_status_t status, lip_value_t result);
 };
 
 struct lip_error_record_s
 {
-	lip_string_ref_t message;
+	lip_string_ref_t filename;
 	lip_loc_range_t location;
+	lip_string_ref_t message;
 };
 
 struct lip_context_error_s
