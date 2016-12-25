@@ -37,6 +37,8 @@ empty(const MunitParameter params[], void* fixture)
 	munit_assert_size(0, ==, function->num_locals);
 
 	lip_free(temp_allocator, function);
+	void* ptr = lip_malloc(temp_allocator, 1);
+	munit_assert_ptr(function, ==, ptr);
 	lip_temp_allocator_destroy(temp_allocator);
 
 	return MUNIT_OK;
