@@ -116,15 +116,15 @@ lip_print_function(
 
 	lip_printf(
 		output, "%*sSource: %.*s\n",
-		indent * 2 + 1, "", (int)layout.source_name->length, layout.source_name->ptr
+		indent * 2, "", (int)layout.source_name->length, layout.source_name->ptr
 	);
 
 	lip_printf(
 		output, "%*sArity: %u\n",
-		indent * 2 + 1, "", function->num_args
+		indent * 2, "", function->num_args
 	);
 
-	lip_printf(output, "%*sImports:\n", indent * 2 + 1, "");
+	lip_printf(output, "%*sImports:\n", indent * 2, "");
 	for(uint16_t i = 0; i < function->num_imports; ++i)
 	{
 		lip_import_t import = layout.imports[i];
@@ -132,12 +132,12 @@ lip_print_function(
 			lip_function_resource(function, import.name);
 		lip_printf(
 			output, "%*s%.*s: ",
-			indent * 2 + 2, "", (int)import_name->length, import_name->ptr
+			indent * 2 + 1, "", (int)import_name->length, import_name->ptr
 		);
 		lip_print_value(depth - 1, indent + 1, output, import.value);
 	}
 
-	lip_printf(output, "%*sConstants:\n", indent * 2 + 1, "");
+	lip_printf(output, "%*sConstants:\n", indent * 2, "");
 	for(uint16_t i = 0; i < function->num_constants; ++i)
 	{
 		lip_printf(output, "%*s%u: ", indent * 2 + 2, "", i);
@@ -146,20 +146,20 @@ lip_print_function(
 		);
 	}
 
-	lip_printf(output, "%*sFunctions:\n", indent * 2 + 1, "");
+	lip_printf(output, "%*sFunctions:\n", indent * 2, "");
 	for(uint16_t i = 0; i < function->num_functions; ++i)
 	{
-		lip_printf(output, "%*s%u: ", indent * 2 + 2, "", i);
+		lip_printf(output, "%*s%u: ", indent * 2 + 1, "", i);
 		lip_print_function(
 			depth - 1, indent + 1, output,
 			lip_function_resource(function, layout.function_offsets[i])
 		);
 	}
 
-	lip_printf(output, "%*sCode:\n", indent * 2 + 1, "");
+	lip_printf(output, "%*sCode:\n", indent * 2, "");
 	for(uint16_t i = 0; i < function->num_instructions; ++i)
 	{
-		lip_printf(output, "%*s%*u: ", indent * 2 + 2, "", 3, i);
+		lip_printf(output, "%*s%*u: ", indent * 2 + 1, "", 3, i);
 		lip_print_instruction(output, layout.instructions[i]);
 	}
 }
@@ -180,15 +180,15 @@ lip_print_closure(
 
 	lip_printf(
 		output, "%*sNative: %s\n",
-		indent * 2, "", closure->is_native ? "true" : "false");
-	lip_printf(output, "%*sEnvironment:\n", indent * 2, "");
+		indent * 2 + 1, "", closure->is_native ? "true" : "false");
+	lip_printf(output, "%*sEnvironment:\n", indent * 2 + 1, "");
 	for(uint16_t i = 0; i < closure->env_len; ++i)
 	{
-		lip_printf(output, "%*s%*u: ", indent * 2 + 1, "", 3, i);
+		lip_printf(output, "%*s%u: ", indent * 2 + 2, "", i);
 		lip_print_value(depth - 1, indent + 1, output, closure->environment[i]);
 	}
 
-	lip_printf(output, "%*sFunction: ", indent * 2, "");
+	lip_printf(output, "%*sFunction: ", indent * 2 + 1, "");
 	if(closure->is_native)
 	{
 		lip_printf(
