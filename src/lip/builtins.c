@@ -3,33 +3,34 @@
 #include "io.h"
 
 static lip_exec_status_t
-lip_nop(lip_vm_t* vm)
+lip_nop(lip_vm_t* vm, lip_value_t* result)
 {
 	(void)vm;
+	(void)result;
 	return LIP_EXEC_OK;
 }
 
 static lip_exec_status_t
-lip_identity(lip_vm_t* vm)
+lip_identity(lip_vm_t* vm, lip_value_t* result)
 {
 	(void)vm;
 	uint8_t argc;
 	lip_value_t* argv = lip_vm_get_args(vm, &argc);
 	if(argc != 1) { return LIP_EXEC_ERROR; }
-	lip_vm_push_value(vm, argv[0]);
+	*result = argv[0];
 
 	return LIP_EXEC_OK;
 }
 
 static lip_exec_status_t
-lip_print(lip_vm_t* vm)
+lip_print(lip_vm_t* vm, lip_value_t* result)
 {
 	(void)vm;
 	uint8_t argc;
 	lip_value_t* argv = lip_vm_get_args(vm, &argc);
 	if(argc != 1) { return LIP_EXEC_ERROR; }
 	lip_print_value(3, 0, lip_stdout(), argv[0]);
-	lip_vm_push_value(vm, argv[0]);
+	*result = argv[0];
 
 	return LIP_EXEC_OK;
 }

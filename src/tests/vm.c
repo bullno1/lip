@@ -117,14 +117,19 @@ fibonacci(const MunitParameter params[], void* fixture)
 	};
 	lip_vm_t* vm = lip_vm_create(lip_default_allocator, &vm_config, &rt.vtable);
 	lip_vm_t old_vm_state = *vm;
-	lip_vm_push_number(vm, 8);
-	lip_vm_push_value(vm, (lip_value_t){
-		.type = LIP_VAL_FUNCTION,
-		.data = {.reference = closure}
-	});
 
 	lip_value_t result;
-	munit_assert_int(LIP_EXEC_OK, ==, lip_vm_call(vm, 1, &result));
+	munit_assert_int(
+		LIP_EXEC_OK,
+		==,
+		lip_vm_call(
+			vm,
+			&result,
+			(lip_value_t){ .type = LIP_VAL_FUNCTION, .data = { .reference = closure } },
+			1,
+			(lip_value_t){ .type = LIP_VAL_NUMBER, .data = { .number = 8 } }
+		)
+	);
 	munit_assert_int(LIP_VAL_NUMBER, ==, result.type);
 	munit_assert_double_equal(34.0, result.data.number, 0);
 	munit_assert_memory_equal(sizeof(lip_vm_t), &old_vm_state, vm);
@@ -138,11 +143,11 @@ fibonacci(const MunitParameter params[], void* fixture)
 }
 
 static lip_exec_status_t
-identity(lip_vm_t* vm)
+identity(lip_vm_t* vm, lip_value_t* result)
 {
 	uint8_t num_args;
 	lip_value_t* args = lip_vm_get_args(vm, &num_args);
-	lip_vm_push_value(vm, args[0]);
+	*result = args[0];
 	return LIP_EXEC_OK;
 }
 
@@ -173,13 +178,20 @@ call_native(const MunitParameter params[], void* fixture)
 		.function = { .native = identity }
 	};
 
-	lip_vm_push_number(vm, 42);
-	lip_vm_push_value(vm, (lip_value_t){
-		.type = LIP_VAL_FUNCTION,
-		.data = { .reference = closure }
-	});
 	lip_value_t result;
-	lip_vm_call(vm, 1, &result);
+	lip_vm_call(
+		vm,
+		&result,
+		(lip_value_t){
+			.type = LIP_VAL_FUNCTION,
+			.data = { .reference = closure }
+		},
+		1,
+		(lip_value_t){
+			.type = LIP_VAL_NUMBER,
+			.data = { .number = 42 }
+		}
+	);
 	munit_assert_double_equal(42, result.data.number, 2);
 
 	lip_arena_allocator_destroy(arena_allocator);

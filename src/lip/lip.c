@@ -498,11 +498,15 @@ lip_exec_script(lip_vm_t* vm, lip_script_t* script, lip_value_t* result)
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
 	lip_arena_allocator_reset(rt->allocator);
 
-	lip_vm_push_value(vm, (lip_value_t){
-		.type = LIP_VAL_FUNCTION,
-		.data = { .reference = script }
-	});
-	return lip_vm_call(vm, 0, result);
+	return lip_vm_call(
+		vm,
+		result,
+		(lip_value_t){
+			.type = LIP_VAL_FUNCTION,
+			.data = { .reference = script }
+		},
+		0
+	);
 }
 
 
@@ -551,12 +555,16 @@ lip_repl(lip_vm_t* vm, lip_repl_handler_t* repl_handler)
 							.no_gc = true
 						};
 						lip_vm_reset(vm);
-						lip_vm_push_value(vm, (lip_value_t){
-							.type = LIP_VAL_FUNCTION,
-							.data = { .reference = closure }
-						});
 						lip_value_t result;
-						lip_exec_status_t status = lip_vm_call(vm, 0, &result);
+						lip_exec_status_t status = lip_vm_call(
+							vm,
+							&result,
+							(lip_value_t){
+								.type = LIP_VAL_FUNCTION,
+								.data = { .reference = closure }
+							},
+							0
+						);
 						repl_handler->print(repl_handler, status, result);
 					}
 					else

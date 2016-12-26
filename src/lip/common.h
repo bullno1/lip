@@ -69,7 +69,7 @@ typedef struct lip_out_s lip_out_t;
 typedef struct lip_allocator_s lip_allocator_t;
 typedef struct lip_value_s lip_value_t;
 typedef struct lip_vm_s lip_vm_t;
-typedef lip_exec_status_t(*lip_native_fn_t)(lip_vm_t*);
+typedef lip_exec_status_t(*lip_native_fn_t)(lip_vm_t*, lip_value_t*);
 
 struct lip_loc_s
 {

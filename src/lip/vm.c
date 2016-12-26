@@ -1,4 +1,5 @@
 #include "ex/vm.h"
+#include <stdarg.h>
 #include "memory.h"
 #include "vm_dispatch.h"
 
@@ -97,15 +98,26 @@ lip_vm_init(
 	vm->fp->closure = NULL;
 }
 
-void
-lip_vm_push_value(lip_vm_t* vm, lip_value_t value)
-{
-	*(--vm->sp) = value;
-}
-
 lip_exec_status_t
-lip_vm_call(lip_vm_t* vm, uint8_t num_args, lip_value_t* result)
+lip_vm_call(
+	lip_vm_t* vm,
+	lip_value_t* result,
+	lip_value_t fn,
+	unsigned int num_args,
+	...
+)
 {
+	vm->sp -= num_args;
+	va_list args;
+	va_start(args, num_args);
+	for(unsigned int i = 0; i < LIP_MIN(UINT8_MAX, num_args); ++i)
+	{
+		vm->sp[i] = va_arg(args, lip_value_t);
+	}
+	va_end(args);
+
+	*(--vm->sp) = fn;
+
 	lip_stack_frame_t* old_fp = vm->fp;
 	vm->fp->is_native = true;
 	*(++vm->fp) = *old_fp;
