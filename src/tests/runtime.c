@@ -1,6 +1,7 @@
 #include <lip/lip.h>
 #include <lip/memory.h>
 #include <lip/io.h>
+#include <lip/print.h>
 #include "munit.h"
 #include "test_helpers.h"
 
@@ -53,6 +54,7 @@ basic_forms(const MunitParameter params[], void* fixture_)
 		struct lip_sstream_s sstream; \
 		lip_in_t* input = lip_make_sstream(lip_string_ref(code), &sstream); \
 		lip_script_t* script = lip_load_script(ctx, lip_string_ref("test"), input); \
+		lip_print_closure(100, 0, lip_null, (lip_closure_t*)script); \
 		munit_assert_not_null(script); \
 		lip_value_t result; \
 		lip_assert_enum(lip_exec_status_t, LIP_EXEC_OK, ==, lip_exec_script(vm, script, &result)); \
@@ -155,6 +157,7 @@ builtins(const MunitParameter params[], void* fixture_)
 		struct lip_sstream_s sstream; \
 		lip_in_t* input = lip_make_sstream(lip_string_ref(code), &sstream); \
 		lip_script_t* script = lip_load_script(ctx, lip_string_ref("test"), input); \
+		lip_print_closure(100, 0, lip_null, (lip_closure_t*)script); \
 		munit_assert_not_null(script); \
 		lip_value_t result; \
 		lip_assert_enum(lip_exec_status_t, LIP_EXEC_OK, ==, lip_exec_script(vm, script, &result)); \

@@ -100,6 +100,19 @@
 		lip_free(instance->allocator, instance); \
 	}
 
+static size_t
+lip_null_write(const void* buff, size_t size, lip_out_t* vtable)
+{
+	(void)buff;
+	(void)vtable;
+
+	return size;
+}
+
+static lip_out_t null_ = { .write = lip_null_write };
+
+static lip_out_t* const lip_null = &null_;
+
 LIP_CONSTRUCTOR_AND_DESTRUCTOR(lip_lexer)
 LIP_CONSTRUCTOR_AND_DESTRUCTOR(lip_parser)
 LIP_CONSTRUCTOR_AND_DESTRUCTOR(lip_asm)
