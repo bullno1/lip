@@ -83,7 +83,7 @@ lip_asm_alloc_string(lip_asm_t* lasm, lip_string_ref_t string)
 	uint32_t index = lip_array_len(lasm->string_pool);
 	lip_array_push(lasm->string_pool, string);
 	lip_array_push(lasm->string_layout, ((lip_memblock_info_t){
-		.element_size = sizeof(lip_string_t) + string.length,
+		.element_size = sizeof(lip_string_t) + string.length + 1, // 1 = null-terminator
 		.num_elements = 1,
 		.alignment = lip_string_t_alignment
 	}));
@@ -440,6 +440,7 @@ lip_asm_end(lip_asm_t* lasm, lip_allocator_t* allocator)
 		lip_string_t* string = lip_locate_memblock(function, &lasm->string_layout[i]);
 		string->length = lasm->string_pool[i].length;
 		memcpy(string->ptr, lasm->string_pool[i].ptr, lasm->string_pool[i].length);
+		string->ptr[string->length] = '\0';
 	}
 
 	for(uint32_t i = 0; i < num_functions; ++i)

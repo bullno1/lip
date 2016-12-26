@@ -88,8 +88,8 @@ dedupe(const MunitParameter params[], void* fixture)
 		lip_string_t* bar  = lip_function_resource(
 			function, function_layout.imports[import_bar].name
 		);
-		lip_assert_mem_equal("foo", strlen("foo"), foo->ptr, foo->length);
-		lip_assert_mem_equal("bar", strlen("bar"), bar->ptr, bar->length);
+		lip_assert_mem_equal("foo", strlen("foo") + 1, foo->ptr, foo->length + 1);
+		lip_assert_mem_equal("bar", strlen("bar") + 1, bar->ptr, bar->length + 1);
 	}
 	{
 		lip_string_t* foo = lip_function_resource(
@@ -98,8 +98,8 @@ dedupe(const MunitParameter params[], void* fixture)
 		lip_string_t* wat = lip_function_resource(
 			function, function_layout.constants[const_wat].data.index
 		);
-		lip_assert_mem_equal("foo", strlen("foo"), foo->ptr, foo->length);
-		lip_assert_mem_equal("wat", strlen("bar"), wat->ptr, wat->length);
+		lip_assert_mem_equal("foo", strlen("foo") + 1, foo->ptr, foo->length + 1);
+		lip_assert_mem_equal("wat", strlen("bar") + 1, wat->ptr, wat->length + 1);
 	}
 	munit_assert_double(1.0, ==, function_layout.constants[const_one].data.number);
 	munit_assert_double(2.2, ==, function_layout.constants[const_two].data.number);
@@ -166,8 +166,9 @@ normal(const MunitParameter params[], void* fixture)
 	lip_function_layout(function, &function_layout);
 
 	lip_assert_mem_equal(
-		__func__, strlen(__func__),
-		function_layout.source_name->ptr, function_layout.source_name->length);
+		__func__, strlen(__func__) + 1,
+		function_layout.source_name->ptr, function_layout.source_name->length + 1
+	);
 
 	for(lip_asm_index_t i = 0; i < num_functions; ++i)
 	{
@@ -180,8 +181,8 @@ normal(const MunitParameter params[], void* fixture)
 		lip_function_layout_t nested_layout;
 		lip_function_layout(nested_function, &nested_layout);
 		lip_assert_mem_equal(
-			"nested", strlen("nested"),
-			nested_layout.source_name->ptr, nested_layout.source_name->length
+			"nested", strlen("nested") + 1,
+			nested_layout.source_name->ptr, nested_layout.source_name->length + 1
 		);
 
 		munit_assert_size(1, ==, nested_function->num_instructions);
