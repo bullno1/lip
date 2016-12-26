@@ -7,7 +7,6 @@
 
 typedef struct lip_compiler_s lip_compiler_t;
 typedef struct lip_scope_s lip_scope_t;
-typedef struct lip_var_s lip_var_t;
 
 KHASH_DECLARE(lip_string_ref_set, lip_string_ref_t, char)
 
@@ -19,7 +18,6 @@ struct lip_compiler_s
 	lip_scope_t* current_scope;
 	lip_scope_t* free_scopes;
 	khash_t(lip_string_ref_set)* free_var_names;
-	lip_array(lip_var_t) free_var_infos;
 };
 
 void

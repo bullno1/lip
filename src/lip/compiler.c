@@ -8,6 +8,8 @@
 #define LASM(compiler, opcode, operand, location) \
 	lip_asm_add(&compiler->current_scope->lasm, opcode, operand, location)
 
+typedef struct lip_var_s lip_var_t;
+
 struct lip_scope_s
 {
 	lip_scope_t* parent;
@@ -422,7 +424,9 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 	kh_clear(lip_string_ref_set, compiler->free_var_names);
 	lip_find_free_vars(ast, compiler->free_var_names);
 
-	lip_array_clear(compiler->free_var_infos);
+	lip_array(lip_var_t) free_var_infos = lip_array_create(
+		compiler->allocator, lip_var_t, kh_size(compiler->free_var_names)
+	);
 	lip_scope_t* scope = compiler->current_scope;
 	uint8_t captured_var_index = 0;
 
@@ -437,7 +441,7 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 			captured_var->index = captured_var_index++;
 			captured_var->load_op = LIP_OP_LDCV;
 
-			lip_array_push(compiler->free_var_infos, local_info);
+			lip_array_push(free_var_infos, local_info);
 		}
 	}
 
@@ -458,9 +462,10 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 	// Pseudo-instructions to capture local variables into closure
 	for(size_t i = 0; i < captured_var_index; ++i)
 	{
-		lip_var_t free_var = compiler->free_var_infos[i];
+		lip_var_t free_var = free_var_infos[i];
 		LASM(compiler, free_var.load_op, free_var.index, LIP_LOC_NOWHERE);
 	}
+	lip_array_destroy(free_var_infos);
 
 	return true;
 }
@@ -515,7 +520,6 @@ lip_compiler_init(lip_compiler_t* compiler, lip_allocator_t* allocator)
 	compiler->current_scope = NULL;
 	compiler->free_scopes = NULL;
 	compiler->free_var_names = kh_init(lip_string_ref_set, allocator);
-	compiler->free_var_infos = lip_array_create(allocator, lip_var_t, 1);
 }
 
 static void
@@ -552,7 +556,6 @@ lip_compiler_cleanup(lip_compiler_t* compiler)
 		scope = next_scope;
 	}
 
-	lip_array_destroy(compiler->free_var_infos);
 	kh_destroy(lip_string_ref_set, compiler->free_var_names);
 	lip_arena_allocator_destroy(compiler->arena_allocator);
 }

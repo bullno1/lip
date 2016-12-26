@@ -91,6 +91,9 @@ lip_print_value(
 				(uintptr_t)value.data.reference
 			);
 			break;
+		default:
+			lip_printf(output, "<corrupted: #%u>\n", value.type);
+			break;
 	}
 }
 
