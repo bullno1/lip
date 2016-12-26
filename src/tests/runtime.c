@@ -133,6 +133,7 @@ basic_forms(const MunitParameter params[], void* fixture_)
 	);
 	lip_assert_result("(if (if true 2) 1 2)", 1.0);
 	lip_assert_result("(if (if false 2) 1 2)", 2.0);
+	lip_assert_result("(((letrec ((x 1.5)) (fn () (fn () x)))))", 1.5);
 
 #undef lip_assert_result
 
