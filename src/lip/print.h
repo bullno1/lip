@@ -2,7 +2,7 @@
 #define LIP_PRINT_H
 
 #include "common.h"
-#include "asm.h"
+#include "opcode.h"
 #include "ast.h"
 
 void

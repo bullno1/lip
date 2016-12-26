@@ -3,7 +3,6 @@
 #include <lip/memory.h>
 #include <lip/io.h>
 #include <lip/print.h>
-#include <lip/array.h>
 #include <linenoise.h>
 
 struct repl_context_s
