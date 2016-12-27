@@ -85,6 +85,6 @@ bin/liblinenoise-ng.a:
 
 # Only for vm_dispatch.c, remove -pedantic because we will be using a
 # non-standard extension (computed goto) if it is available
-$BUILD_DIR/src/lip/vm_dispatch.c.o: src/lip/vm_dispatch.c << COMPILE cc CC c_flags C_FLAGS
+$BUILD_DIR/%/src/lip/vm_dispatch.c.o: src/lip/vm_dispatch.c << COMPILE cc CC c_flags C_FLAGS
 	${NUMAKE} --depend ${COMPILE} # Compilation depends on the compile script too
 	${COMPILE} "${deps}" "$@" "${cc:-${CC}}" "$(echo ${c_flags:-${C_FLAGS}} | sed 's/-pedantic//g')"

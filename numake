@@ -55,6 +55,15 @@ class Commands(object):
         Commands.__build(DependencyType.ORDER_ONLY, args, env)
 
     @staticmethod
+    def hash(args, env):
+        env_state = {
+            k:v for k,v in env.items()
+            if not k.startswith("NUMAKE") and k != "m"
+        }
+        json_str = json.dumps(env_state, sort_keys = True)
+        print(hashlib.sha1(json_str.encode("utf-8")).hexdigest())
+
+    @staticmethod
     def rules(args, env):
         with Context.create(env = env) as context:
             for rule in context.rules:
@@ -278,17 +287,19 @@ class Context(object):
 
         # Build environment variables
         out = os.path.relpath(target.absolute, rule.working_directory.absolute)
-        env = {
+        env = {}
+        if rule.imports_all_vars:
+            env.update(rule.build_vars)
+            env.update(self.env)
+        else:
+            env.update(build_vars)
+        env.update({
             "NUMAKE": os.path.realpath(sys.argv[0]),
             "NUMAKE_AGENT_PORT": str(self.agent_port),
             "NUMAKE_PARENT_ID": str(self.instance_id),
             "NUMAKE_TARGET": target.absolute,
             "m": match
-        }
-        if rule.imports_all_vars:
-            env.update(self.env)
-        else:
-            env.update(build_vars)
+        })
 
         rm(target.absolute)
         cascaded_env = self.env.copy()
@@ -964,7 +975,7 @@ class Rule(object):
                             body = "\n".join(rule_lines),
                             regular_deps = regular_deps,
                             order_deps = order_deps,
-                            build_vars = build_vars,
+                            build_vars = build_vars if "all-vars" not in extra_attrs else env.copy(),
                             extra_attrs = extra_attrs
                         )
                         ctx.logger.trace(
@@ -1022,7 +1033,7 @@ class Rule(object):
                     body = "\n".join(rule_lines),
                     regular_deps = regular_deps,
                     order_deps = order_deps,
-                    build_vars = build_vars,
+                    build_vars = build_vars if "all-vars" not in extra_attrs else env.copy(),
                     extra_attrs = extra_attrs
                 )
                 ctx.logger.trace(
