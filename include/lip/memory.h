@@ -28,7 +28,7 @@ struct lip_memblock_info_s
 	ptrdiff_t offset;
 };
 
-extern lip_allocator_t* const lip_default_allocator;
+LIP_API extern lip_allocator_t* const lip_default_allocator;
 
 static const size_t LIP_MAX_ALIGNMENT =
 	LIP_ALIGN_OF(struct {
@@ -41,7 +41,7 @@ static const size_t LIP_MAX_ALIGNMENT =
 		double g;
 	});
 
-lip_memblock_info_t
+LIP_API lip_memblock_info_t
 lip_align_memblocks(unsigned int num_blocks, lip_memblock_info_t** blocks);
 
 LIP_MAYBE_UNUSED static inline void*

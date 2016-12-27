@@ -22,31 +22,47 @@ static-lib:%: << BUILD_DIR cc CC c_flags C_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALY
 	${NUMAKE} --depend BUILD_SUBDIR=${BUILD_SUBDIR} ${tmp_output}
 	mkdir -p $(dirname ${m})
 	cp ${tmp_output} ${m}
+	echo "-L$(dirname ${m}) -l:$(basename ${m})" > "${m}.meta"
 
-# A temporary file will be built in the build directory.
-# This is to avoid linking if object files are not changed.
+# A phony rule to register target as a dynamic library
+dynamic-lib:%: << BUILD_DIR cc CC c_flags C_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX ! live
+	BUILD_SUBDIR=$(${NUMAKE} --hash)
+	tmp_output="${BUILD_DIR}/${BUILD_SUBDIR}/${m}.dll"
+	${NUMAKE} --depend BUILD_SUBDIR=${BUILD_SUBDIR} ${tmp_output}
+	mkdir -p $(dirname ${m})
+	cp ${tmp_output} ${m}
+	echo "-Wl,-rpath=\$ORIGIN -L$(dirname ${m}) -l:$(basename ${m})" > "${m}.meta"
 
-$BUILD_DIR/%.exe: << sources BUILD_DIR BUILD_SUBDIR linker LINKER link_flags LINK_FLAGS libs
-	objs=$(
-		echo ${sources} |
-		awk -v BUILD_DIR=${BUILD_DIR} -v BUILD_SUBDIR=${BUILD_SUBDIR} \
-			'{ for(i = 1; i <= NF; i++) { print BUILD_DIR "/" BUILD_SUBDIR "/" $i ".o"; } }'
-	)
-	${NUMAKE} --depend ${objs} ${libs}
+# All target types require a similar compilation step
+COMPILE_SOURCES = $(readlink -f compile-sources)
+
+$BUILD_DIR/%.exe: << COMPILE_SOURCES sources BUILD_DIR BUILD_SUBDIR linker LINKER link_flags LINK_FLAGS libs
+	${NUMAKE} --depend ${libs}
 	mkdir -p $(dirname $@)
-	echo ${linker:-${LINKER}} -o $@ ${link_flags:-${LINK_FLAGS}} ${objs} ${libs}
-	${linker:-${LINKER}} -o $@ ${link_flags:-${LINK_FLAGS}} ${objs} ${libs}
-
-$BUILD_DIR/%.lib: << sources BUILD_DIR BUILD_SUBDIR ar AR
-	objs=$(
-		echo ${sources} |
-		awk -v BUILD_DIR=${BUILD_DIR} -v BUILD_SUBDIR=${BUILD_SUBDIR} \
-			'{ for(i = 1; i <= NF; i++) { print BUILD_DIR "/" BUILD_SUBDIR "/" $i ".o"; } }'
+	${COMPILE_SOURCES} "$@.objs"
+	objs=$(cat $@.objs)
+	extra_flags=$(
+		echo ${libs} | awk '{ for(i = 1; i <= NF; i++) { print $i ".meta"; } }' | xargs cat
 	)
-	${NUMAKE} --depend ${objs}
+	echo ${linker:-${LINKER}} -o $@ ${link_flags:-${LINK_FLAGS}} ${objs} ${extra_flags}
+	${linker:-${LINKER}} -o $@ ${link_flags:-${LINK_FLAGS}} ${objs} ${extra_flags}
+
+$BUILD_DIR/%.lib: << COMPILE_SOURCES sources BUILD_DIR BUILD_SUBDIR ar AR
 	mkdir -p $(dirname $@)
+	${COMPILE_SOURCES} "$@.objs"
+	objs=$(cat $@.objs)
 	echo ${ar:-${AR}} rcs $@ ${objs}
 	${ar:-${AR}} rcs $@ ${objs}
+
+$BUILD_DIR/%.dll: << COMPILE_SOURCES sources BUILD_DIR BUILD_SUBDIR linker LINKER c_flags C_FLAGS link_flags LINK_FLAGS
+	${NUMAKE} --depend ${libs}
+	mkdir -p $(dirname $@)
+	export c_flags="${c_flags:-${C_FLAGS}} -fPIC -fvisibility=hidden -ffunction-sections -fdata-sections"
+	${COMPILE_SOURCES} "$@.objs"
+	objs=$(cat $@.objs)
+	mkdir -p $(dirname $@)
+	echo ${linker:-${LINKER}} -fvisibility=hidden  -ffunction-sections -fdata-sections --gc-sections -shared -o $@ ${link_flags:-${LINK_FLAGS}} ${objs}
+	${linker:-${LINKER}} -fvisibility=hidden -shared -o $@ ${link_flags:-${LINK_FLAGS}} ${objs}
 
 # Compiling *.cpp and compiling *.c are pretty similar so we extract the common
 # parts into a shell script
@@ -55,10 +71,8 @@ COMPILE = $(readlink -f compile)
 
 $BUILD_DIR/%.c.o: << BUILD_SUBDIR COMPILE cc CC c_flags C_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX
 	source="${m#$BUILD_SUBDIR/}.c"
-	${NUMAKE} --depend ${COMPILE} ${source} # Compilation depends on the compile script too
 	${COMPILE} "${source}" "$@" "${cc:-${CC}}" "${c_flags:-${C_FLAGS}}"
 
 $BUILD_DIR/%.cpp.o: << BUILD_SUBDIR COMPILE compile cxx CXX cpp_flags CPP_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX
 	source="${m#$BUILD_SUBDIR/}.cpp"
-	${NUMAKE} --depend ${COMPILE} ${source} # Compilation depends on the compile script too
 	${COMPILE} "${source}" "$@" "${cxx:-${CXX}}" "${cpp_flags:-${C_FLAGS}}"

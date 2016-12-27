@@ -1,4 +1,5 @@
 #include <lip/vm.h>
+#include <lip/lip.h>
 #include <stdarg.h>
 #include "memory.h"
 #include "vm_dispatch.h"

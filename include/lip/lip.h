@@ -41,57 +41,57 @@ struct lip_context_error_s
 	lip_error_record_t* records;
 };
 
-lip_runtime_t*
+LIP_API lip_runtime_t*
 lip_create_runtime(lip_allocator_t* allocator);
 
-void
+LIP_API void
 lip_destroy_runtime(lip_runtime_t* runtime);
 
-lip_context_t*
+LIP_API lip_context_t*
 lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator);
 
-void
+LIP_API void
 lip_destroy_context(lip_runtime_t* runtime, lip_context_t* ctx);
 
-lip_panic_fn_t
+LIP_API lip_panic_fn_t
 lip_set_panic_handler(lip_context_t* ctx, lip_panic_fn_t panic_handler);
 
-const lip_context_error_t*
+LIP_API const lip_context_error_t*
 lip_get_error(lip_context_t* ctx);
 
-lip_ns_context_t*
+LIP_API lip_ns_context_t*
 lip_begin_ns(lip_context_t* ctx, lip_string_ref_t name);
 
-void
+LIP_API void
 lip_end_ns(lip_context_t* ctx, lip_ns_context_t* ns);
 
-void
+LIP_API void
 lip_discard_ns(lip_context_t* ctx, lip_ns_context_t* ns);
 
-void
+LIP_API void
 lip_declare_function(
 	lip_ns_context_t* ns, lip_string_ref_t name, lip_native_fn_t fn
 );
 
-lip_vm_t*
+LIP_API lip_vm_t*
 lip_create_vm(lip_context_t* ctx, lip_vm_config_t* config);
 
-void
+LIP_API void
 lip_destroy_vm(lip_context_t* ctx, lip_vm_t* vm);
 
-bool
+LIP_API bool
 lip_lookup_symbol(lip_context_t* ctx, lip_string_ref_t symbol, lip_value_t* result);
 
-lip_script_t*
+LIP_API lip_script_t*
 lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input);
 
-void
+LIP_API void
 lip_unload_script(lip_context_t* ctx, lip_script_t* script);
 
-lip_exec_status_t
+LIP_API lip_exec_status_t
 lip_exec_script(lip_vm_t* vm, lip_script_t* script, lip_value_t* result);
 
-void
+LIP_API void
 lip_repl(lip_vm_t* vm, lip_repl_handler_t* repl_handler);
 
 void*
@@ -100,16 +100,16 @@ lip_get_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key);
 void*
 lip_set_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key, void* value);
 
-void
+LIP_API void
 lip_load_builtins(lip_context_t* ctx);
 
-void
+LIP_API void
 lip_reset_vm(lip_vm_t* vm);
 
-lip_vm_hook_t*
+LIP_API lip_vm_hook_t*
 lip_set_vm_hook(lip_vm_t* vm, lip_vm_hook_t* hook);
 
-lip_exec_status_t
+LIP_API lip_exec_status_t
 lip_call(
 	lip_vm_t* vm,
 	lip_value_t* result,
@@ -118,10 +118,10 @@ lip_call(
 	...
 );
 
-lip_value_t*
-lip_get_args(lip_vm_t* vm, uint8_t* num_args);
+LIP_API lip_value_t*
+lip_get_args(const lip_vm_t* vm, uint8_t* num_args);
 
-lip_value_t*
-lip_get_env(lip_vm_t* vm, uint8_t* env_len);
+LIP_API lip_value_t*
+lip_get_env(const lip_vm_t* vm, uint8_t* env_len);
 
 #endif

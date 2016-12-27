@@ -42,19 +42,19 @@ struct lip_lexer_s
 	bool eos;
 };
 
-void
+LIP_API void
 lip_lexer_init(lip_lexer_t* lexer, lip_allocator_t* allocator);
 
-void
+LIP_API void
 lip_lexer_cleanup(lip_lexer_t* lexer);
 
-void
+LIP_API void
 lip_lexer_reset(lip_lexer_t* lexer, lip_in_t* input);
 
-lip_stream_status_t
+LIP_API lip_stream_status_t
 lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token);
 
-const lip_error_t*
+LIP_API const lip_error_t*
 lip_lexer_last_error(lip_lexer_t* lexer);
 
 #endif

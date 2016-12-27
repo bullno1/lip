@@ -25,24 +25,28 @@
 	((ARRAY) = lip_array__prepare_push((ARRAY)), \
 	 &(ARRAY)[lip_array_len((ARRAY)) - 1])
 
-void
+LIP_API void
 lip_array_destroy(void* array);
-void
+
+LIP_API void
 lip_array_clear(void* array);
-size_t
+
+LIP_API size_t
 lip_array_len(const void* array);
 
 // private
-void*
+LIP_API void*
 lip_array__create(
 	lip_allocator_t* allocator,
 	size_t elem_size,
 	uint8_t alignment,
 	size_t capacity
 );
-void*
+
+LIP_API void*
 lip_array__prepare_push(void* array);
-void*
+
+LIP_API void*
 lip_array__resize(void* array, size_t new_length);
 
 #endif

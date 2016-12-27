@@ -23,19 +23,19 @@ struct lip_parser_s
 	lip_array(lip_array(lip_sexp_t)) lists;
 };
 
-void
+LIP_API void
 lip_parser_init(lip_parser_t* parser, lip_allocator_t* allocator);
 
-void
+LIP_API void
 lip_parser_cleanup(lip_parser_t* parser);
 
-void
+LIP_API void
 lip_parser_reset(lip_parser_t* parser, lip_in_t* input);
 
-lip_stream_status_t
+LIP_API lip_stream_status_t
 lip_parser_next_sexp(lip_parser_t* parser, lip_sexp_t* sexp);
 
-const lip_error_t*
+LIP_API const lip_error_t*
 lip_parser_last_error(lip_parser_t* parser);
 
 #endif

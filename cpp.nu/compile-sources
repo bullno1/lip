@@ -1,0 +1,12 @@
+#!/bin/sh -e
+
+obj_list=${1}
+shift
+`${NUMAKE} --enable-trace`
+objs=$(
+	echo ${sources} |
+	awk -v BUILD_DIR=${BUILD_DIR} -v BUILD_SUBDIR=${BUILD_SUBDIR} \
+		'{ for(i = 1; i <= NF; i++) { print BUILD_DIR "/" BUILD_SUBDIR "/" $i ".o"; } }'
+)
+${NUMAKE} --depend ${objs} $@
+echo ${objs} > ${obj_list}

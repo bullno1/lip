@@ -5,13 +5,13 @@
 #include "opcode.h"
 #include "ast.h"
 
-void
+LIP_API void
 lip_print_instruction(
 	lip_out_t* output,
 	lip_instruction_t instr
 );
 
-void
+LIP_API void
 lip_print_value(
 	unsigned int depth,
 	unsigned int indent,
@@ -19,7 +19,7 @@ lip_print_value(
 	lip_value_t value
 );
 
-void
+LIP_API void
 lip_print_closure(
 	unsigned int depth,
 	unsigned int indent,
@@ -27,7 +27,7 @@ lip_print_closure(
 	const lip_closure_t* closure
 );
 
-void
+LIP_API void
 lip_print_function(
 	unsigned int depth,
 	unsigned int indent,
@@ -35,7 +35,7 @@ lip_print_function(
 	const lip_function_t* function
 );
 
-void
+LIP_API void
 lip_print_ast(
 	unsigned int depth,
 	unsigned int indent,

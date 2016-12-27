@@ -1,3 +1,11 @@
+BUILD_DYNAMIC_LIB ?= 1
+LIBLIP_0 = bin/liblip.a
+LIBLIP_1 = bin/liblip.so
+LIBLIP = $(eval echo \${LIBLIP_$BUILD_DYNAMIC_LIB})
+LIB_EXTRA_FLAGS_0 = -DLIP_DYNAMIC=0
+LIB_EXTRA_FLAGS_1 = -DLIP_DYNAMIC=1
+LIBLIP_EXTRA_FLAGS = $(eval echo \${LIB_EXTRA_FLAGS_$BUILD_DYNAMIC_LIB})
+
 WITH_THREADING ?= 1
 THREADING_0 = -DLIP_SINGLE_THREADED
 THREADING_1 = -pthread
@@ -63,26 +71,32 @@ cover: tests
 		--html --html-details \
 		--output $@/index.html
 
-bin/tests: << C_FLAGS CPP_FLAGS CC
+bin/tests: << C_FLAGS CPP_FLAGS CC LIBLIP
 	${NUMAKE} exe:$@ \
 		sources="`find src/tests -name '*.cpp' -or -name '*.c'`" \
-		c_flags="${C_FLAGS} -g -Isrc" \
-		cpp_flags="${CPP_FLAGS} -Isrc" \
+		c_flags="${C_FLAGS} -g ${LIBLIP_EXTRA_FLAGS} -Isrc" \
+		cpp_flags="${CPP_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Isrc" \
 		linker="${CC}" \
-		libs="bin/liblip.a"
+		libs="${LIBLIP}"
 
-bin/lip: << C_FLAGS CPP_FLAGS CC
+bin/lip: << C_FLAGS CPP_FLAGS CC LIBLIP
 	${NUMAKE} exe:$@ \
 		sources="`find src/repl -name '*.cpp' -or -name '*.c'`" \
-		c_flags="${C_FLAGS} -Ideps/linenoise-ng/include" \
-		cpp_flags="${CPP_FLAGS} -Ideps/linenoise-ng/include" \
-		libs="bin/liblip.a bin/liblinenoise-ng.a"
+		c_flags="${C_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise-ng/include" \
+		cpp_flags="${CPP_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise-ng/include" \
+		libs="${LIBLIP} bin/liblinenoise-ng.a"
 
-bin/liblip.a:
-	${NUMAKE} static-lib:$@ \
+bin/liblip.so: << C_FLAGS
+	${NUMAKE} dynamic-lib:$@ \
+		c_flags="${C_FLAGS} -DLIP_DYNAMIC=1 -DLIP_BUILDING" \
 		sources="`find src/lip -name '*.cpp' -or -name '*.c'`"
 
-bin/liblinenoise-ng.a:
+bin/liblip.a: << C_FLAGS
+	${NUMAKE} static-lib:$@ \
+		c_flags="${C_FLAGS} -DLIP_DYNAMIC=0" \
+		sources="`find src/lip -name '*.cpp' -or -name '*.c'`"
+
+bin/liblinenoise-ng.a: << C_FLAGS CPP_FLAGS
 	${NUMAKE} static-lib:$@ \
 		c_flags="${C_FLAGS} -Ideps/linenoise-ng/include" \
 		cpp_flags="${CPP_FLAGS} -Ideps/linenoise-ng/include" \

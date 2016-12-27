@@ -66,7 +66,7 @@ struct lip_ast_s
 	} data;
 };
 
-lip_ast_result_t
+LIP_API lip_ast_result_t
 lip_translate_sexp(lip_allocator_t* allocator, const lip_sexp_t* sexp);
 
 #endif

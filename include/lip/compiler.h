@@ -20,19 +20,19 @@ struct lip_compiler_s
 	khash_t(lip_string_ref_set)* free_var_names;
 };
 
-void
+LIP_API void
 lip_compiler_init(lip_compiler_t* compiler, lip_allocator_t* allocator);
 
-void
+LIP_API void
 lip_compiler_cleanup(lip_compiler_t* compiler);
 
-void
+LIP_API void
 lip_compiler_begin(lip_compiler_t* compiler, lip_string_ref_t source_name);
 
-void
+LIP_API void
 lip_compiler_add_ast(lip_compiler_t* compiler, const lip_ast_t* ast);
 
-lip_function_t*
+LIP_API lip_function_t*
 lip_compiler_end(lip_compiler_t* compiler, lip_allocator_t* allocator);
 
 #endif

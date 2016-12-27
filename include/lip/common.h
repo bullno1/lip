@@ -6,6 +6,24 @@
 #include <stdbool.h>
 #include <string.h>
 
+#if LIP_DYNAMIC == 1
+#	ifdef _WIN32
+#		ifdef LIP_BUILDING
+#			define LIP_API __declspec(dllexport)
+#		else
+#			define LIP_API __declspec(dllimport)
+#		endif
+#	else
+#		ifdef LIP_BUILDING
+#			define LIP_API __attribute__((visibility("default")))
+#		else
+#			define LIP_API
+#		endif
+#	endif
+#else
+#	define LIP_API
+#endif
+
 #if defined(__GNUC__) || defined(__clang__)
 #	define LIP_MAYBE_UNUSED __attribute__((unused))
 #else

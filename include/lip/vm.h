@@ -114,10 +114,10 @@ static const size_t lip_function_t_alignment =
 		})
 	);
 
-size_t
+LIP_API size_t
 lip_vm_memory_required(lip_vm_config_t* config);
 
-void
+LIP_API void
 lip_vm_init(
 	lip_vm_t* vm, lip_vm_config_t* config, lip_runtime_interface_t* rt, void* mem
 );
