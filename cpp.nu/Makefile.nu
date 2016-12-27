@@ -61,8 +61,8 @@ $BUILD_DIR/%.dll: << COMPILE_SOURCES sources BUILD_DIR BUILD_SUBDIR linker LINKE
 	${COMPILE_SOURCES} "$@.objs"
 	objs=$(cat $@.objs)
 	mkdir -p $(dirname $@)
-	echo ${linker:-${LINKER}} -fvisibility=hidden  -ffunction-sections -fdata-sections --gc-sections -shared -o $@ ${link_flags:-${LINK_FLAGS}} ${objs}
-	${linker:-${LINKER}} -fvisibility=hidden -shared -o $@ ${link_flags:-${LINK_FLAGS}} ${objs}
+	echo ${linker:-${LINKER}} -fvisibility=hidden -ffunction-sections -fdata-sections -Wl,-gc-sections -shared -o $@ ${link_flags:-${LINK_FLAGS}} ${objs}
+	${linker:-${LINKER}} -fvisibility=hidden -ffunction-sections -fdata-sections -Wl,-gc-sections --shared -o $@ ${link_flags:-${LINK_FLAGS}} ${objs}
 
 # Compiling *.cpp and compiling *.c are pretty similar so we extract the common
 # parts into a shell script

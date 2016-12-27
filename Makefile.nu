@@ -71,7 +71,7 @@ cover: tests
 		--html --html-details \
 		--output $@/index.html
 
-bin/tests: << C_FLAGS CPP_FLAGS CC LIBLIP
+bin/tests: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS
 	${NUMAKE} exe:$@ \
 		sources="`find src/tests -name '*.cpp' -or -name '*.c'`" \
 		c_flags="${C_FLAGS} -g ${LIBLIP_EXTRA_FLAGS} -Isrc" \
@@ -79,7 +79,7 @@ bin/tests: << C_FLAGS CPP_FLAGS CC LIBLIP
 		linker="${CC}" \
 		libs="${LIBLIP}"
 
-bin/lip: << C_FLAGS CPP_FLAGS CC LIBLIP
+bin/lip: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS
 	${NUMAKE} exe:$@ \
 		sources="`find src/repl -name '*.cpp' -or -name '*.c'`" \
 		c_flags="${C_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise-ng/include" \
