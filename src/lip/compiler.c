@@ -4,7 +4,7 @@
 #include <lip/ast.h>
 #include <lip/asm.h>
 #include <lip/array.h>
-#include <lip/arena_allocator.h>
+#include "arena_allocator.h"
 
 #define LASM(compiler, opcode, operand, location) \
 	lip_asm_add(&compiler->current_scope->lasm, opcode, operand, location)
