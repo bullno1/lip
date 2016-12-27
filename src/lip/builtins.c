@@ -26,11 +26,12 @@ static lip_exec_status_t
 lip_print(lip_vm_t* vm, lip_value_t* result)
 {
 	(void)vm;
+	(void)result;
+
 	uint8_t argc;
 	lip_value_t* argv = lip_get_args(vm, &argc);
 	if(argc != 1) { return LIP_EXEC_ERROR; }
 	lip_print_value(3, 0, lip_stdout(), argv[0]);
-	*result = argv[0];
 
 	return LIP_EXEC_OK;
 }

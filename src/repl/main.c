@@ -71,34 +71,38 @@ static void
 repl_print(lip_repl_handler_t* vtable, lip_exec_status_t status, lip_value_t result)
 {
 	repl_context_t* repl = LIP_CONTAINER_OF(vtable, repl_context_t, vtable);
-	if(status == LIP_EXEC_OK)
+	switch(status)
 	{
-		lip_print_value(5, 0, lip_stdout(), result);
-	}
-	else
-	{
-		const lip_context_error_t* err = lip_get_error(repl->ctx);
-		lip_printf(
-			lip_stdout(),
-			"Error: %.*s.\n",
-			(int)err->message.length, err->message.ptr
-		);
-		for(unsigned int i = 0; i < err->num_records; ++i)
+	case LIP_EXEC_OK:
+		if(result.type != LIP_VAL_NIL)
 		{
-			lip_error_record_t* record = &err->records[i];
+			lip_print_value(5, 0, lip_stdout(), result);
+		}
+		break;
+	case LIP_EXEC_ERROR:
+		{
+			const lip_context_error_t* err = lip_get_error(repl->ctx);
 			lip_printf(
 				lip_stdout(),
-				"  %.*s:%u:%u - %u:%u: %.*s.\n",
-				(int)record->filename.length, record->filename.ptr,
-				record->location.start.line,
-				record->location.start.column,
-				record->location.end.line,
-				record->location.end.column,
-				(int)record->message.length, record->message.ptr
+				"Error: %.*s.\n",
+				(int)err->message.length, err->message.ptr
 			);
+			for(unsigned int i = 0; i < err->num_records; ++i)
+			{
+				lip_error_record_t* record = &err->records[i];
+				lip_printf(
+					lip_stdout(),
+					"  %.*s:%u:%u - %u:%u: %.*s.\n",
+					(int)record->filename.length, record->filename.ptr,
+					record->location.start.line,
+					record->location.start.column,
+					record->location.end.line,
+					record->location.end.column,
+					(int)record->message.length, record->message.ptr
+				);
+			}
 		}
-
-		repl->running = false;
+		break;
 	}
 }
 
