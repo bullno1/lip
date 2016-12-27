@@ -36,7 +36,7 @@ lip_rwlock_begin_write(lip_rwlock_t* rwlock)
 }
 
 void
-lip_rwlock_end_write(lip_rwlock_t* rwlock);
+lip_rwlock_end_write(lip_rwlock_t* rwlock)
 {
 	(void)rwlock;
 }

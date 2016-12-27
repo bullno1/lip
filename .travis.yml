@@ -1,40 +1,22 @@
 ---
 language: generic
-matrix:
-  include:
-    - os: linux
-      addons:
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-          packages:
-            - gcc-5
-      env:
-        - COMPILER=gcc
-        - CC='gcc-5 -fuse-ld=gold'
-        - WITH_LTO=0
-        - WITH_COVERAGE=1
-        - WITH_UB_SAN=1
-        - WITH_ADDR_SAN=1
-    - os: linux
-      addons:
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-            - llvm-toolchain-precise-3.8
-          packages:
-            - clang-3.8
-      env:
-        - COMPILER=clang
-        - CC=clang-3.8
-        - WITH_LTO=0
-        - WITH_COVERAGE=0
-        - WITH_UB_SAN=1
-        - WITH_ADDR_SAN=1
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+      - llvm-toolchain-precise-3.8
+    packages:
+      - gcc-5
+      - clang-3.8
+env:
+  - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' WITH_COVERAGE=1 WITH_THREADING=0
+  - COMPILER=clang CC=clang-3.8 WITH_COVERAGE=0 WITH_THREADING=0
+  - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' WITH_COVERAGE=1 WITH_THREADING=1
+  - COMPILER=clang CC=clang-3.8 WITH_COVERAGE=0 WITH_THREADING=1
 install:
   - pip install --user cpp-coveralls
 script:
-  - ./numake tests
+  - ./numake tests WITH_LTO=0 WITH_UB_SAN=1 WITH_ADDR_SAN=1
 after_success:
   - if [ "$COMPILER" = "gcc" ]; then coveralls --root . --build-root . --exclude .build/*/src/tests --exclude .build/*/src/lip/vendor --exclude .build/*/src/lip/khash_impl.c ; fi
 sudo: required
