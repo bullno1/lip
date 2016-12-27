@@ -257,8 +257,6 @@ lip_declare_function(
 	lip_closure_t* closure = lip_new(ns->allocator, lip_closure_t);
 	*closure = (lip_closure_t){
 		.is_native = true,
-		.native_arity = 0,
-		.no_gc = 1,
 		.env_len = 0,
 		.function = { .native = fn }
 	};
@@ -453,7 +451,6 @@ lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 						.function = { .lip = fn },
 						.is_native = false,
 						.env_len = 0,
-						.no_gc = true
 					};
 
 					int tmp;
@@ -552,7 +549,6 @@ lip_repl(lip_vm_t* vm, lip_repl_handler_t* repl_handler)
 							.function = { .lip = fn },
 							.is_native = false,
 							.env_len = 0,
-							.no_gc = true
 						};
 						lip_vm_reset(vm);
 						lip_value_t result;

@@ -73,9 +73,7 @@ struct lip_closure_s
 	} function;
 
 	unsigned env_len:8;
-	unsigned native_arity:8;
 	unsigned is_native:1;
-	unsigned no_gc:1;
 
 	lip_value_t environment[];
 };

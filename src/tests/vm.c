@@ -173,7 +173,6 @@ call_native(const MunitParameter params[], void* fixture)
 	lip_closure_t* closure = lip_new(arena_allocator, lip_closure_t);
 	*closure = (lip_closure_t) {
 		.is_native = true,
-		.native_arity = 1,
 		.env_len = 0,
 		.function = { .native = identity }
 	};
