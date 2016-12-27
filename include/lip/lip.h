@@ -2,7 +2,13 @@
 #define LIP_LIP_H
 
 #include "common.h"
-#include "vm.h"
+
+#define LIP_USERDATA_SCOPE(F) \
+	F(LIP_SCOPE_RUNTIME) \
+	F(LIP_SCOPE_CONTEXT) \
+	F(LIP_SCOPE_VM)
+
+LIP_ENUM(lip_userdata_scope_t, LIP_USERDATA_SCOPE)
 
 typedef struct lip_runtime_s lip_runtime_t;
 typedef struct lip_runtime_config_s lip_runtime_config_t;
@@ -88,7 +94,34 @@ lip_exec_script(lip_vm_t* vm, lip_script_t* script, lip_value_t* result);
 void
 lip_repl(lip_vm_t* vm, lip_repl_handler_t* repl_handler);
 
+void*
+lip_get_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key);
+
+void*
+lip_set_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key, void* value);
+
 void
 lip_load_builtins(lip_context_t* ctx);
+
+void
+lip_reset_vm(lip_vm_t* vm);
+
+lip_vm_hook_t*
+lip_set_vm_hook(lip_vm_t* vm, lip_vm_hook_t* hook);
+
+lip_exec_status_t
+lip_call(
+	lip_vm_t* vm,
+	lip_value_t* result,
+	lip_value_t fn,
+	unsigned int num_args,
+	...
+);
+
+lip_value_t*
+lip_get_args(lip_vm_t* vm, uint8_t* num_args);
+
+lip_value_t*
+lip_get_env(lip_vm_t* vm, uint8_t* env_len);
 
 #endif

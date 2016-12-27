@@ -1,10 +1,9 @@
-#ifndef LIP_VM_EX_H
-#define LIP_VM_EX_H
+#ifndef LIP_VM_H
+#define LIP_VM_H
 
-#include "../vm.h"
-#include "common.h"
-#include "../opcode.h"
-#include "../memory.h"
+#include "extra.h"
+#include "opcode.h"
+#include "memory.h"
 
 typedef struct lip_stack_frame_s lip_stack_frame_t;
 typedef struct lip_function_layout_s lip_function_layout_t;
@@ -123,14 +122,6 @@ lip_vm_init(
 	lip_vm_t* vm, lip_vm_config_t* config, lip_runtime_interface_t* rt, void* mem
 );
 
-lip_vm_t*
-lip_vm_create(
-	lip_allocator_t* allocator, lip_vm_config_t* config, lip_runtime_interface_t* rt
-);
-
-void
-lip_vm_destroy(lip_allocator_t* allocator, lip_vm_t* vm);
-
 LIP_MAYBE_UNUSED static inline void
 lip_function_layout(const lip_function_t* function, lip_function_layout_t* layout)
 {
@@ -160,6 +151,30 @@ LIP_MAYBE_UNUSED static inline void*
 lip_function_resource(const lip_function_t* function, uint32_t offset)
 {
 	return (lip_string_t*)((char*)function + offset);
+}
+
+LIP_MAYBE_UNUSED static inline lip_memblock_info_t
+lip_vm_memory_layout(
+	lip_vm_config_t* config,
+	lip_memblock_info_t* os_block,
+	lip_memblock_info_t* env_block,
+	lip_memblock_info_t* cs_block
+)
+{
+	os_block->element_size = sizeof(lip_value_t);
+	os_block->num_elements = config->os_len;
+	os_block->alignment = LIP_ALIGN_OF(lip_value_t);
+
+	env_block->element_size = sizeof(lip_value_t);
+	env_block->num_elements = config->env_len;
+	env_block->alignment = LIP_ALIGN_OF(lip_value_t);
+
+	cs_block->element_size = sizeof(lip_stack_frame_t);
+	cs_block->num_elements = config->cs_len;
+	cs_block->alignment = LIP_ALIGN_OF(lip_stack_frame_t);
+
+	lip_memblock_info_t* mem_layout[] = { os_block, env_block, cs_block };
+	return lip_align_memblocks(LIP_STATIC_ARRAY_LEN(mem_layout), mem_layout);
 }
 
 #endif

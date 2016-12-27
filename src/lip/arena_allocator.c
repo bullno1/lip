@@ -1,5 +1,5 @@
 #include "arena_allocator.h"
-#include "memory.h"
+#include <lip/memory.h>
 
 typedef struct lip_arena_allocator_s lip_arena_allocator_t;
 typedef struct lip_large_alloc_s lip_large_alloc_t;

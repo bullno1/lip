@@ -1,10 +1,10 @@
-#include "compiler.h"
+#include <lip/compiler.h>
 #include <assert.h> //TODO: replace with error return
-#include "ex/vm.h"
-#include "ast.h"
-#include "asm.h"
-#include "array.h"
-#include "arena_allocator.h"
+#include <lip/vm.h>
+#include <lip/ast.h>
+#include <lip/asm.h>
+#include <lip/array.h>
+#include <lip/arena_allocator.h>
 
 #define LASM(compiler, opcode, operand, location) \
 	lip_asm_add(&compiler->current_scope->lasm, opcode, operand, location)

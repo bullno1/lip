@@ -61,21 +61,22 @@ cover: tests
 bin/tests: << C_FLAGS CPP_FLAGS CC
 	${NUMAKE} exe:$@ \
 		sources="`find src/tests -name '*.cpp' -or -name '*.c'`" \
-		c_flags="${C_FLAGS} -g -Isrc" \
-		cpp_flags="${CPP_FLAGS} -Isrc" \
+		c_flags="${C_FLAGS} -g -Iinclude -Isrc" \
+		cpp_flags="${CPP_FLAGS} -Iinclude -Isrc" \
 		linker="${CC}" \
 		libs="bin/liblip.a"
 
 bin/lip: << C_FLAGS CPP_FLAGS CC
 	${NUMAKE} exe:$@ \
 		sources="`find src/repl -name '*.cpp' -or -name '*.c'`" \
-		c_flags="${C_FLAGS} -Isrc -Ideps/linenoise-ng/include" \
-		cpp_flags="${CPP_FLAGS} -Isrc -Ideps/linenoise-ng/include" \
+		c_flags="${C_FLAGS} -Iinclude -Ideps/linenoise-ng/include" \
+		cpp_flags="${CPP_FLAGS} -Iinclude -Ideps/linenoise-ng/include" \
 		libs="bin/liblip.a bin/liblinenoise-ng.a"
 
 bin/liblip.a:
 	${NUMAKE} static-lib:$@ \
-		sources="`find src/lip -name '*.cpp' -or -name '*.c'`"
+		sources="`find src/lip -name '*.cpp' -or -name '*.c'`" \
+		c_flags="${C_FLAGS} -Iinclude"
 
 bin/liblinenoise-ng.a:
 	${NUMAKE} static-lib:$@ \

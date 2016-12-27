@@ -2,7 +2,7 @@
 #include <lip/memory.h>
 #include <lip/io.h>
 #include <lip/print.h>
-#include <lip/ex/vm.h>
+#include <lip/vm.h>
 #include "munit.h"
 #include "test_helpers.h"
 
@@ -75,7 +75,7 @@ basic_forms(const MunitParameter params[], void* fixture_)
 #define lip_assert_result(code, result_value) \
 	do { \
 		test_hook_t hook = { .printed = false, .vtable = { .step = step } }; \
-		lip_vm_set_hook(vm, &hook.vtable); \
+		lip_set_vm_hook(vm, &hook.vtable); \
 		struct lip_sstream_s sstream; \
 		lip_in_t* input = lip_make_sstream(lip_string_ref(code), &sstream); \
 		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input); \

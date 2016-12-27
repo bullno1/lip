@@ -1,7 +1,7 @@
-#include "ast.h"
+#include <lip/ast.h>
 #include <stdlib.h>
-#include "memory.h"
-#include "array.h"
+#include <lip/memory.h>
+#include <lip/array.h>
 
 #define CHECK_SEXP(sexp, cond, msg) \
 	do { \

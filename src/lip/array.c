@@ -1,5 +1,5 @@
-#include "array.h"
-#include "memory.h"
+#include <lip/array.h>
+#include <lip/memory.h>
 
 typedef struct lip_array_s
 {

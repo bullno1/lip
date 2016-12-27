@@ -1,10 +1,6 @@
 #ifndef LIP_COMMON_H
 #define LIP_COMMON_H
 
-#if defined(__GNUC__) || defined(__clang__)
-#	define _XOPEN_SOURCE 700
-#endif
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -69,6 +65,8 @@ typedef struct lip_out_s lip_out_t;
 typedef struct lip_allocator_s lip_allocator_t;
 typedef struct lip_value_s lip_value_t;
 typedef struct lip_vm_s lip_vm_t;
+typedef struct lip_vm_config_s lip_vm_config_t;
+typedef struct lip_vm_hook_s lip_vm_hook_t;
 typedef lip_exec_status_t(*lip_native_fn_t)(lip_vm_t*, lip_value_t*);
 
 struct lip_loc_s
@@ -93,6 +91,30 @@ struct lip_string_s
 {
 	size_t length;
 	char ptr[];
+};
+
+struct lip_value_s
+{
+	lip_value_type_t type;
+	union
+	{
+		uint32_t index;
+		void* reference;
+		bool boolean;
+		double number;
+	} data;
+};
+
+struct lip_vm_config_s
+{
+	uint32_t os_len;
+	uint32_t cs_len;
+	uint32_t env_len;
+};
+
+struct lip_vm_hook_s
+{
+	void(*step)(lip_vm_hook_t* hook, const lip_vm_t* vm);
 };
 
 static const lip_loc_range_t LIP_LOC_NOWHERE = {

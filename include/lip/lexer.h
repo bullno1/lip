@@ -1,7 +1,7 @@
 #ifndef LIP_LEXER_H
 #define LIP_LEXER_H
 
-#include "ex/common.h"
+#include "extra.h"
 
 #define LIP_TOKEN(F) \
 	F(LIP_TOKEN_LPAREN) \

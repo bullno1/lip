@@ -1,66 +1,7 @@
-#include "ex/vm.h"
+#include <lip/vm.h>
 #include <stdarg.h>
 #include "memory.h"
 #include "vm_dispatch.h"
-
-lip_vm_t*
-lip_vm_create(
-	lip_allocator_t* allocator, lip_vm_config_t* config, lip_runtime_interface_t* rt
-)
-{
-	lip_memblock_info_t vm_block = {
-		.element_size = sizeof(lip_vm_t),
-		.num_elements = 1,
-		.alignment = LIP_ALIGN_OF(lip_vm_t)
-	};
-
-	lip_memblock_info_t vm_mem_block = {
-		.element_size = lip_vm_memory_required(config),
-		.num_elements = 1,
-		.alignment = LIP_MAX_ALIGNMENT
-	};
-
-	lip_memblock_info_t* vm_layout[] = { &vm_block, &vm_mem_block };
-	lip_memblock_info_t block_info =
-		lip_align_memblocks(LIP_STATIC_ARRAY_LEN(vm_layout), vm_layout);
-
-	void* mem = lip_malloc(allocator, block_info.num_elements);
-	lip_vm_t* vm = lip_locate_memblock(mem, &vm_block);
-	void* vm_mem = lip_locate_memblock(mem, &vm_mem_block);
-	lip_vm_init(vm, config, rt, vm_mem);
-
-	return vm;
-}
-
-void
-lip_vm_destroy(lip_allocator_t* allocator, lip_vm_t* vm)
-{
-	lip_free(allocator, vm);
-}
-
-static inline lip_memblock_info_t
-lip_vm_memory_layout(
-	lip_vm_config_t* config,
-	lip_memblock_info_t* os_block,
-	lip_memblock_info_t* env_block,
-	lip_memblock_info_t* cs_block
-)
-{
-	os_block->element_size = sizeof(lip_value_t);
-	os_block->num_elements = config->os_len;
-	os_block->alignment = LIP_ALIGN_OF(lip_value_t);
-
-	env_block->element_size = sizeof(lip_value_t);
-	env_block->num_elements = config->env_len;
-	env_block->alignment = LIP_ALIGN_OF(lip_value_t);
-
-	cs_block->element_size = sizeof(lip_stack_frame_t);
-	cs_block->num_elements = config->cs_len;
-	cs_block->alignment = LIP_ALIGN_OF(lip_stack_frame_t);
-
-	lip_memblock_info_t* mem_layout[] = { os_block, env_block, cs_block };
-	return lip_align_memblocks(LIP_STATIC_ARRAY_LEN(mem_layout), mem_layout);
-}
 
 size_t
 lip_vm_memory_required(lip_vm_config_t* config)
@@ -73,7 +14,7 @@ lip_vm_memory_required(lip_vm_config_t* config)
 }
 
 void
-lip_vm_reset(lip_vm_t* vm)
+lip_reset_vm(lip_vm_t* vm)
 {
 	lip_vm_init(vm, &vm->config, vm->rt, vm->mem);
 }
@@ -100,7 +41,7 @@ lip_vm_init(
 }
 
 lip_exec_status_t
-lip_vm_call(
+lip_call(
 	lip_vm_t* vm,
 	lip_value_t* result,
 	lip_value_t fn,
@@ -139,7 +80,7 @@ lip_vm_call(
 }
 
 lip_vm_hook_t*
-lip_vm_set_hook(lip_vm_t* vm, lip_vm_hook_t* hook)
+lip_set_vm_hook(lip_vm_t* vm, lip_vm_hook_t* hook)
 {
 	lip_vm_hook_t* old_hook = vm->hook;
 	vm->hook = hook;
@@ -147,14 +88,14 @@ lip_vm_set_hook(lip_vm_t* vm, lip_vm_hook_t* hook)
 }
 
 lip_value_t*
-lip_vm_get_args(const lip_vm_t* vm, uint8_t* num_args)
+lip_get_args(const lip_vm_t* vm, uint8_t* num_args)
 {
 	if(num_args) { *num_args = vm->fp->num_args; }
 	return vm->fp->bp;
 }
 
 lip_value_t*
-lip_vm_get_env(const lip_vm_t* vm, uint8_t* env_len)
+lip_get_env(const lip_vm_t* vm, uint8_t* env_len)
 {
 	if(env_len) { *env_len = vm->fp->closure->env_len; }
 	return vm->fp->closure->environment;

@@ -1,5 +1,5 @@
-#include "parser.h"
-#include "array.h"
+#include <lip/parser.h>
+#include <lip/array.h>
 
 static lip_stream_status_t
 lip_parser_parse_list(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp)

@@ -1,7 +1,7 @@
 #ifndef LIP_AST_H
 #define LIP_AST_H
 
-#include "ex/common.h"
+#include "extra.h"
 #include "sexp.h"
 
 #define LIP_AST(F) \

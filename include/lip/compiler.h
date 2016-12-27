@@ -1,7 +1,7 @@
 #ifndef LIP_COMPILER_H
 #define LIP_COMPILER_H
 
-#include "ex/common.h"
+#include "common.h"
 #include "ast.h"
 #include "vendor/khash.h"
 

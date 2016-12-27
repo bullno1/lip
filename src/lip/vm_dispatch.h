@@ -1,7 +1,7 @@
 #ifndef LIP_VM_DISPATCH_H
 #define LIP_VM_DISPATCH_H
 
-#include "vm.h"
+#include <lip/common.h>
 
 lip_exec_status_t
 lip_vm_loop(lip_vm_t* vm);

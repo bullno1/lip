@@ -1,7 +1,7 @@
-#include "ex/vm.h"
 #include "vm_dispatch.h"
-#include "asm.h"
-#include "memory.h"
+#include <lip/vm.h>
+#include <lip/asm.h>
+#include <lip/memory.h>
 
 #if defined(__GNUC__) || defined(__GNUG__) || defined(__clang__)
 #	define GENERATE_LABEL(ENUM) &&do_##ENUM,

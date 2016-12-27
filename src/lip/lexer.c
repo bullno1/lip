@@ -1,7 +1,7 @@
-#include "lexer.h"
+#include <lip/lexer.h>
 #include <ctype.h>
-#include "array.h"
-#include "io.h"
+#include <lip/array.h>
+#include <lip/io.h>
 
 void
 lip_lexer_init(lip_lexer_t* lexer, lip_allocator_t* allocator)

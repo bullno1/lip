@@ -1,6 +1,6 @@
-#include "lip.h"
-#include "print.h"
-#include "io.h"
+#include <lip/lip.h>
+#include <lip/print.h>
+#include <lip/io.h>
 
 static lip_exec_status_t
 lip_nop(lip_vm_t* vm, lip_value_t* result)
@@ -15,7 +15,7 @@ lip_identity(lip_vm_t* vm, lip_value_t* result)
 {
 	(void)vm;
 	uint8_t argc;
-	lip_value_t* argv = lip_vm_get_args(vm, &argc);
+	lip_value_t* argv = lip_get_args(vm, &argc);
 	if(argc != 1) { return LIP_EXEC_ERROR; }
 	*result = argv[0];
 
@@ -27,7 +27,7 @@ lip_print(lip_vm_t* vm, lip_value_t* result)
 {
 	(void)vm;
 	uint8_t argc;
-	lip_value_t* argv = lip_vm_get_args(vm, &argc);
+	lip_value_t* argv = lip_get_args(vm, &argc);
 	if(argc != 1) { return LIP_EXEC_ERROR; }
 	lip_print_value(3, 0, lip_stdout(), argv[0]);
 	*result = argv[0];

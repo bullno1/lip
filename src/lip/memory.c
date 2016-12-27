@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "memory.h"
+#include <lip/memory.h>
 
 static void*
 lip_crt_realloc(lip_allocator_t* self, void* old, size_t size)

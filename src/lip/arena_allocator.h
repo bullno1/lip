@@ -1,7 +1,7 @@
 #ifndef LIP_ARENA_ALLOCATOR_H
 #define LIP_ARENA_ALLOCATOR_H
 
-#include "common.h"
+#include <lip/common.h>
 
 lip_allocator_t*
 lip_arena_allocator_create(lip_allocator_t* allocator, size_t chunk_size);

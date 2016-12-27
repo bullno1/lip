@@ -1,7 +1,7 @@
-#include "io.h"
+#include <lip/io.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include "memory.h"
+#include <lip/memory.h>
 #include "vendor/format/format.h"
 
 static struct lip_ofstream_s lip_stdout_ofstream;

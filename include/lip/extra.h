@@ -1,7 +1,7 @@
-#ifndef LIP_COMMON_EX_H
-#define LIP_COMMON_EX_H
+#ifndef LIP_EXTRA_H
+#define LIP_EXTRA_H
 
-#include "../common.h"
+#include "common.h"
 
 #define LIP_STREAM(F) \
 	F(LIP_STREAM_OK) \

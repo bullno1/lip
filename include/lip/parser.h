@@ -1,7 +1,7 @@
 #ifndef LIP_PARSER_H
 #define LIP_PARSER_H
 
-#include "ex/common.h"
+#include "extra.h"
 #include "sexp.h"
 #include "lexer.h"
 

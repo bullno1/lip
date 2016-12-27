@@ -1,7 +1,7 @@
 #ifndef LIP_ASM_H
 #define LIP_ASM_H
 
-#include "ex/common.h"
+#include <lip/extra.h>
 #include "opcode.h"
 #include "memory.h"
 

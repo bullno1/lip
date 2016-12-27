@@ -1,6 +1,6 @@
-#include "asm.h"
-#include "ex/vm.h"
-#include "array.h"
+#include <lip/asm.h>
+#include <lip/vm.h>
+#include <lip/array.h>
 
 void
 lip_asm_init(lip_asm_t* lasm, lip_allocator_t* allocator)

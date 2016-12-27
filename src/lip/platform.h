@@ -1,7 +1,11 @@
 #ifndef LIP_PLATFORM_H
 #define LIP_PLATFORM_H
 
-#include "common.h"
+#if defined(__GNUC__) || defined(__clang__)
+#	define _XOPEN_SOURCE 700
+#endif
+
+#include <lip/common.h>
 
 #if defined(LIP_SINGLE_THREADED)
 

@@ -1,10 +1,10 @@
-#include "print.h"
+#include <lip/print.h>
 #include <inttypes.h>
-#include "io.h"
-#include "ex/vm.h"
-#include "asm.h"
-#include "memory.h"
-#include "array.h"
+#include <lip/io.h>
+#include <lip/vm.h>
+#include <lip/asm.h>
+#include <lip/memory.h>
+#include <lip/array.h>
 
 void
 lip_print_instruction(

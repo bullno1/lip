@@ -32,7 +32,7 @@ solution "lip"
 		}
 
 		includedirs {
-			"src"
+			"include"
 		}
 
 		links {
@@ -45,6 +45,10 @@ solution "lip"
 
 		defines {
 			"_CRT_SECURE_NO_WARNINGS"
+		}
+
+		includedirs {
+			"include"
 		}
 
 		files {

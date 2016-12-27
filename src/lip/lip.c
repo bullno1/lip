@@ -1,8 +1,9 @@
-#include "ex/lip.h"
+#include "lip_internal.h"
 #include <stdio.h>
-#include "array.h"
-#include "ast.h"
-#include "io.h"
+#include <lip/array.h>
+#include <lip/memory.h>
+#include <lip/ast.h>
+#include <lip/io.h>
 
 #define lip_assert(ctx, cond) \
 	do { \
@@ -51,8 +52,7 @@ lip_do_destroy_vm(lip_context_t* ctx, lip_vm_t* vm)
 {
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
 	lip_arena_allocator_destroy(rt->allocator);
-	lip_free(ctx->allocator, rt);
-	lip_vm_destroy(ctx->allocator, vm);
+	lip_free(ctx->allocator, vm);
 }
 
 static void
@@ -291,7 +291,32 @@ lip_rt_alloc_closure(lip_runtime_interface_t* vtable, uint8_t env_len)
 lip_vm_t*
 lip_create_vm(lip_context_t* ctx, lip_vm_config_t* config)
 {
-	lip_runtime_link_t* rt = lip_new(ctx->allocator, lip_runtime_link_t);
+	lip_memblock_info_t vm_block = {
+		.element_size = sizeof(lip_vm_t),
+		.num_elements = 1,
+		.alignment = LIP_ALIGN_OF(lip_vm_t)
+	};
+
+	lip_memblock_info_t vm_mem_block = {
+		.element_size = lip_vm_memory_required(config),
+		.num_elements = 1,
+		.alignment = LIP_MAX_ALIGNMENT
+	};
+
+	lip_memblock_info_t rt_link_block = {
+		.element_size = sizeof(lip_runtime_link_t),
+		.num_elements = 1,
+		.alignment = LIP_ALIGN_OF(lip_runtime_link_t)
+	};
+
+	lip_memblock_info_t* vm_layout[] = { &vm_block, &vm_mem_block, &rt_link_block };
+	lip_memblock_info_t block_info =
+		lip_align_memblocks(LIP_STATIC_ARRAY_LEN(vm_layout), vm_layout);
+
+	void* mem = lip_malloc(ctx->allocator, block_info.num_elements);
+	lip_vm_t* vm = lip_locate_memblock(mem, &vm_block);
+	void* vm_mem = lip_locate_memblock(mem, &vm_mem_block);
+	lip_runtime_link_t* rt = lip_locate_memblock(mem, &rt_link_block);
 	*rt = (lip_runtime_link_t) {
 		.allocator = lip_arena_allocator_create(ctx->allocator, 1024),
 		.ctx = ctx,
@@ -300,7 +325,7 @@ lip_create_vm(lip_context_t* ctx, lip_vm_config_t* config)
 			.alloc_closure = lip_rt_alloc_closure
 		}
 	};
-	lip_vm_t* vm = lip_vm_create(ctx->allocator, config, &rt->vtable);
+	lip_vm_init(vm, config, &rt->vtable, vm_mem);
 
 	int tmp;
 	kh_put(lip_ptr_set, ctx->vms, vm, &tmp);
@@ -495,7 +520,7 @@ lip_exec_script(lip_vm_t* vm, lip_script_t* script, lip_value_t* result)
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
 	lip_arena_allocator_reset(rt->allocator);
 
-	return lip_vm_call(
+	return lip_call(
 		vm,
 		result,
 		(lip_value_t){
@@ -550,9 +575,9 @@ lip_repl(lip_vm_t* vm, lip_repl_handler_t* repl_handler)
 							.is_native = false,
 							.env_len = 0,
 						};
-						lip_vm_reset(vm);
+						lip_reset_vm(vm);
 						lip_value_t result;
-						lip_exec_status_t status = lip_vm_call(
+						lip_exec_status_t status = lip_call(
 							vm,
 							&result,
 							(lip_value_t){

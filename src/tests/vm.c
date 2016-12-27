@@ -1,4 +1,5 @@
-#include <lip/ex/vm.h>
+#include <lip/lip.h>
+#include <lip/vm.h>
 #include <lip/asm.h>
 #include <lip/memory.h>
 #include <lip/arena_allocator.h>
@@ -19,6 +20,41 @@ alloc_closure(lip_runtime_interface_t* vtable, uint8_t env_len)
 	return lip_malloc(
 		self->allocator, sizeof(lip_closure_t) + sizeof(lip_value_t) * env_len
 	);
+}
+
+lip_vm_t*
+lip_vm_create(
+	lip_allocator_t* allocator, lip_vm_config_t* config, lip_runtime_interface_t* rt
+)
+{
+	lip_memblock_info_t vm_block = {
+		.element_size = sizeof(lip_vm_t),
+		.num_elements = 1,
+		.alignment = LIP_ALIGN_OF(lip_vm_t)
+	};
+
+	lip_memblock_info_t vm_mem_block = {
+		.element_size = lip_vm_memory_required(config),
+		.num_elements = 1,
+		.alignment = LIP_MAX_ALIGNMENT
+	};
+
+	lip_memblock_info_t* vm_layout[] = { &vm_block, &vm_mem_block };
+	lip_memblock_info_t block_info =
+		lip_align_memblocks(LIP_STATIC_ARRAY_LEN(vm_layout), vm_layout);
+
+	void* mem = lip_malloc(allocator, block_info.num_elements);
+	lip_vm_t* vm = lip_locate_memblock(mem, &vm_block);
+	void* vm_mem = lip_locate_memblock(mem, &vm_mem_block);
+	lip_vm_init(vm, config, rt, vm_mem);
+
+	return vm;
+}
+
+static void
+lip_vm_destroy(lip_allocator_t* allocator, lip_vm_t* vm)
+{
+	lip_free(allocator, vm);
 }
 
 static MunitResult
@@ -122,7 +158,7 @@ fibonacci(const MunitParameter params[], void* fixture)
 	munit_assert_int(
 		LIP_EXEC_OK,
 		==,
-		lip_vm_call(
+		lip_call(
 			vm,
 			&result,
 			(lip_value_t){ .type = LIP_VAL_FUNCTION, .data = { .reference = closure } },
@@ -146,7 +182,7 @@ static lip_exec_status_t
 identity(lip_vm_t* vm, lip_value_t* result)
 {
 	uint8_t num_args;
-	lip_value_t* args = lip_vm_get_args(vm, &num_args);
+	lip_value_t* args = lip_get_args(vm, &num_args);
 	*result = args[0];
 	return LIP_EXEC_OK;
 }
@@ -178,7 +214,7 @@ call_native(const MunitParameter params[], void* fixture)
 	};
 
 	lip_value_t result;
-	lip_vm_call(
+	lip_call(
 		vm,
 		&result,
 		(lip_value_t){
