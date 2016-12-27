@@ -1,8 +1,8 @@
 #ifndef LIP_LIP_INTERNAL_H
 #define LIP_LIP_INTERNAL_H
 
-#include <lip/lip.h>
 #include "platform.h"
+#include <lip/lip.h>
 #include <lip/vendor/khash.h>
 #include <lip/vm.h>
 #include <lip/compiler.h>
