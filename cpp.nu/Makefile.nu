@@ -45,7 +45,7 @@ $BUILD_DIR/%.lib: << sources BUILD_DIR ar AR
 # Compiling *.cpp and compiling *.c are pretty similar so we extract the common
 # parts into a shell script
 
-COMPILE = $(readlink -f compile.sh)
+COMPILE = $(readlink -f compile)
 
 $BUILD_DIR/%.c.o: %.c << COMPILE cc CC c_flags C_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX
 	${NUMAKE} --depend ${COMPILE} # Compilation depends on the compile script too

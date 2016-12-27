@@ -22,7 +22,7 @@ ADDR_SAN_FLAGS_0 =
 ADDR_SAN_FLAGS_1 = -fsanitize=address
 ADDR_SAN_FLAGS = $(eval echo \${ADDR_SAN_FLAGS_$WITH_ADDR_SAN})
 
-COMMON_FLAGS = -pthread ${UB_FLAGS} ${ADDR_SAN_FLAGS} ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
+COMMON_FLAGS = -Iinclude -pthread ${UB_FLAGS} ${ADDR_SAN_FLAGS} ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
 COMPILATION_FLAGS = -g -Wall -Wextra -Werror -pedantic
 C_FLAGS ?= -std=c99 ${COMPILATION_FLAGS} ${COMMON_FLAGS}
 CPP_FLAGS ?= ${COMPILATION_FLAGS} ${COMMON_FLAGS}
@@ -61,22 +61,21 @@ cover: tests
 bin/tests: << C_FLAGS CPP_FLAGS CC
 	${NUMAKE} exe:$@ \
 		sources="`find src/tests -name '*.cpp' -or -name '*.c'`" \
-		c_flags="${C_FLAGS} -g -Iinclude -Isrc" \
-		cpp_flags="${CPP_FLAGS} -Iinclude -Isrc" \
+		c_flags="${C_FLAGS} -g -Isrc" \
+		cpp_flags="${CPP_FLAGS} -Isrc" \
 		linker="${CC}" \
 		libs="bin/liblip.a"
 
 bin/lip: << C_FLAGS CPP_FLAGS CC
 	${NUMAKE} exe:$@ \
 		sources="`find src/repl -name '*.cpp' -or -name '*.c'`" \
-		c_flags="${C_FLAGS} -Iinclude -Ideps/linenoise-ng/include" \
-		cpp_flags="${CPP_FLAGS} -Iinclude -Ideps/linenoise-ng/include" \
+		c_flags="${C_FLAGS} -Ideps/linenoise-ng/include" \
+		cpp_flags="${CPP_FLAGS} -Ideps/linenoise-ng/include" \
 		libs="bin/liblip.a bin/liblinenoise-ng.a"
 
 bin/liblip.a:
 	${NUMAKE} static-lib:$@ \
-		sources="`find src/lip -name '*.cpp' -or -name '*.c'`" \
-		c_flags="${C_FLAGS} -Iinclude"
+		sources="`find src/lip -name '*.cpp' -or -name '*.c'`"
 
 bin/liblinenoise-ng.a:
 	${NUMAKE} static-lib:$@ \

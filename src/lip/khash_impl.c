@@ -1,7 +1,7 @@
+#include "lip_internal.h"
 #include <lip/common.h>
 #include <lip/vendor/khash.h>
 #include <lip/compiler.h>
-#include "lip_internal.h"
 #include "vendor/xxhash.h"
 
 #define lip_string_ref_hash(str) XXH32(str.ptr, str.length, __LINE__)

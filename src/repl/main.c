@@ -5,6 +5,8 @@
 #include <lip/print.h>
 #include <linenoise.h>
 
+typedef struct repl_context_s repl_context_t;
+
 struct repl_context_s
 {
 	lip_repl_handler_t vtable;
@@ -48,8 +50,9 @@ repl_read(lip_repl_handler_t* vtable, void* buff, size_t size)
 		size_t line_length = strlen(line);
 		if(line_length + 1 > repl->buff_len)
 		{
-			repl->line_buff =
-				lip_realloc(lip_default_allocator, repl->line_buff, line_length + 1);
+			repl->line_buff = lip_realloc(
+				lip_default_allocator, repl->line_buff, line_length + 1
+			);
 		}
 		memcpy(repl->line_buff, line, line_length);
 		repl->line_buff[line_length] = '\n';
@@ -67,7 +70,7 @@ repl_read(lip_repl_handler_t* vtable, void* buff, size_t size)
 static void
 repl_print(lip_repl_handler_t* vtable, lip_exec_status_t status, lip_value_t result)
 {
-	struct repl_context_s* repl = LIP_CONTAINER_OF(vtable, struct repl_context_s, vtable);
+	repl_context_t* repl = LIP_CONTAINER_OF(vtable, repl_context_t, vtable);
 	if(status == LIP_EXEC_OK)
 	{
 		lip_print_value(5, 0, lip_stdout(), result);

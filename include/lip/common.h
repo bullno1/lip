@@ -1,6 +1,10 @@
 #ifndef LIP_COMMON_H
 #define LIP_COMMON_H
 
+#if defined(__GNUC__) || defined(__clang__)
+#	define _XOPEN_SOURCE 700
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
