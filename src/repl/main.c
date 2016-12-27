@@ -1,11 +1,25 @@
+#ifdef __linux__
+#define _XOPEN_SOURCE
+#endif
+
 #include <stdlib.h>
+#include <stdio.h>
 #include <lip/lip.h>
 #include <lip/memory.h>
 #include <lip/io.h>
 #include <lip/print.h>
 #include <linenoise.h>
 
+#ifdef _WIN32
+#include <io.h>
+#define isatty _isatty
+#define fileno _fileno
+#else
+#include <unistd.h>
+#endif
+
 typedef struct repl_context_s repl_context_t;
+typedef struct program_state_s program_state_t;
 
 struct repl_context_s
 {
@@ -14,15 +28,19 @@ struct repl_context_s
 	char* line_buff;
 	size_t read_pos;
 	size_t buff_len;
-	bool running;
+};
+
+struct program_state_s
+{
+	lip_runtime_t* runtime;
+	lip_context_t* context;
+	lip_vm_config_t vm_config;
 };
 
 static size_t
 repl_read(lip_repl_handler_t* vtable, void* buff, size_t size)
 {
 	struct repl_context_s* repl = LIP_CONTAINER_OF(vtable, struct repl_context_s, vtable);
-
-	if(!repl->running) { return 0; }
 
 	if(repl->read_pos >= repl->buff_len)
 	{
@@ -68,6 +86,31 @@ repl_read(lip_repl_handler_t* vtable, void* buff, size_t size)
 }
 
 static void
+print_error(lip_context_t* ctx)
+{
+	const lip_context_error_t* err = lip_get_error(ctx);
+	lip_printf(
+		lip_stdout(),
+		"Error: %.*s.\n",
+		(int)err->message.length, err->message.ptr
+	);
+	for(unsigned int i = 0; i < err->num_records; ++i)
+	{
+		lip_error_record_t* record = &err->records[i];
+		lip_printf(
+			lip_stdout(),
+			"  %.*s:%u:%u - %u:%u: %.*s.\n",
+			(int)record->filename.length, record->filename.ptr,
+			record->location.start.line,
+			record->location.start.column,
+			record->location.end.line,
+			record->location.end.column,
+			(int)record->message.length, record->message.ptr
+		);
+	}
+}
+
+static void
 repl_print(lip_repl_handler_t* vtable, lip_exec_status_t status, lip_value_t result)
 {
 	repl_context_t* repl = LIP_CONTAINER_OF(vtable, repl_context_t, vtable);
@@ -80,33 +123,48 @@ repl_print(lip_repl_handler_t* vtable, lip_exec_status_t status, lip_value_t res
 		}
 		break;
 	case LIP_EXEC_ERROR:
-		{
-			const lip_context_error_t* err = lip_get_error(repl->ctx);
-			lip_printf(
-				lip_stdout(),
-				"Error: %.*s.\n",
-				(int)err->message.length, err->message.ptr
-			);
-			for(unsigned int i = 0; i < err->num_records; ++i)
-			{
-				lip_error_record_t* record = &err->records[i];
-				lip_printf(
-					lip_stdout(),
-					"  %.*s:%u:%u - %u:%u: %.*s.\n",
-					(int)record->filename.length, record->filename.ptr,
-					record->location.start.line,
-					record->location.start.column,
-					record->location.end.line,
-					record->location.end.column,
-					(int)record->message.length, record->message.ptr
-				);
-			}
-		}
+		print_error(repl->ctx);
 		break;
 	}
 }
 
-int main()
+static int
+repl(program_state_t* prog)
+{
+	lip_vm_t* vm = lip_create_vm(prog->context, &prog->vm_config);
+	struct repl_context_s repl_context = {
+		.read_pos = 1,
+		.ctx = prog->context,
+		.vtable = { .read = repl_read, .print = repl_print }
+	};
+	linenoiseInstallWindowChangeHandler();
+	lip_repl(vm, lip_string_ref("<stdin>"), &repl_context.vtable);
+	lip_free(lip_default_allocator, repl_context.line_buff);
+
+	return EXIT_SUCCESS;
+}
+
+static int
+run_script(program_state_t* prog)
+{
+	lip_script_t* script = lip_load_script(
+		prog->context, lip_string_ref("<stdin>"), lip_stdin()
+	);
+	if(!script)
+	{
+		print_error(prog->context);
+		return EXIT_FAILURE;
+	}
+
+	lip_vm_t* vm = lip_create_vm(prog->context, &prog->vm_config);
+	lip_value_t result;
+	lip_exec_status_t status = lip_exec_script(vm, script, &result);
+
+	return status == LIP_EXEC_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+int
+main()
 {
 	lip_runtime_t* runtime = lip_create_runtime(lip_default_allocator);
 	lip_context_t* ctx = lip_create_context(runtime, lip_default_allocator);
@@ -117,19 +175,24 @@ int main()
 		.cs_len = 256,
 		.env_len = 256
 	};
-	lip_vm_t* vm = lip_create_vm(ctx, &vm_config);
 
-	struct repl_context_s repl_context = {
-		.read_pos = 1,
-		.running = true,
-		.ctx = ctx,
-		.vtable = { .read = repl_read, .print = repl_print }
+	program_state_t program_state = {
+		.runtime = runtime,
+		.context = ctx,
+		.vm_config = vm_config
 	};
-	linenoiseInstallWindowChangeHandler();
-	lip_repl(vm, &repl_context.vtable);
+
+	int exit_code;
+	if(isatty(fileno(stdin)))
+	{
+		exit_code = repl(&program_state);
+	}
+	else
+	{
+		exit_code = run_script(&program_state);
+	}
 
 	lip_destroy_runtime(runtime);
-	lip_free(lip_default_allocator, repl_context.line_buff);
 
-	return repl_context.running ? EXIT_SUCCESS : EXIT_FAILURE;
+	return exit_code;
 }

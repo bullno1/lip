@@ -25,6 +25,7 @@ struct lip_repl_stream_s
 	lip_repl_handler_t* repl_handler;
 };
 
+
 lip_runtime_t*
 lip_create_runtime(lip_allocator_t* allocator)
 {
@@ -539,10 +540,10 @@ lip_repl_read(void* buff, size_t size, lip_in_t* vtable)
 }
 
 void
-lip_repl(lip_vm_t* vm, lip_repl_handler_t* repl_handler)
+lip_repl(
+	lip_vm_t* vm, lip_string_ref_t source_name, lip_repl_handler_t* repl_handler
+)
 {
-	lip_string_ref_t source_name = lip_string_ref("repl");
-
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
 	lip_context_t* ctx = rt->ctx;
 

@@ -92,7 +92,9 @@ LIP_API lip_exec_status_t
 lip_exec_script(lip_vm_t* vm, lip_script_t* script, lip_value_t* result);
 
 LIP_API void
-lip_repl(lip_vm_t* vm, lip_repl_handler_t* repl_handler);
+lip_repl(
+	lip_vm_t* vm, lip_string_ref_t source_name, lip_repl_handler_t* repl_handler
+);
 
 void*
 lip_get_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key);
