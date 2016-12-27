@@ -285,7 +285,10 @@ class Context(object):
             "NUMAKE_TARGET": target.absolute,
             "m": match
         }
-        env.update(build_vars)
+        if rule.imports_all_vars:
+            env.update(self.env)
+        else:
+            env.update(build_vars)
 
         rm(target.absolute)
         cascaded_env = self.env.copy()
@@ -831,7 +834,8 @@ class Path(object):
 
 class Rule(object):
     EXTRA_ATTRS = [
-        "live"
+        "live",
+        "all-vars"
     ]
 
     IMPLICIT_BUILD_VARS = [
@@ -1060,6 +1064,10 @@ class Rule(object):
     def is_live(self):
         return "live" in self.extra_attrs
 
+    @property
+    def imports_all_vars(self):
+        return "all-vars" in self.extra_attrs
+
     @staticmethod
     def _build_prolog(deps, var, flags):
         if len(deps) > 0:
@@ -1090,7 +1098,7 @@ class Agent(Thread):
         Thread.__init__(self)
 
         self.root_env = context.env.copy()
-        self.root_env["NUMAKE_TIMESTAMP"] = context.timestamp
+        self.root_env["NUMAKE_TIMESTAMP"] = str(context.timestamp)
         self.envs = {}
         self.rules = pickle.dumps(context.rules, pickle.HIGHEST_PROTOCOL)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
