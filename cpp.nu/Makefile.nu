@@ -8,7 +8,7 @@ CPP_FLAGS ?= -Wall
 LINK_FLAGS ?=
 
 # A phony rule to register target as an executable
-exe:%: ! live all-vars
+exe:%: << BUILD_DIR cc CC c_flags C_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX ! live
 	BUILD_SUBDIR=$(${NUMAKE} --hash)
 	tmp_output="${BUILD_DIR}/${BUILD_SUBDIR}/${m}.exe"
 	${NUMAKE} --depend BUILD_SUBDIR=${BUILD_SUBDIR} ${tmp_output}
@@ -16,7 +16,7 @@ exe:%: ! live all-vars
 	cp ${tmp_output} ${m}
 
 # A phony rule to register target as a static library
-static-lib:%: ! live all-vars
+static-lib:%: << BUILD_DIR cc CC c_flags C_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX ! live
 	BUILD_SUBDIR=$(${NUMAKE} --hash)
 	tmp_output="${BUILD_DIR}/${BUILD_SUBDIR}/${m}.lib"
 	${NUMAKE} --depend BUILD_SUBDIR=${BUILD_SUBDIR} ${tmp_output}

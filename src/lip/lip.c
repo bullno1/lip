@@ -25,7 +25,6 @@ struct lip_repl_stream_s
 	lip_repl_handler_t* repl_handler;
 };
 
-
 lip_runtime_t*
 lip_create_runtime(lip_allocator_t* allocator)
 {

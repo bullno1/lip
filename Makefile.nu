@@ -81,7 +81,7 @@ bin/liblinenoise-ng.a:
 	${NUMAKE} static-lib:$@ \
 		c_flags="${C_FLAGS} -Ideps/linenoise-ng/include" \
 		cpp_flags="${CPP_FLAGS} -Ideps/linenoise-ng/include" \
-		sources="`find deps/linenoise-ng -name '*.cpp' -or -name '*.c'`"
+		sources="`find deps/linenoise-ng/src -name '*.cpp' -or -name '*.c'`"
 
 # Only for vm_dispatch.c, remove -pedantic because we will be using a
 # non-standard extension (computed goto) if it is available
