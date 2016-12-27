@@ -11,6 +11,7 @@
 	F(LIP_OP_LDI) \
 	F(LIP_OP_LDB) \
 	F(LIP_OP_PLHR) \
+	F(LIP_OP_LARG) \
 	F(LIP_OP_LDLV) \
 	F(LIP_OP_LDCV) \
 	F(LIP_OP_IMP) \

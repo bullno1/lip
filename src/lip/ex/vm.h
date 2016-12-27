@@ -85,6 +85,7 @@ struct lip_stack_frame_s
 	lip_closure_t* closure;
 	lip_instruction_t* pc;
 	lip_value_t* ep;
+	lip_value_t* bp;
 	uint8_t num_args;
 	bool is_native;
 };

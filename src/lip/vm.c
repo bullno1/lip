@@ -93,6 +93,7 @@ lip_vm_init(
 	vm->sp = (lip_value_t*)lip_locate_memblock(mem, &os_block) + config->os_len;
 	vm->fp = lip_locate_memblock(mem, &cs_block);
 	vm->fp->ep = (lip_value_t*)lip_locate_memblock(mem, &env_block) + config->env_len;
+	vm->fp->bp = vm->sp;
 	vm->fp->is_native = false;
 	vm->fp->pc = NULL;
 	vm->fp->closure = NULL;
@@ -116,13 +117,11 @@ lip_vm_call(
 	}
 	va_end(args);
 
-	*(--vm->sp) = fn;
-
 	lip_stack_frame_t* old_fp = vm->fp;
 	vm->fp->is_native = true;
 	*(++vm->fp) = *old_fp;
 
-	lip_exec_status_t status = lip_vm_do_call(vm, num_args);
+	lip_exec_status_t status = lip_vm_do_call(vm, &fn, num_args);
 	if(status != LIP_EXEC_OK) { return status; }
 
 	if(vm->fp == old_fp)
@@ -134,20 +133,28 @@ lip_vm_call(
 		status = lip_vm_loop(vm);
 	}
 
+	*result = *vm->sp;
 	++vm->sp;
-	*result = *(vm->sp - 1);
 	return status;
 }
 
-lip_value_t*
-lip_vm_get_args(lip_vm_t* vm, uint8_t* num_args)
+lip_vm_hook_t*
+lip_vm_set_hook(lip_vm_t* vm, lip_vm_hook_t* hook)
 {
-	if(num_args) { *num_args = vm->fp->num_args; }
-	return vm->fp->ep;
+	lip_vm_hook_t* old_hook = vm->hook;
+	vm->hook = hook;
+	return old_hook;
 }
 
 lip_value_t*
-lip_vm_get_env(lip_vm_t* vm, uint8_t* env_len)
+lip_vm_get_args(const lip_vm_t* vm, uint8_t* num_args)
+{
+	if(num_args) { *num_args = vm->fp->num_args; }
+	return vm->fp->bp;
+}
+
+lip_value_t*
+lip_vm_get_env(const lip_vm_t* vm, uint8_t* env_len)
 {
 	if(env_len) { *env_len = vm->fp->closure->env_len; }
 	return vm->fp->closure->environment;

@@ -35,6 +35,7 @@
 	lip_function_layout(fp->closure->function.lip, &fn); \
 	pc = vm->fp->pc; \
 	ep = vm->fp->ep; \
+	bp = vm->fp->bp; \
 	sp = vm->sp;
 
 #define SAVE_CONTEXT() \
@@ -45,6 +46,7 @@
 	lip_function_layout_t fn; \
 	lip_stack_frame_t* fp; \
 	lip_instruction_t* pc; \
+	lip_value_t* bp; \
 	lip_value_t* ep; \
 	lip_value_t* sp; \
 	LOAD_CONTEXT() \
@@ -56,7 +58,7 @@
 static lip_exec_status_t
 lip_vm_loop_with_hook(lip_vm_t* vm)
 {
-#define CALL_HOOK() SAVE_CONTEXT(); vm->hook->hook_fn(vm->hook, vm);
+#define CALL_HOOK() SAVE_CONTEXT(); vm->hook->step(vm->hook, vm);
 PREAMBLE()
 #include "vm_ops"
 POSTAMBLE()
@@ -87,30 +89,26 @@ lip_vm_loop(lip_vm_t* vm)
 }
 
 lip_exec_status_t
-lip_vm_do_call(lip_vm_t* vm, uint8_t num_args)
+lip_vm_do_call(lip_vm_t* vm, lip_value_t* fn, uint8_t num_args)
 {
-	lip_value_t* fn = vm->sp++;
 	lip_closure_t* closure = (lip_closure_t*)fn->data.reference;
 	vm->fp->closure = closure;
 	vm->fp->num_args = num_args;
+	vm->fp->bp = vm->sp;
 
 	bool is_native = closure->is_native;
 	vm->fp->is_native = is_native;
-	unsigned int env_size =
-		is_native ? num_args : closure->function.lip->num_locals;
-
-	// Pop arguments from operand stack into environment
-	vm->fp->ep -= env_size;
-	memcpy(vm->fp->ep, vm->sp, num_args * sizeof(lip_value_t));
-	vm->sp += num_args;
+	unsigned int num_locals = is_native ? 0 : closure->function.lip->num_locals;
+	vm->fp->ep -= num_locals;
 
 	if(is_native)
 	{
 		// Ensure that a value is always returned
-		lip_value_t* next_sp = vm->sp - 1;
-		next_sp->type = LIP_VAL_NIL;
-		lip_exec_status_t status = closure->function.native(vm, next_sp);
+		lip_value_t* next_sp = vm->sp + num_args - 1;
+		lip_value_t result;
+		lip_exec_status_t status = closure->function.native(vm, &result);
 		vm->sp = next_sp;
+		*next_sp = result;
 		--vm->fp;
 
 		return status;

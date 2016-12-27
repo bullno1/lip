@@ -36,7 +36,7 @@ fibonacci(const MunitParameter params[], void* fixture)
 
 	// n < 2
 	lip_asm_add(lasm, LIP_OP_LDI, 2, LIP_LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_LDLV, n, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LARG, n, LIP_LOC_NOWHERE);
 	lip_asm_add(lasm, LIP_OP_LT, 0, LIP_LOC_NOWHERE);
 
 	// then
@@ -48,14 +48,14 @@ fibonacci(const MunitParameter params[], void* fixture)
 	lip_asm_add(lasm, LIP_OP_LABEL, else_label, LIP_LOC_NOWHERE);
 	// fib(n + (-1))
 	lip_asm_add(lasm, LIP_OP_LDI, -1, LIP_LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_LDLV, n, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LARG, n, LIP_LOC_NOWHERE);
 	lip_asm_add(lasm, LIP_OP_ADD, 2, LIP_LOC_NOWHERE);
 	lip_asm_add(lasm, LIP_OP_LDCV, fib_index, LIP_LOC_NOWHERE);
 	lip_asm_add(lasm, LIP_OP_CALL, 1, LIP_LOC_NOWHERE);
 
 	// fib(n + (-2))
 	lip_asm_add(lasm, LIP_OP_LDI, -2, LIP_LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_LDLV, n, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LARG, n, LIP_LOC_NOWHERE);
 	lip_asm_add(lasm, LIP_OP_ADD, 2, LIP_LOC_NOWHERE);
 	lip_asm_add(lasm, LIP_OP_LDCV, fib_index, LIP_LOC_NOWHERE);
 	lip_asm_add(lasm, LIP_OP_CALL, 1, LIP_LOC_NOWHERE);
@@ -71,7 +71,7 @@ fibonacci(const MunitParameter params[], void* fixture)
 
 	lip_asm_begin(lasm, lip_string_ref("fib.lip"));
 	lip_asm_index_t n1 = 0;
-	lip_asm_index_t fib = 1;
+	lip_asm_index_t fib = 0;
 	lip_asm_index_t fib_fn_index = lip_asm_new_function(lasm, fib_fn);
 
 	lip_asm_add(lasm, LIP_OP_PLHR, fib, LIP_LOC_NOWHERE);
@@ -86,14 +86,14 @@ fibonacci(const MunitParameter params[], void* fixture)
 	lip_asm_add(lasm, LIP_OP_SET, fib, LIP_LOC_NOWHERE);
 	lip_asm_add(lasm, LIP_OP_RCLS, fib, LIP_LOC_NOWHERE);
 
-	lip_asm_add(lasm, LIP_OP_LDLV, n1, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LARG, n1, LIP_LOC_NOWHERE);
 	lip_asm_add(lasm, LIP_OP_LDLV, fib, LIP_LOC_NOWHERE);
 	lip_asm_add(lasm, LIP_OP_CALL, 1, LIP_LOC_NOWHERE);
 	lip_asm_add(lasm, LIP_OP_RET, 0, LIP_LOC_NOWHERE);
 
 	lip_function_t* fn = lip_asm_end(lasm, lip_default_allocator);
 	fn->num_args = 1;
-	fn->num_locals = 2;
+	fn->num_locals = 1;
 	lip_free(lip_default_allocator, fib_fn);
 	lip_asm_destroy(lasm);
 
@@ -192,6 +192,7 @@ call_native(const MunitParameter params[], void* fixture)
 			.data = { .number = 42 }
 		}
 	);
+	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
 	munit_assert_double_equal(42, result.data.number, 2);
 
 	lip_arena_allocator_destroy(arena_allocator);

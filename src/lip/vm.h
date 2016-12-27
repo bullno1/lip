@@ -5,7 +5,6 @@
 
 typedef struct lip_vm_config_s lip_vm_config_t;
 typedef struct lip_vm_hook_s lip_vm_hook_t;
-typedef void(*lip_vm_hook_fn_t)(lip_vm_hook_t* hook, lip_vm_t* vm);
 
 struct lip_value_s
 {
@@ -28,7 +27,7 @@ struct lip_vm_config_s
 
 struct lip_vm_hook_s
 {
-	lip_vm_hook_fn_t hook_fn;
+	void(*step)(lip_vm_hook_t* hook, const lip_vm_t* vm);
 };
 
 void
@@ -47,9 +46,9 @@ lip_vm_call(
 );
 
 lip_value_t*
-lip_vm_get_args(lip_vm_t* vm, uint8_t* num_args);
+lip_vm_get_args(const lip_vm_t* vm, uint8_t* num_args);
 
 lip_value_t*
-lip_vm_get_env(lip_vm_t* vm, uint8_t* env_len);
+lip_vm_get_env(const lip_vm_t* vm, uint8_t* env_len);
 
 #endif

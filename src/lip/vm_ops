@@ -9,6 +9,10 @@ BEGIN_OP(LDK)
 	*(--sp) = fn.constants[operand];
 END_OP(LDK)
 
+BEGIN_OP(LARG)
+	*(--sp) = bp[operand];
+END_OP(LARG)
+
 BEGIN_OP(LDLV)
 	*(--sp) = ep[operand];
 END_OP(LDLV)
@@ -76,24 +80,32 @@ BEGIN_OP(JOF)
 END_OP(JOF)
 
 BEGIN_OP(CALL)
+	lip_value_t* next_fn = sp++;
 	SAVE_CONTEXT();
 	++vm->fp;
 	*(vm->fp) = *(vm->fp - 1);
-	lip_exec_status_t status = lip_vm_do_call(vm, operand);
+	lip_exec_status_t status = lip_vm_do_call(vm, next_fn, operand);
 	if(status != LIP_EXEC_OK) { return status; }
 	LOAD_CONTEXT();
 END_OP(CALL)
 
 BEGIN_OP(TAIL)
+	lip_value_t* next_fn = sp++;
+	lip_value_t* next_sp = bp + fp->num_args - operand;
+	memmove(next_sp, sp, sizeof(lip_value_t) * operand);
+	sp = next_sp;
 	SAVE_CONTEXT();
 	vm->fp->ep = (vm->fp - 1)->ep;
-	lip_exec_status_t status = lip_vm_do_call(vm, operand);
+	lip_exec_status_t status = lip_vm_do_call(vm, next_fn, operand);
 	if(status != LIP_EXEC_OK) { return status; }
 	if(vm->fp->is_native) { return LIP_EXEC_OK; }
 	LOAD_CONTEXT();
 END_OP(TAIL)
 
 BEGIN_OP(RET)
+	lip_value_t* next_sp = bp + fp->num_args - 1;
+	*next_sp = *sp;
+	sp = next_sp;
 	SAVE_CONTEXT();
 	--vm->fp;
 	if(vm->fp->is_native) { return LIP_EXEC_OK; }
@@ -138,9 +150,23 @@ BEGIN_OP(CLS)
 		lip_opcode_t opcode;
 		int32_t var_index;
 		lip_disasm(pc[i], &opcode, &var_index);
-		lip_value_t* target =
-			(opcode == LIP_OP_LDLV ? ep : fp->closure->environment) + var_index;
-		closure->environment[i] = *target;
+		lip_value_t* base;
+		switch(opcode)
+		{
+			case LIP_OP_LARG:
+				base = bp;
+				break;
+			case LIP_OP_LDLV:
+				base = ep;
+				break;
+			case LIP_OP_LDCV:
+				base = fp->closure->environment;
+				break;
+			default:
+				SAVE_CONTEXT();
+				return LIP_EXEC_ERROR;
+		}
+		closure->environment[i] = base[var_index];
 	}
 	pc += num_captures;
 	lip_value_t value = {

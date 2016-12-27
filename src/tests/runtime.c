@@ -2,10 +2,22 @@
 #include <lip/memory.h>
 #include <lip/io.h>
 #include <lip/print.h>
+#include <lip/ex/vm.h>
 #include "munit.h"
 #include "test_helpers.h"
 
+#define SOURCE_NAME __FILE__ ":"  STRINGIFY(__LINE__)
+#define STRINGIFY(X) STRINGIFY2(X)
+#define STRINGIFY2(X) #X
+
 typedef struct lip_fixture_s lip_fixture_t;
+typedef struct test_hook_s test_hook_t;
+
+struct test_hook_s
+{
+	lip_vm_hook_t vtable;
+	bool printed;
+};
 
 struct lip_fixture_s
 {
@@ -13,6 +25,17 @@ struct lip_fixture_s
 	lip_context_t* context;
 	lip_vm_t* vm;
 };
+
+static void
+step(lip_vm_hook_t* vtable, const lip_vm_t* vm)
+{
+	test_hook_t* hook = LIP_CONTAINER_OF(vtable, test_hook_t, vtable);
+	if(!hook->printed)
+	{
+		hook->printed = true;
+		lip_print_closure(10, 0, lip_stderr(), vm->fp->closure);
+	}
+}
 
 static void*
 setup(const MunitParameter params[], void* data)
@@ -51,9 +74,11 @@ basic_forms(const MunitParameter params[], void* fixture_)
 
 #define lip_assert_result(code, result_value) \
 	do { \
+		test_hook_t hook = { .printed = false, .vtable = { .step = step } }; \
+		lip_vm_set_hook(vm, &hook.vtable); \
 		struct lip_sstream_s sstream; \
 		lip_in_t* input = lip_make_sstream(lip_string_ref(code), &sstream); \
-		lip_script_t* script = lip_load_script(ctx, lip_string_ref("test"), input); \
+		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input); \
 		lip_print_closure(100, 0, lip_null, (lip_closure_t*)script); \
 		munit_assert_not_null(script); \
 		lip_value_t result; \
@@ -64,12 +89,6 @@ basic_forms(const MunitParameter params[], void* fixture_)
 
 	lip_assert_result("2", 2.0);
 	lip_assert_result("((fn (x y) (x y)) (fn (x) x) 3.5)", 3.5);
-	lip_assert_result(
-		"(let ((x 1)"
-		"      (y 2.5))"
-		"    y)",
-		2.5
-	);
 	lip_assert_result(
 		"(let ((x 1)"
 		"      (y 2.5))"
@@ -156,7 +175,7 @@ builtins(const MunitParameter params[], void* fixture_)
 	do { \
 		struct lip_sstream_s sstream; \
 		lip_in_t* input = lip_make_sstream(lip_string_ref(code), &sstream); \
-		lip_script_t* script = lip_load_script(ctx, lip_string_ref("test"), input); \
+		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input); \
 		lip_print_closure(100, 0, lip_null, (lip_closure_t*)script); \
 		munit_assert_not_null(script); \
 		lip_value_t result; \
@@ -184,7 +203,7 @@ syntax_error(const MunitParameter params[], void* fixture_)
 	do { \
 		struct lip_sstream_s sstream; \
 		lip_in_t* input = lip_make_sstream(lip_string_ref(code), &sstream); \
-		lip_script_t* script = lip_load_script(ctx, lip_string_ref("test"), input); \
+		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input); \
 		munit_assert_null(script); \
 		const lip_context_error_t* error = lip_get_error(ctx); \
 		lip_assert_string_ref_equal(lip_string_ref("Syntax error"), error->message); \
@@ -193,7 +212,6 @@ syntax_error(const MunitParameter params[], void* fixture_)
 			.start = { .line = start_line, .column = start_col }, \
 			.end = { .line = end_line, .column = end_col } \
 		})); \
-		lip_assert_string_ref_equal(lip_string_ref("test"), error->records[0].filename); \
 		lip_assert_string_ref_equal(lip_string_ref(error_msg), error->records[0].message); \
 	} while(0)
 

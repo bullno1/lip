@@ -7,6 +7,6 @@ lip_exec_status_t
 lip_vm_loop(lip_vm_t* vm);
 
 lip_exec_status_t
-lip_vm_do_call(lip_vm_t* vm, uint8_t num_args);
+lip_vm_do_call(lip_vm_t* vm, lip_value_t* fn, uint8_t num_args);
 
 #endif
