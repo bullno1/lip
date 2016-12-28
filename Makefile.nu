@@ -109,6 +109,12 @@ bin/liblinenoise-ng.a: << C_FLAGS CPP_FLAGS CLEAR_ENV
 		cpp_flags="-Ideps/linenoise-ng/include" \
 		sources="`find deps/linenoise-ng/src -name '*.cpp' -or -name '*.c'`"
 
+bin/libcargo.a: << CLEAR_ENV
+	${CLEAR_ENV}
+	${NUMAKE} static-lib:$@ \
+		c_flags=" " \
+		sources="deps/cargo/cargo.c"
+
 # Only for vm_dispatch.c, remove -pedantic because we will be using a
 # non-standard extension (computed goto) if it is available
 $BUILD_DIR/%/src/lip/vm_dispatch.c.ninja: << BUILD_DIR COMPILE_CMD

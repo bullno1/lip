@@ -9,6 +9,7 @@
 #include <lip/io.h>
 #include <lip/print.h>
 #include <linenoise.h>
+#include <cargo.h>
 
 #ifdef _WIN32
 #include <io.h>
@@ -164,8 +165,26 @@ run_script(program_state_t* prog)
 }
 
 int
-main()
+main(int argc, char* argv[])
 {
+	cargo_t cargo;
+	if(cargo_init(&cargo, 0, argv[0]))
+	{
+		return EXIT_FAILURE;
+	}
+
+	cargo_parse_result_t parse_result = cargo_parse(cargo, 0, 0, argc, argv);
+	cargo_destroy(&cargo);
+	switch(parse_result)
+	{
+		case CARGO_PARSE_OK:
+			break;
+		case CARGO_PARSE_SHOW_HELP:
+			return EXIT_SUCCESS;
+		default:
+			return EXIT_FAILURE;
+	}
+
 	lip_runtime_t* runtime = lip_create_runtime(lip_default_allocator);
 	lip_context_t* ctx = lip_create_context(runtime, lip_default_allocator);
 	lip_load_builtins(ctx);
