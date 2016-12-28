@@ -43,8 +43,8 @@ ADDR_SAN_FLAGS_0 =
 ADDR_SAN_FLAGS_1 = -fsanitize=address
 ADDR_SAN_FLAGS = $(eval echo \${ADDR_SAN_FLAGS_$WITH_ADDR_SAN})
 
-COMMON_FLAGS = -Iinclude ${THREADING_FLAGS} ${UB_FLAGS} ${ADDR_SAN_FLAGS} ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
-COMPILATION_FLAGS = -g -Wall -Wextra -Werror -pedantic ${LIP_CONFIG_EXTRA_FLAGS}
+COMMON_FLAGS = ${THREADING_FLAGS} ${UB_FLAGS} ${ADDR_SAN_FLAGS} ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
+COMPILATION_FLAGS = -g -Wall -Wextra -Werror -pedantic -Iinclude ${LIP_CONFIG_EXTRA_FLAGS}
 C_FLAGS ?= -std=c99 ${COMPILATION_FLAGS} ${COMMON_FLAGS}
 CPP_FLAGS ?= ${COMPILATION_FLAGS} ${COMMON_FLAGS}
 LINK_FLAGS ?= -g ${COMMON_FLAGS}
@@ -99,18 +99,23 @@ bin/lip: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS CLEAR_ENV
 		cpp_flags="${CPP_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise-ng/include -Ideps/cargo" \
 		libs="bin/liblinenoise-ng.a bin/libcargo.a ${LIBLIP}"
 
-bin/liblip.so: ${LIP_CONFIG_H} << CC C_FLAGS CLEAR_ENV LIP_CONFIG_H
+bin/liblip.so: << CC C_FLAGS CLEAR_ENV LIP_CONFIG_H
 	${CLEAR_ENV}
+	linker="${CC}"
+	c_flags="${C_FLAGS} -DLIP_DYNAMIC=1 -DLIP_BUILDING"
+	${NUMAKE} --depend ${LIP_CONFIG_H}
 	${NUMAKE} dynamic-lib:$@ \
-		c_flags="${C_FLAGS} -DLIP_DYNAMIC=1 -DLIP_BUILDING" \
-		linker="${CC}" \
-		sources="`find src/lip -name '*.cpp' -or -name '*.c'`"
+		c_flags="${c_flags}" \
+		linker="${linker}" \
+		sources="$(find src/lip -name '*.cpp' -or -name '*.c')"
 
-bin/liblip.a: ${LIP_CONFIG_H} << C_FLAGS CLEAR_ENV LIP_CONFIG_H
+bin/liblip.a: << C_FLAGS CLEAR_ENV LIP_CONFIG_H
 	${CLEAR_ENV}
+	c_flags="${C_FLAGS} -DLIP_DYNAMIC=0"
+	${NUMAKE} --depend ${LIP_CONFIG_H}
 	${NUMAKE} static-lib:$@ \
-		c_flags="${C_FLAGS} -DLIP_DYNAMIC=0" \
-		sources="`find src/lip -name '*.cpp' -or -name '*.c'`"
+		c_flags="${c_flags}" \
+		sources="$(find src/lip -name '*.cpp' -or -name '*.c')"
 
 include/lip/gen/%.h: src/lip/%.h.in << c_flags C_FLAGS link_flags LINK_FLAGS linker LINKER cc CC ar AR TRAVIS TRAVIS_COMMIT
 	if test "${TRAVIS}" = "true"; then
