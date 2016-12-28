@@ -4,6 +4,8 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
+#include <string.h>
 #include <lip/lip.h>
 #include <lip/config.h>
 #include <lip/memory.h>
@@ -88,7 +90,7 @@ print_error(lip_context_t* ctx)
 {
 	const lip_context_error_t* err = lip_get_error(ctx);
 	lip_printf(
-		lip_stdout(),
+		lip_stderr(),
 		"Error: %.*s.\n",
 		(int)err->message.length, err->message.ptr
 	);
@@ -96,7 +98,7 @@ print_error(lip_context_t* ctx)
 	{
 		lip_error_record_t* record = &err->records[i];
 		lip_printf(
-			lip_stdout(),
+			lip_stderr(),
 			"  %.*s:%u:%u - %u:%u: %.*s.\n",
 			(int)record->filename.length, record->filename.ptr,
 			record->location.start.line,
@@ -126,9 +128,38 @@ repl_print(lip_repl_handler_t* vtable, lip_exec_status_t status, lip_value_t res
 	}
 }
 
+static bool
+run_script(
+	lip_context_t* ctx,
+	lip_vm_t* vm,
+	lip_string_ref_t filename,
+	lip_in_t* input
+)
+{
+	lip_script_t* script = lip_load_script(ctx, filename, input);
+	if(!script)
+	{
+		print_error(ctx);
+		return false;
+	}
+
+	lip_value_t result;
+	if(lip_exec_script(vm, script, &result) != LIP_EXEC_OK)
+	{
+		print_error(ctx);
+		return false;
+	}
+	else
+	{
+		return true;
+	}
+}
+
 int
 main(int argc, char* argv[])
 {
+	lip_runtime_t* runtime = NULL;
+	int exit_code = EXIT_FAILURE;
 	cargo_t cargo;
 	if(cargo_init(&cargo, 0, argv[0]))
 	{
@@ -138,6 +169,7 @@ main(int argc, char* argv[])
 	bool show_version = false;
 	bool interactive = false;
 	char* exec_string = NULL;
+	char* script_filename = NULL;
 	cargo_add_option(
 		cargo, 0,
 		"--version -v", "Show version information", "b",
@@ -154,17 +186,23 @@ main(int argc, char* argv[])
 		&exec_string
 	);
 	cargo_set_metavar(cargo, "--execute", "STRING");
+	cargo_add_option(
+		cargo, CARGO_OPT_NOT_REQUIRED | CARGO_OPT_STOP,
+		"script", "Script to execute", "s",
+		&script_filename
+	);
+	cargo_set_metavar(cargo, "script", "script");
 
-	cargo_parse_result_t parse_result = cargo_parse(cargo, 0, 0, argc, argv);
+	cargo_parse_result_t parse_result = cargo_parse(cargo, 0, 1, argc, argv);
 	cargo_destroy(&cargo);
 	switch(parse_result)
 	{
 		case CARGO_PARSE_OK:
 			break;
 		case CARGO_PARSE_SHOW_HELP:
-			return EXIT_SUCCESS;
+			quit(EXIT_SUCCESS);
 		default:
-			return EXIT_FAILURE;
+			quit(EXIT_FAILURE);
 	}
 
 	if(show_version)
@@ -184,9 +222,9 @@ main(int argc, char* argv[])
 		);
 	}
 
-	if(show_version && !(interactive || exec_string)) { return EXIT_SUCCESS; }
+	if(show_version && !(interactive || exec_string)) { quit(EXIT_SUCCESS); }
 
-	lip_runtime_t* runtime = lip_create_runtime(lip_default_allocator);
+	runtime = lip_create_runtime(lip_default_allocator);
 	lip_context_t* ctx = lip_create_context(runtime, lip_default_allocator);
 	lip_load_builtins(ctx);
 
@@ -197,30 +235,43 @@ main(int argc, char* argv[])
 	};
 	lip_vm_t* vm = lip_create_vm(ctx, &vm_config);
 
-	int exit_code = EXIT_FAILURE;
-
 	if(exec_string)
 	{
 		lip_string_ref_t cmdline_str_ref = lip_string_ref(exec_string);
 		struct lip_sstream_s sstream;
-		lip_in_t* input = lip_make_sstream(cmdline_str_ref, &sstream);
-		lip_script_t* script =
-			lip_load_script(ctx, lip_string_ref("<cmdline>"), input);
-		if(!script)
-		{
-			print_error(ctx);
-			quit(EXIT_FAILURE);
-		}
 
-		lip_value_t result;
-		if(lip_exec_script(vm, script, &result) != LIP_EXEC_OK)
+		lip_in_t* input = lip_make_sstream(cmdline_str_ref, &sstream);
+
+		if(!run_script(ctx, vm, lip_string_ref("<cmdline>"), input))
 		{
-			print_error(ctx);
 			quit(EXIT_FAILURE);
 		}
 	}
 
-	if(exec_string && !interactive) { quit(EXIT_SUCCESS); }
+	if(exec_string && !(interactive || script_filename)) { quit(EXIT_SUCCESS); }
+
+	if(script_filename)
+	{
+		FILE* file = fopen(script_filename, "rb");
+		if(!file)
+		{
+			lip_printf(
+				lip_stderr(), "lip: cannot open %s: %s\n",
+				script_filename, strerror(errno)
+			);
+			quit(EXIT_FAILURE);
+		}
+
+		struct lip_ifstream_s ifstream;
+		lip_in_t* input = lip_make_ifstream(file, &ifstream);
+
+		bool status = run_script(ctx, vm, lip_string_ref(script_filename), input);
+		fclose(file);
+
+		if(!status)	{ quit(EXIT_FAILURE); }
+	}
+
+	if(script_filename && !interactive) { quit(EXIT_SUCCESS); }
 
 	if(isatty(fileno(stdin)) || interactive)
 	{
@@ -236,24 +287,14 @@ main(int argc, char* argv[])
 	}
 	else
 	{
-		lip_script_t* script = lip_load_script(
-			ctx, lip_string_ref("<stdin>"), lip_stdin()
-		);
-		if(!script)
-		{
-			print_error(ctx);
-			quit(EXIT_FAILURE);
-		}
-
-		lip_value_t result;
-		lip_exec_status_t status = lip_exec_script(vm, script, &result);
-
-		quit(status == LIP_EXEC_OK ? EXIT_SUCCESS : EXIT_FAILURE);
+		bool status = run_script(ctx, vm, lip_string_ref("<stdin>"), lip_stdin());
+		quit(status ? EXIT_SUCCESS : EXIT_FAILURE);
 	}
 
 quit:
 	free(exec_string);
-	lip_destroy_runtime(runtime);
+	free(script_filename);
+	if(runtime) { lip_destroy_runtime(runtime); }
 
 	return exit_code;
 }
