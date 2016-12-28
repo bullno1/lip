@@ -116,13 +116,13 @@ include/lip/gen/%.h: src/lip/%.h.in << c_flags C_FLAGS link_flags LINK_FLAGS lin
 	if test "${TRAVIS}" = "true"; then
 		export LIP_VERSION="ci-${TRAVIS_COMMIT}"
 	else
-		export LIP_VERSION=$(git describe --tags)
+		export LIP_VERSION="$(git describe --tags)"
 	fi
-	export C_FLAGS=${c_flags:-$C_FLAGS}
-	export LINK_FLAGS=${link_flags:-$LINK_FLAGS}
-	export CC=${cc:-$CC}
-	export AR=${ar:-$AR}
-	export LINKER=${linker:-$LINKER}
+	export C_FLAGS="${c_flags:-${C_FLAGS}}"
+	export LINK_FLAGS="${link_flags:-${LINK_FLAGS}}"
+	export CC="${cc:-${CC}}"
+	export AR="${ar:-${AR}}"
+	export LINKER="${linker:-${LINKER}}"
 	mkdir -p $(dirname $@)
 	envsubst < ${deps} > $@
 
