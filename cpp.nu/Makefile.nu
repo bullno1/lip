@@ -33,14 +33,6 @@ ${BUILD_DIR}/%.build-cfg: << BUILD_DIR sources cc CC cxx CXX ar AR linker LINKER
 	mkdir -p ${BUILD_DIR}/$(dirname ${m})
 	${NUMAKE} --env > $@
 
-$BUILD_DIR/%/tmp_output: << BUILD_DIR BUILD_CMD
-	BUILD_SUBDIR=${m%%/*}
-	build_cfg="${BUILD_DIR}/${BUILD_SUBDIR}/.cfg"
-	source ${build_cfg}
-	build_script="${BUILD_DIR}/${BUILD_SUBDIR}/build.${BUILD_TYPE}.ninja"
-	${NUMAKE} --depend ${build_cfg} ${build_script}
-	ninja -f ${build_script}
-
 BUILD_CMD = $(readlink -f build)
 LINK_EXE = $(readlink -f link-exe.ninja)
 LINK_LIB = $(readlink -f link-lib.ninja)

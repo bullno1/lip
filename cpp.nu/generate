@@ -10,7 +10,10 @@ mkdir -p "${BUILD_DIR}/${BUILD_SUBDIR}"
 cp ${build_cfg} "${BUILD_DIR}/${BUILD_SUBDIR}/.cfg"
 echo "BUILD_TYPE=$1" >> "${BUILD_DIR}/${BUILD_SUBDIR}/.cfg"
 
+build_script="${BUILD_DIR}/${BUILD_SUBDIR}/build.$1.ninja"
+${NUMAKE} --depend ${build_script}
+ninja -f ${build_script}
+
 tmp_output="${BUILD_DIR}/${BUILD_SUBDIR}/tmp_output"
-${NUMAKE} --depend ${tmp_output}
 mkdir -p $(dirname $m)
 cp ${tmp_output} $m
