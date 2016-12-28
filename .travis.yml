@@ -11,13 +11,13 @@ addons:
       - clang-3.8
       - ninja-build
 env:
-  - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5' WITH_COVERAGE=1 WITH_THREADING=0 BUILD_DYNAMIC_LIB=0
+  - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5 --std=c++0x -fuse-ld=gold' WITH_COVERAGE=1 WITH_THREADING=0 BUILD_DYNAMIC_LIB=0
   - COMPILER=clang CC=clang-3.8 CXX='clang++-3.8 --std=c++0x' WITH_COVERAGE=0 WITH_THREADING=0 BUILD_DYNAMIC_LIB=0
-  - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5' WITH_COVERAGE=1 WITH_THREADING=1 BUILD_DYNAMIC_LIB=0
+  - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5 --std=c++0x -fuse-ld=gold' WITH_COVERAGE=1 WITH_THREADING=1 BUILD_DYNAMIC_LIB=0
   - COMPILER=clang CC=clang-3.8 CXX='clang++-3.8 --std=c++0x' WITH_COVERAGE=0 WITH_THREADING=1 BUILD_DYNAMIC_LIB=0
-  - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5' WITH_COVERAGE=1 WITH_THREADING=0 BUILD_DYNAMIC_LIB=1
+  - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5 --std=c++0x -fuse-ld=gold' WITH_COVERAGE=1 WITH_THREADING=0 BUILD_DYNAMIC_LIB=1
   - COMPILER=clang CC=clang-3.8 CXX='clang++-3.8 --std=c++0x' WITH_COVERAGE=0 WITH_THREADING=0 BUILD_DYNAMIC_LIB=1
-  - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5' WITH_COVERAGE=1 WITH_THREADING=1 BUILD_DYNAMIC_LIB=1
+  - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5 --std=c++0x -fuse-ld=gold' WITH_COVERAGE=1 WITH_THREADING=1 BUILD_DYNAMIC_LIB=1
   - COMPILER=clang CC=clang-3.8 CXX='clang++-3.8 --std=c++0x' WITH_COVERAGE=0 WITH_THREADING=1 BUILD_DYNAMIC_LIB=1
 install:
   - pip install --user cpp-coveralls
