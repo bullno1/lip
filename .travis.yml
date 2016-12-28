@@ -8,6 +8,7 @@ addons:
     packages:
       - gcc-5
       - clang-3.8
+      - ninja-build
 env:
   - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' WITH_COVERAGE=1 WITH_THREADING=0 BUILD_DYNAMIC_LIB=0
   - COMPILER=clang CC=clang-3.8 WITH_COVERAGE=0 WITH_THREADING=0 BUILD_DYNAMIC_LIB=0

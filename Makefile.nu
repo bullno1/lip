@@ -75,7 +75,7 @@ bin/tests: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS
 	${NUMAKE} exe:$@ \
 		sources="`find src/tests -name '*.cpp' -or -name '*.c'`" \
 		c_flags="${C_FLAGS} -g ${LIBLIP_EXTRA_FLAGS} -Isrc" \
-		cpp_flags="${CPP_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Isrc" \
+		cpp_flags="${CPP_FLAGS} -g ${LIBLIP_EXTRA_FLAGS} -Isrc" \
 		linker="${CC}" \
 		libs="${LIBLIP}"
 
@@ -86,10 +86,12 @@ bin/lip: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS
 		cpp_flags="${CPP_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise-ng/include" \
 		libs="${LIBLIP} bin/liblinenoise-ng.a"
 
-bin/liblip.so: << C_FLAGS
+bin/liblip.so: << CC C_FLAGS
 	${NUMAKE} dynamic-lib:$@ \
 		c_flags="${C_FLAGS} -DLIP_DYNAMIC=1 -DLIP_BUILDING" \
-		sources="`find src/lip -name '*.cpp' -or -name '*.c'`"
+		linker="${CC}" \
+		sources="`find src/lip -name '*.cpp' -or -name '*.c'`" \
+		libs=" "
 
 bin/liblip.a: << C_FLAGS
 	${NUMAKE} static-lib:$@ \
@@ -104,6 +106,11 @@ bin/liblinenoise-ng.a: << C_FLAGS CPP_FLAGS
 
 # Only for vm_dispatch.c, remove -pedantic because we will be using a
 # non-standard extension (computed goto) if it is available
-$BUILD_DIR/%/src/lip/vm_dispatch.c.o: src/lip/vm_dispatch.c << COMPILE cc CC c_flags C_FLAGS
-	${NUMAKE} --depend ${COMPILE} # Compilation depends on the compile script too
-	${COMPILE} "${deps}" "$@" "${cc:-${CC}}" "$(echo ${c_flags:-${C_FLAGS}} | sed 's/-pedantic//g')"
+$BUILD_DIR/%/src/lip/vm_dispatch.c.ninja: << BUILD_DIR COMPILE_CMD
+	BUILD_SUBDIR=${m}
+	build_cfg="${BUILD_DIR}/${BUILD_SUBDIR}/.cfg"
+	source ${build_cfg}
+	c_flags=$(echo ${c_flags:-${C_FLAGS}} | sed 's/-pedantic//g')
+	echo ${c_flags}
+	${COMPILE_CMD} c $@
+	echo "  c_flags = ${c_flags}" >> $@

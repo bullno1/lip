@@ -55,10 +55,26 @@ class Commands(object):
         Commands.__build(DependencyType.ORDER_ONLY, args, env)
 
     @staticmethod
+    def env(args, env):
+        filtered_env = {
+            k:v for k,v in env.items()
+            if not k.startswith("NUMAKE") and k != "m" and (not len(args) > 0 or k in args)
+        }
+        pipe = subprocess.Popen(
+            ["sh", "-c", "export"],
+            env=filtered_env,
+            stdout=subprocess.PIPE
+        )
+        for line in pipe.stdout:
+            line = line.strip().decode('utf-8')
+            if not line.startswith("export OLDPWD=") and not line.startswith("export PWD=") and not line.startswith("export SHLVL=") and not line.startswith("export _="):
+                print(line)
+
+    @staticmethod
     def hash(args, env):
         env_state = {
             k:v for k,v in env.items()
-            if not k.startswith("NUMAKE") and k != "m"
+            if not k.startswith("NUMAKE") and k != "m" and (not len(args) > 0 or k in args)
         }
         json_str = json.dumps(env_state, sort_keys = True)
         print(hashlib.sha1(json_str.encode("utf-8")).hexdigest())

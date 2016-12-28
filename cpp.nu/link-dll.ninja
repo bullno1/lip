@@ -1,0 +1,5 @@
+extra_c_flags = -fvisibility=hidden -fPIC
+extra_cpp_flags = -fvisibility=hidden -fPIC
+
+rule link
+  command = $linker --shared -o $out $objs $link_flags

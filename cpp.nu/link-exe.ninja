@@ -1,0 +1,2 @@
+rule link
+  command = $linker -o $out $objs $link_flags

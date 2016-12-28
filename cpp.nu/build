@@ -1,0 +1,59 @@
+#!/bin/sh -e
+
+`${NUMAKE} --enable-trace`
+${NUMAKE} --depend $0 $1
+
+BUILD_SUBDIR=${m%%/*}
+build_cfg="${BUILD_DIR}/${BUILD_SUBDIR}/.cfg"
+source ${build_cfg}
+${NUMAKE} --depend ${libs}
+lib_meta=$(echo ${libs} | awk '{ for(i = 1; i <= NF; i++) { print $i ".meta"; } }' | xargs)
+${NUMAKE} --depend ${lib_meta}
+
+echo "include $1" > $2
+echo "" >> $2
+echo "linker = ${linker:-$LINKER}" >> $2
+echo "cc = ${cc:-$CC}" >> $2
+echo "cxx = ${cxx:-$CXX}" >> $2
+echo "ar = ${ar:-$AR}" >> $2
+echo "c_flags = ${c_flags:-$C_FLAGS}" >> $2
+echo "cpp_flags = ${cpp_flags:-$CPP_FLAGS}" >> $2
+extra_link_flags=$(cat ${lib_meta} | xargs)
+echo "link_flags = ${link_flags:-$LINK_FLAGS} ${extra_link_flags}" >> $2
+
+echo "" >> $2
+echo "rule compile-c" >> $2
+echo '  command = $cc -c $in -o $out $c_flags $extra_c_flags -MMD -MF $out.d' >> $2
+echo '  depfile = $out.d' >> $2
+echo '  deps = gcc' >> $2
+
+echo "" >> $2
+echo "rule compile-cpp" >> $2
+echo '  command = $cxx -c $in -o $out $cpp_flags $extra_cpp_flags -MMD -MF $out.d' >> $2
+echo '  depfile = $out.d' >> $2
+echo '  deps = gcc' >> $2
+
+echo "" >> $2
+objs=$(
+	echo ${sources} |
+	awk -v BUILD_DIR=${BUILD_DIR} -v BUILD_SUBDIR=${BUILD_SUBDIR} \
+		'{ for(i = 1; i <= NF; i++) { print BUILD_DIR "/" BUILD_SUBDIR "/" $i ".o"; } }' |
+	xargs
+)
+echo "objs = $objs" >> $2
+
+echo "" >> $2
+build_rules=$(
+	echo ${sources} |
+	awk -v BUILD_DIR=${BUILD_DIR} -v BUILD_SUBDIR=${BUILD_SUBDIR} \
+		'{ for(i = 1; i <= NF; i++) { print BUILD_DIR "/" BUILD_SUBDIR "/" $i ".ninja"; } }'
+)
+${NUMAKE} --depend ${build_rules}
+for rule in ${build_rules}
+do
+	echo "include ${rule}" >> $2
+done
+
+echo "" >> $2
+echo "build ${BUILD_DIR}/${BUILD_SUBDIR}/tmp_output: link ${objs}" >> $2
+echo "default ${BUILD_DIR}/${BUILD_SUBDIR}/tmp_output" >> $2

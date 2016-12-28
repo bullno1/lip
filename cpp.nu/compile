@@ -1,16 +1,11 @@
 #!/bin/sh -e
 
-# compile.sh <source> <obj> <compiler> <flags>
-
 `${NUMAKE} --enable-trace`
+${NUMAKE} --depend ${0}
 
-${NUMAKE} --depend ${0} ${1}
-
-# Compile source to object file
-mkdir -p $(dirname $2)
-echo $3 -c $1 -o $2 $4 -MMD -MF $2.d
-$3 -c $1 -o $2 $4 -MMD -MF $2.d
-
-# Add headers dependency
-headers=$(sed -e :a -e '/\\$/N; s/\\\n//; ta' "$2.d" | cut -d' ' -f3-)
-${NUMAKE} --depend ${headers}
+BUILD_SUBDIR=${m%%/*}
+BUILD_PREFIX=${BUILD_DIR}/${BUILD_SUBDIR}
+source=${2%.ninja}
+source=${source#$BUILD_PREFIX/}
+mkdir -p $(dirname ${2})
+echo "build ${2%.ninja}.o: compile-${1} ${source}" >> $2

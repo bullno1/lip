@@ -7,72 +7,58 @@ C_FLAGS ?= -Wall
 CPP_FLAGS ?= -Wall
 LINK_FLAGS ?=
 
+GENERATE_CMD = $(readlink -f generate)
+
+clean: << BUILD_DIR ! live
+	find ${BUILD_DIR} -name 'build.*.ninja' \
+		-exec ninja -f {} -t clean -r compile-cpp compile-c link \; || true
+	${NUMAKE} --clean
+
 # A phony rule to register target as an executable
-exe:%: << BUILD_DIR cc CC c_flags C_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX ! live
-	BUILD_SUBDIR=$(${NUMAKE} --hash)
-	tmp_output="${BUILD_DIR}/${BUILD_SUBDIR}/${m}.exe"
-	${NUMAKE} --depend BUILD_SUBDIR=${BUILD_SUBDIR} ${tmp_output}
-	mkdir -p $(dirname ${m})
-	cp ${tmp_output} ${m}
+exe:%: << BUILD_DIR GENERATE_CMD ! live
+	${GENERATE_CMD} exe
 
 # A phony rule to register target as a static library
-static-lib:%: << BUILD_DIR cc CC c_flags C_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX ! live
-	BUILD_SUBDIR=$(${NUMAKE} --hash)
-	tmp_output="${BUILD_DIR}/${BUILD_SUBDIR}/${m}.lib"
-	${NUMAKE} --depend BUILD_SUBDIR=${BUILD_SUBDIR} ${tmp_output}
-	mkdir -p $(dirname ${m})
-	cp ${tmp_output} ${m}
+static-lib:%: << BUILD_DIR GENERATE_CMD ! live
+	${GENERATE_CMD} lib
 	echo "-L$(dirname ${m}) -l:$(basename ${m})" > "${m}.meta"
 
 # A phony rule to register target as a dynamic library
-dynamic-lib:%: << BUILD_DIR cc CC c_flags C_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX ! live
-	BUILD_SUBDIR=$(${NUMAKE} --hash)
-	tmp_output="${BUILD_DIR}/${BUILD_SUBDIR}/${m}.dll"
-	${NUMAKE} --depend BUILD_SUBDIR=${BUILD_SUBDIR} ${tmp_output}
-	mkdir -p $(dirname ${m})
-	cp ${tmp_output} ${m}
-	echo "-Wl,-rpath=\$ORIGIN -L$(dirname ${m}) -l:$(basename ${m})" > "${m}.meta"
+dynamic-lib:%: << BUILD_DIR GENERATE_CMD linker ! live
+	${GENERATE_CMD} dll
+	echo "-Wl,-rpath=\\\\$\$ORIGIN -L$(dirname ${m}) -l:$(basename ${m})" > "${m}.meta"
 
-# All target types require a similar compilation step
-COMPILE_SOURCES = $(readlink -f compile-sources)
+${BUILD_DIR}/%.build-cfg: << BUILD_DIR sources cc CC cxx CXX ar AR linker LINKER c_flags C_FLAGS cpp_flags CPP_FLAGS link_flags LINK_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX
+	export BUILD_SUBDIR="$(${NUMAKE} --hash)"
+	mkdir -p ${BUILD_DIR}/$(dirname ${m})
+	${NUMAKE} --env > $@
 
-$BUILD_DIR/%.exe: << COMPILE_SOURCES sources BUILD_DIR BUILD_SUBDIR linker LINKER link_flags LINK_FLAGS libs
-	${NUMAKE} --depend ${libs}
-	mkdir -p $(dirname $@)
-	${COMPILE_SOURCES} "$@.objs"
-	objs=$(cat $@.objs)
-	extra_flags=$(
-		echo ${libs} | awk '{ for(i = 1; i <= NF; i++) { print $i ".meta"; } }' | xargs cat
-	)
-	echo ${linker:-${LINKER}} -o $@ ${link_flags:-${LINK_FLAGS}} ${objs} ${extra_flags}
-	${linker:-${LINKER}} -o $@ ${link_flags:-${LINK_FLAGS}} ${objs} ${extra_flags}
+$BUILD_DIR/%/tmp_output: << BUILD_DIR BUILD_CMD
+	BUILD_SUBDIR=${m%%/*}
+	build_cfg="${BUILD_DIR}/${BUILD_SUBDIR}/.cfg"
+	source ${build_cfg}
+	build_script="${BUILD_DIR}/${BUILD_SUBDIR}/build.${BUILD_TYPE}.ninja"
+	${NUMAKE} --depend ${build_cfg} ${build_script}
+	ninja -f ${build_script}
 
-$BUILD_DIR/%.lib: << COMPILE_SOURCES sources BUILD_DIR BUILD_SUBDIR ar AR
-	mkdir -p $(dirname $@)
-	${COMPILE_SOURCES} "$@.objs"
-	objs=$(cat $@.objs)
-	echo ${ar:-${AR}} rcs $@ ${objs}
-	${ar:-${AR}} rcs $@ ${objs}
+BUILD_CMD = $(readlink -f build)
+LINK_EXE = $(readlink -f link-exe.ninja)
+LINK_LIB = $(readlink -f link-lib.ninja)
+LINK_DLL = $(readlink -f link-dll.ninja)
 
-$BUILD_DIR/%.dll: << COMPILE_SOURCES sources BUILD_DIR BUILD_SUBDIR linker LINKER c_flags C_FLAGS link_flags LINK_FLAGS
-	${NUMAKE} --depend ${libs}
-	mkdir -p $(dirname $@)
-	export c_flags="${c_flags:-${C_FLAGS}} -fPIC -fvisibility=hidden -ffunction-sections -fdata-sections"
-	${COMPILE_SOURCES} "$@.objs"
-	objs=$(cat $@.objs)
-	mkdir -p $(dirname $@)
-	echo ${linker:-${LINKER}} -fvisibility=hidden -ffunction-sections -fdata-sections -Wl,-gc-sections -shared -o $@ ${link_flags:-${LINK_FLAGS}} ${objs}
-	${linker:-${LINKER}} -fvisibility=hidden -ffunction-sections -fdata-sections -Wl,-gc-sections --shared -o $@ ${link_flags:-${LINK_FLAGS}} ${objs}
+$BUILD_DIR/%/build.exe.ninja: << BUILD_DIR BUILD_CMD LINK_EXE libs
+	${BUILD_CMD} ${LINK_EXE} $@
 
-# Compiling *.cpp and compiling *.c are pretty similar so we extract the common
-# parts into a shell script
+$BUILD_DIR/%/build.lib.ninja: << BUILD_DIR BUILD_CMD LINK_LIB
+	${BUILD_CMD} ${LINK_LIB} $@
 
-COMPILE = $(readlink -f compile)
+$BUILD_DIR/%/build.dll.ninja: << BUILD_DIR BUILD_CMD LINK_DLL libs
+	${BUILD_CMD} ${LINK_DLL} $@
 
-$BUILD_DIR/%.c.o: << BUILD_SUBDIR COMPILE cc CC c_flags C_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX
-	source="${m#$BUILD_SUBDIR/}.c"
-	${COMPILE} "${source}" "$@" "${cc:-${CC}}" "${c_flags:-${C_FLAGS}}"
+COMPILE_CMD = $(readlink -f compile)
 
-$BUILD_DIR/%.cpp.o: << BUILD_SUBDIR COMPILE compile cxx CXX cpp_flags CPP_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX
-	source="${m#$BUILD_SUBDIR/}.cpp"
-	${COMPILE} "${source}" "$@" "${cxx:-${CXX}}" "${cpp_flags:-${C_FLAGS}}"
+$BUILD_DIR/%.c.ninja: << BUILD_DIR COMPILE_CMD
+	${COMPILE_CMD} c $@
+
+$BUILD_DIR/%.cpp.ninja: << BUILD_DIR COMPILE_CMD
+	${COMPILE_CMD} cpp $@
