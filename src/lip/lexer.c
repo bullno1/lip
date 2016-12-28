@@ -256,10 +256,10 @@ lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 			case '"':
 				lip_lexer_reset_capture(lexer);
 				lip_lexer_begin_capture(lexer);
+				char previous_char = ch;
 				while(lip_lexer_peek_char(lexer, &ch))
 				{
-					// TODO: handle \"
-					if(ch == '"')
+					if(ch == '"' && previous_char != '\\')
 					{
 						lip_lexer_make_token(lexer, token, LIP_TOKEN_STRING);
 						++token->location.end.column; // include '"'
@@ -269,6 +269,15 @@ lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 					else
 					{
 						lip_lexer_consume_char(lexer);
+					}
+
+					if(ch == '\\' && previous_char == '\\')
+					{
+						previous_char = 0;
+					}
+					else
+					{
+						previous_char = ch;
 					}
 				}
 

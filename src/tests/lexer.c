@@ -40,6 +40,8 @@ normal(const MunitParameter params[], void* fixture)
 		"\n"
 		"test-23 -3 -ve -\r\n"
 		"\n"
+		" \"f \\\"\"\n"
+		"  \" \\\\\""
 	);
 
 	struct lip_sstream_s sstream;
@@ -111,6 +113,22 @@ normal(const MunitParameter params[], void* fixture)
 			.location = {
 				.start = {.line = 6, .column = 16},
 				.end = {.line = 6, .column = 16}
+			}
+		},
+		{
+			.type = LIP_TOKEN_STRING,
+			.lexeme = lip_string_ref("f \\\""),
+			.location = {
+				.start = {.line = 8, .column = 2},
+				.end = {.line = 8, .column = 7}
+			}
+		},
+		{
+			.type = LIP_TOKEN_STRING,
+			.lexeme = lip_string_ref(" \\\\"),
+			.location = {
+				.start = {.line = 9, .column = 3},
+				.end = {.line = 9, .column = 7}
 			}
 		},
 	};
