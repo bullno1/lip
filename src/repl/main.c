@@ -20,7 +20,10 @@
 #include <unistd.h>
 #endif
 
+#define quit(code) exit_code = code; goto quit;
+
 typedef struct repl_context_s repl_context_t;
+typedef struct args_s args_t;
 typedef struct program_state_s program_state_t;
 
 struct repl_context_s
@@ -30,13 +33,6 @@ struct repl_context_s
 	char* line_buff;
 	size_t read_pos;
 	size_t buff_len;
-};
-
-struct program_state_s
-{
-	lip_runtime_t* runtime;
-	lip_context_t* context;
-	lip_vm_config_t vm_config;
 };
 
 static size_t
@@ -130,41 +126,6 @@ repl_print(lip_repl_handler_t* vtable, lip_exec_status_t status, lip_value_t res
 	}
 }
 
-static int
-repl(program_state_t* prog)
-{
-	lip_vm_t* vm = lip_create_vm(prog->context, &prog->vm_config);
-	struct repl_context_s repl_context = {
-		.read_pos = 1,
-		.ctx = prog->context,
-		.vtable = { .read = repl_read, .print = repl_print }
-	};
-	linenoiseInstallWindowChangeHandler();
-	lip_repl(vm, lip_string_ref("<stdin>"), &repl_context.vtable);
-	lip_free(lip_default_allocator, repl_context.line_buff);
-
-	return EXIT_SUCCESS;
-}
-
-static int
-run_script(program_state_t* prog)
-{
-	lip_script_t* script = lip_load_script(
-		prog->context, lip_string_ref("<stdin>"), lip_stdin()
-	);
-	if(!script)
-	{
-		print_error(prog->context);
-		return EXIT_FAILURE;
-	}
-
-	lip_vm_t* vm = lip_create_vm(prog->context, &prog->vm_config);
-	lip_value_t result;
-	lip_exec_status_t status = lip_exec_script(vm, script, &result);
-
-	return status == LIP_EXEC_OK ? EXIT_SUCCESS : EXIT_FAILURE;
-}
-
 int
 main(int argc, char* argv[])
 {
@@ -174,18 +135,25 @@ main(int argc, char* argv[])
 		return EXIT_FAILURE;
 	}
 
-	program_state_t program_state = {
-		.vm_config = {
-			.os_len = 256,
-			.cs_len = 256,
-			.env_len = 256
-		}
-	};
-
-	bool show_version;
+	bool show_version = false;
+	bool interactive = false;
+	char* exec_string = NULL;
 	cargo_add_option(
-		cargo, 0, "--version -v", "Show version information", "b", &show_version
+		cargo, 0,
+		"--version -v", "Show version information", "b",
+		&show_version
 	);
+	cargo_add_option(
+		cargo, 0,
+		"--interactive -i", "Enter interactive mode after executing script", "b",
+		&interactive
+	);
+	cargo_add_option(
+		cargo, 0,
+		"--execute -e", "Execute STRING", "s",
+		&exec_string
+	);
+	cargo_set_metavar(cargo, "--execute", "STRING");
 
 	cargo_parse_result_t parse_result = cargo_parse(cargo, 0, 0, argc, argv);
 	cargo_destroy(&cargo);
@@ -216,21 +184,76 @@ main(int argc, char* argv[])
 		);
 	}
 
-	program_state.runtime = lip_create_runtime(lip_default_allocator);
-	program_state.context = lip_create_context(program_state.runtime, lip_default_allocator);
-	lip_load_builtins(program_state.context);
+	if(show_version && !(interactive || exec_string)) { return EXIT_SUCCESS; }
 
-	int exit_code;
-	if(isatty(fileno(stdin)))
+	lip_runtime_t* runtime = lip_create_runtime(lip_default_allocator);
+	lip_context_t* ctx = lip_create_context(runtime, lip_default_allocator);
+	lip_load_builtins(ctx);
+
+	lip_vm_config_t vm_config = {
+		.os_len = 256,
+		.cs_len = 256,
+		.env_len = 256
+	};
+	lip_vm_t* vm = lip_create_vm(ctx, &vm_config);
+
+	int exit_code = EXIT_FAILURE;
+
+	if(exec_string)
 	{
-		exit_code = repl(&program_state);
+		lip_string_ref_t cmdline_str_ref = lip_string_ref(exec_string);
+		struct lip_sstream_s sstream;
+		lip_in_t* input = lip_make_sstream(cmdline_str_ref, &sstream);
+		lip_script_t* script =
+			lip_load_script(ctx, lip_string_ref("<cmdline>"), input);
+		if(!script)
+		{
+			print_error(ctx);
+			quit(EXIT_FAILURE);
+		}
+
+		lip_value_t result;
+		if(lip_exec_script(vm, script, &result) != LIP_EXEC_OK)
+		{
+			print_error(ctx);
+			quit(EXIT_FAILURE);
+		}
+	}
+
+	if(exec_string && !interactive) { quit(EXIT_SUCCESS); }
+
+	if(isatty(fileno(stdin)) || interactive)
+	{
+		struct repl_context_s repl_context = {
+			.read_pos = 1,
+			.ctx = ctx,
+			.vtable = { .read = repl_read, .print = repl_print }
+		};
+		linenoiseInstallWindowChangeHandler();
+		lip_repl(vm, lip_string_ref("<stdin>"), &repl_context.vtable);
+		lip_free(lip_default_allocator, repl_context.line_buff);
+		quit(EXIT_SUCCESS);
 	}
 	else
 	{
-		exit_code = run_script(&program_state);
+		lip_script_t* script = lip_load_script(
+			ctx, lip_string_ref("<stdin>"), lip_stdin()
+		);
+		if(!script)
+		{
+			print_error(ctx);
+			quit(EXIT_FAILURE);
+		}
+
+		lip_value_t result;
+		lip_exec_status_t status = lip_exec_script(vm, script, &result);
+
+		quit(status == LIP_EXEC_OK ? EXIT_SUCCESS : EXIT_FAILURE);
 	}
 
-	lip_destroy_runtime(program_state.runtime);
+quit:
+	free(exec_string);
+	lip_destroy_runtime(runtime);
 
 	return exit_code;
 }
