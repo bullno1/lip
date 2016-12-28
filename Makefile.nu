@@ -45,9 +45,10 @@ LINK_FLAGS ?= -g ${COMMON_FLAGS}
 
 all: tests bin/lip ! live
 
-tests: bin/tests ! live
+tests: bin/lip bin/tests ! live
 	echo "-------------------------------------"
 	bin/tests --color always
+	[ "$(echo '(print (identity true))' | bin/lip)" == "true" ]
 
 test:%: bin/tests ! live << SEED
 	echo "-------------------------------------"
