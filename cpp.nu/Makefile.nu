@@ -7,6 +7,8 @@ C_FLAGS ?= -Wall
 CPP_FLAGS ?= -Wall
 LINK_FLAGS ?=
 
+CLEAR_ENV = . $(readlink -f clear-env)
+
 GENERATE_CMD = $(readlink -f generate)
 
 clean: << BUILD_DIR ! live
@@ -28,10 +30,10 @@ dynamic-lib:%: << BUILD_DIR GENERATE_CMD linker ! live
 	${GENERATE_CMD} dll
 	echo "-Wl,-rpath=\\'\$\$ORIGIN\\' -L$(dirname ${m}) -l:$(basename ${m})" > "${m}.meta"
 
-${BUILD_DIR}/%.build-cfg: << BUILD_DIR sources cc CC cxx CXX ar AR linker LINKER c_flags C_FLAGS cpp_flags CPP_FLAGS link_flags LINK_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX
+${BUILD_DIR}/%.build-cfg: << BUILD_DIR sources libs cc CC cxx CXX ar AR linker LINKER c_flags C_FLAGS cpp_flags CPP_FLAGS link_flags LINK_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX
 	export BUILD_SUBDIR="$(${NUMAKE} --hash)"
 	mkdir -p ${BUILD_DIR}/$(dirname ${m})
-	${NUMAKE} --env > $@
+	${NUMAKE} --env | tee $@
 
 BUILD_CMD = $(readlink -f build)
 LINK_EXE = $(readlink -f link-exe.ninja)

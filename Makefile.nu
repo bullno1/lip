@@ -71,7 +71,8 @@ cover: tests
 		--html --html-details \
 		--output $@/index.html
 
-bin/tests: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS
+bin/tests: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS CLEAR_ENV
+	${CLEAR_ENV}
 	${NUMAKE} exe:$@ \
 		sources="`find src/tests -name '*.cpp' -or -name '*.c'`" \
 		c_flags="${C_FLAGS} -g ${LIBLIP_EXTRA_FLAGS} -Isrc" \
@@ -79,25 +80,29 @@ bin/tests: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS
 		linker="${CC}" \
 		libs="${LIBLIP}"
 
-bin/lip: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS
+bin/lip: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS CLEAR_ENV
+	${CLEAR_ENV}
 	${NUMAKE} exe:$@ \
 		sources="`find src/repl -name '*.cpp' -or -name '*.c'`" \
-		c_flags="${C_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise-ng/include" \
-		cpp_flags="${CPP_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise-ng/include" \
-		libs="${LIBLIP} bin/liblinenoise-ng.a"
+		c_flags="${C_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise-ng/include -Ideps/cargo" \
+		cpp_flags="${CPP_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise-ng/include -Ideps/cargo" \
+		libs="bin/liblinenoise-ng.a bin/libcargo.a ${LIBLIP}"
 
-bin/liblip.so: << CC C_FLAGS
+bin/liblip.so: << CC C_FLAGS CLEAR_ENV
+	${CLEAR_ENV}
 	${NUMAKE} dynamic-lib:$@ \
 		c_flags="${C_FLAGS} -DLIP_DYNAMIC=1 -DLIP_BUILDING" \
 		linker="${CC}" \
 		sources="`find src/lip -name '*.cpp' -or -name '*.c'`"
 
-bin/liblip.a: << C_FLAGS
+bin/liblip.a: << C_FLAGS CLEAR_ENV
+	${CLEAR_ENV}
 	${NUMAKE} static-lib:$@ \
 		c_flags="${C_FLAGS} -DLIP_DYNAMIC=0" \
 		sources="`find src/lip -name '*.cpp' -or -name '*.c'`"
 
-bin/liblinenoise-ng.a: << C_FLAGS CPP_FLAGS
+bin/liblinenoise-ng.a: << C_FLAGS CPP_FLAGS CLEAR_ENV
+	${CLEAR_ENV}
 	${NUMAKE} static-lib:$@ \
 		c_flags="${C_FLAGS} -Ideps/linenoise-ng/include" \
 		cpp_flags="${CPP_FLAGS} -Ideps/linenoise-ng/include" \
