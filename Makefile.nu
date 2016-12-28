@@ -55,6 +55,8 @@ all: tests bin/lip ! live
 
 tests: bin/lip bin/tests ! live
 	echo "-------------------------------------"
+	bin/lip -v
+	echo "-------------------------------------"
 	bin/tests --color always
 	test "$(echo '(print (identity true))' | bin/lip)" = "true"
 
