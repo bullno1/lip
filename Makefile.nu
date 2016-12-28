@@ -1,3 +1,11 @@
+GENERATE_CONFIG_H ?= 1
+LIP_CONFIG_H_0 =
+LIP_CONFIG_H_1 = include/lip/gen/config.h
+LIP_CONFIG_H = $(eval echo \${LIP_CONFIG_H_$GENERATE_CONFIG_H})
+LIP_CONFIG_EXTRA_FLAGS_0 =
+LIP_CONFIG_EXTRA_FLAGS_1 = -DLIP_HAVE_CONFIG_H
+LIP_CONFIG_EXTRA_FLAGS = $(eval echo \${LIP_CONFIG_EXTRA_FLAGS_$GENERATE_CONFIG_H})
+
 BUILD_DYNAMIC_LIB ?= 1
 LIBLIP_0 = bin/liblip.a
 LIBLIP_1 = bin/liblip.so
@@ -36,7 +44,7 @@ ADDR_SAN_FLAGS_1 = -fsanitize=address
 ADDR_SAN_FLAGS = $(eval echo \${ADDR_SAN_FLAGS_$WITH_ADDR_SAN})
 
 COMMON_FLAGS = -Iinclude ${THREADING_FLAGS} ${UB_FLAGS} ${ADDR_SAN_FLAGS} ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
-COMPILATION_FLAGS = -g -Wall -Wextra -Werror -pedantic
+COMPILATION_FLAGS = -g -Wall -Wextra -Werror -pedantic ${LIP_CONFIG_EXTRA_FLAGS}
 C_FLAGS ?= -std=c99 ${COMPILATION_FLAGS} ${COMMON_FLAGS}
 CPP_FLAGS ?= ${COMPILATION_FLAGS} ${COMMON_FLAGS}
 LINK_FLAGS ?= -g ${COMMON_FLAGS}
@@ -89,18 +97,28 @@ bin/lip: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS CLEAR_ENV
 		cpp_flags="${CPP_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise-ng/include -Ideps/cargo" \
 		libs="bin/liblinenoise-ng.a bin/libcargo.a ${LIBLIP}"
 
-bin/liblip.so: << CC C_FLAGS CLEAR_ENV
+bin/liblip.so: ${LIP_CONFIG_H} << CC C_FLAGS CLEAR_ENV LIP_CONFIG_H
 	${CLEAR_ENV}
 	${NUMAKE} dynamic-lib:$@ \
 		c_flags="${C_FLAGS} -DLIP_DYNAMIC=1 -DLIP_BUILDING" \
 		linker="${CC}" \
 		sources="`find src/lip -name '*.cpp' -or -name '*.c'`"
 
-bin/liblip.a: << C_FLAGS CLEAR_ENV
+bin/liblip.a: ${LIP_CONFIG_H} << C_FLAGS CLEAR_ENV LIP_CONFIG_H
 	${CLEAR_ENV}
 	${NUMAKE} static-lib:$@ \
 		c_flags="${C_FLAGS} -DLIP_DYNAMIC=0" \
 		sources="`find src/lip -name '*.cpp' -or -name '*.c'`"
+
+include/lip/gen/%.h: src/lip/%.h.in << c_flags C_FLAGS link_flags LINK_FLAGS linker LINKER cc CC ar AR
+	export LIP_VERSION=$(git describe --tags)
+	export C_FLAGS=${c_flags:-$C_FLAGS}
+	export LINK_FLAGS=${link_flags:-$LINK_FLAGS}
+	export CC=${cc:-$CC}
+	export AR=${ar:-$AR}
+	export LINKER=${linker:-$LINKER}
+	mkdir -p $(dirname $@)
+	envsubst < ${deps} > $@
 
 bin/liblinenoise-ng.a: << C_FLAGS CPP_FLAGS CLEAR_ENV
 	${CLEAR_ENV}

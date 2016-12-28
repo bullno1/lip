@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <lip/lip.h>
+#include <lip/config.h>
 #include <lip/memory.h>
 #include <lip/io.h>
 #include <lip/print.h>
@@ -173,6 +174,19 @@ main(int argc, char* argv[])
 		return EXIT_FAILURE;
 	}
 
+	program_state_t program_state = {
+		.vm_config = {
+			.os_len = 256,
+			.cs_len = 256,
+			.env_len = 256
+		}
+	};
+
+	bool show_version;
+	cargo_add_option(
+		cargo, 0, "--version -v", "Show version information", "b", &show_version
+	);
+
 	cargo_parse_result_t parse_result = cargo_parse(cargo, 0, 0, argc, argv);
 	cargo_destroy(&cargo);
 	switch(parse_result)
@@ -185,21 +199,26 @@ main(int argc, char* argv[])
 			return EXIT_FAILURE;
 	}
 
-	lip_runtime_t* runtime = lip_create_runtime(lip_default_allocator);
-	lip_context_t* ctx = lip_create_context(runtime, lip_default_allocator);
-	lip_load_builtins(ctx);
+	if(show_version)
+	{
+		lip_printf(
+			lip_stdout(),
+			"lip %s [threading-api:%s]\n"
+			"\n"
+			"Compiler: %s\n"
+			"Linker: %s\n"
+			"Compile flags: %s\n"
+			"Link flags: %s\n"
+			"\n",
+			LIP_VERSION, LIP_THREADING_API,
+			LIP_COMPILER, LIP_LINKER,
+			LIP_COMPILE_FLAGS, LIP_LINK_FLAGS
+		);
+	}
 
-	lip_vm_config_t vm_config = {
-		.os_len = 256,
-		.cs_len = 256,
-		.env_len = 256
-	};
-
-	program_state_t program_state = {
-		.runtime = runtime,
-		.context = ctx,
-		.vm_config = vm_config
-	};
+	program_state.runtime = lip_create_runtime(lip_default_allocator);
+	program_state.context = lip_create_context(program_state.runtime, lip_default_allocator);
+	lip_load_builtins(program_state.context);
 
 	int exit_code;
 	if(isatty(fileno(stdin)))
@@ -211,7 +230,7 @@ main(int argc, char* argv[])
 		exit_code = run_script(&program_state);
 	}
 
-	lip_destroy_runtime(runtime);
+	lip_destroy_runtime(program_state.runtime);
 
 	return exit_code;
 }

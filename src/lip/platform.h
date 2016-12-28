@@ -6,36 +6,24 @@
 #endif
 
 #include <lip/common.h>
+#include <lip/config.h>
 
-#if defined(LIP_SINGLE_THREADED)
-
-#define LIP_THREADING_DUMMY "dummy"
-#define LIP_THREADING_API LIP_THREADING_DUMMY
+#if defined(LIP_THREADING_DUMMY)
 
 typedef char lip_rwlock_t;
 
-#elif defined(__linux__)
+#elif defined(LIP_THREADING_PTHREAD)
 
 #include <pthread.h>
 
-#define LIP_THREADING_PTHREAD "pthread"
-#define LIP_THREADING_API LIP_THREADING_PTHREAD
-
 typedef pthread_rwlock_t lip_rwlock_t;
 
-#elif defined(_WIN32) || defined(_WIN64)
-
-#define LIP_THREADING_WINAPI "winapi"
-#define LIP_THREADING_API LIP_THREADING_WINAPI
+#elif defined(LIP_THREADING_WINAPI)
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 typedef SRWLOCK lip_rwlock_t;
-
-#else
-
-#	error "Unsupported platform"
 
 #endif
 
