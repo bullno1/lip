@@ -117,11 +117,11 @@ bin/libcargo.a: << CLEAR_ENV
 
 # Only for vm_dispatch.c, remove -pedantic because we will be using a
 # non-standard extension (computed goto) if it is available
-$BUILD_DIR/%/src/lip/vm_dispatch.c.ninja: << BUILD_DIR COMPILE_CMD
+$BUILD_DIR/%/src/lip/vm_dispatch.c.ninja: << BUILD_DIR CPPNU_DIR
 	BUILD_SUBDIR=${m}
 	build_cfg="${BUILD_DIR}/${BUILD_SUBDIR}/.cfg"
 	. ${build_cfg}
 	c_flags=$(echo ${c_flags:-${C_FLAGS}} | sed 's/-pedantic//g')
 	echo ${c_flags}
-	${COMPILE_CMD} c $@
+	${CPPNU_DIR}/compile c $@
 	echo "  c_flags = ${c_flags}" >> $@
