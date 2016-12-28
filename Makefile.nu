@@ -90,8 +90,7 @@ bin/liblip.so: << CC C_FLAGS
 	${NUMAKE} dynamic-lib:$@ \
 		c_flags="${C_FLAGS} -DLIP_DYNAMIC=1 -DLIP_BUILDING" \
 		linker="${CC}" \
-		sources="`find src/lip -name '*.cpp' -or -name '*.c'`" \
-		libs=" "
+		sources="`find src/lip -name '*.cpp' -or -name '*.c'`"
 
 bin/liblip.a: << C_FLAGS
 	${NUMAKE} static-lib:$@ \
@@ -109,7 +108,7 @@ bin/liblinenoise-ng.a: << C_FLAGS CPP_FLAGS
 $BUILD_DIR/%/src/lip/vm_dispatch.c.ninja: << BUILD_DIR COMPILE_CMD
 	BUILD_SUBDIR=${m}
 	build_cfg="${BUILD_DIR}/${BUILD_SUBDIR}/.cfg"
-	source ${build_cfg}
+	. ${build_cfg}
 	c_flags=$(echo ${c_flags:-${C_FLAGS}} | sed 's/-pedantic//g')
 	echo ${c_flags}
 	${COMPILE_CMD} c $@

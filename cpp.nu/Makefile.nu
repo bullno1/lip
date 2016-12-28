@@ -26,7 +26,7 @@ static-lib:%: << BUILD_DIR GENERATE_CMD ! live
 # A phony rule to register target as a dynamic library
 dynamic-lib:%: << BUILD_DIR GENERATE_CMD linker ! live
 	${GENERATE_CMD} dll
-	echo "-Wl,-rpath=\\\\$\$ORIGIN -L$(dirname ${m}) -l:$(basename ${m})" > "${m}.meta"
+	echo "-Wl,-rpath=\\'\$\$ORIGIN\\' -L$(dirname ${m}) -l:$(basename ${m})" > "${m}.meta"
 
 ${BUILD_DIR}/%.build-cfg: << BUILD_DIR sources cc CC cxx CXX ar AR linker LINKER c_flags C_FLAGS cpp_flags CPP_FLAGS link_flags LINK_FLAGS CCC_ANALYZER_ANALYSIS CCC_ANALYZER_CONFIG CCC_ANALYZER_FORCE_ANALYZE_DEBUG_CODE CCC_ANALYZER_HTML CCC_ANALYZER_OUTPUT_FORMAT CCC_ANALYZER_PLUGINS CLANG CLANG_CXX
 	export BUILD_SUBDIR="$(${NUMAKE} --hash)"

@@ -5,8 +5,20 @@ ${NUMAKE} --depend $0 $1
 
 BUILD_SUBDIR=${m%%/*}
 build_cfg="${BUILD_DIR}/${BUILD_SUBDIR}/.cfg"
-source ${build_cfg}
-${NUMAKE} --depend ${libs}
+. ${build_cfg}
+(
+	DEPS=${libs}
+	export libs=
+	export sources=
+	export cc=
+	export cxx=
+	export ar=
+	export linker=
+	export c_flags=
+	export cpp_flags=
+	export link_flags=
+	${NUMAKE} --depend ${DEPS}
+)
 lib_meta=$(echo ${libs} | awk '{ for(i = 1; i <= NF; i++) { print $i ".meta"; } }' | xargs)
 ${NUMAKE} --depend ${lib_meta}
 

@@ -5,7 +5,7 @@ ${NUMAKE} --depend $0
 
 build_cfg="${BUILD_DIR}/$m.build-cfg"
 ${NUMAKE} --depend ${build_cfg}
-source ${build_cfg}
+. ${build_cfg}
 mkdir -p "${BUILD_DIR}/${BUILD_SUBDIR}"
 cp ${build_cfg} "${BUILD_DIR}/${BUILD_SUBDIR}/.cfg"
 echo "BUILD_TYPE=$1" >> "${BUILD_DIR}/${BUILD_SUBDIR}/.cfg"
