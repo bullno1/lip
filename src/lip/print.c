@@ -282,8 +282,10 @@ lip_print_ast(
 )
 {
 	lip_printf(
-		output, "%s",
-		lip_ast_type_t_to_str(ast->type) + sizeof("LIP_AST_") - 1
+		output, "%s (%u:%u - %u:%u)",
+		lip_ast_type_t_to_str(ast->type) + sizeof("LIP_AST_") - 1,
+		ast->location.start.line, ast->location.start.column,
+		ast->location.end.line, ast->location.end.column
 	);
 
 	if(depth == 0)
@@ -366,10 +368,7 @@ lip_print_ast(
 			break;
 		case LIP_AST_DO:
 			lip_printf(output, "\n");
-			lip_print_ast_block(
-				depth - 1, indent + 1, output,
-				ast->data.lambda.body
-			);
+			lip_print_ast_block(depth - 1, indent + 1, output, ast->data.do_);
 			break;
 		case LIP_AST_LET:
 		case LIP_AST_LETREC:
