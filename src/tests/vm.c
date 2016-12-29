@@ -12,14 +12,13 @@ struct dummy_runtime_interface_s
 	lip_allocator_t* allocator;
 };
 
-static lip_closure_t*
-alloc_closure(lip_runtime_interface_t* vtable, uint8_t env_len)
+static void*
+rt_malloc(lip_runtime_interface_t* vtable, lip_value_type_t type, size_t size)
 {
+	(void)type;
 	struct dummy_runtime_interface_s* self =
 		LIP_CONTAINER_OF(vtable, struct dummy_runtime_interface_s, vtable);
-	return lip_malloc(
-		self->allocator, sizeof(lip_closure_t) + sizeof(lip_value_t) * env_len
-	);
+	return lip_malloc(self->allocator, size);
 }
 
 lip_vm_t*
@@ -149,7 +148,7 @@ fibonacci(const MunitParameter params[], void* fixture)
 	};
 	struct dummy_runtime_interface_s rt = {
 		.allocator = arena_allocator,
-		.vtable = { .alloc_closure = alloc_closure }
+		.vtable = { .malloc = rt_malloc }
 	};
 	lip_vm_t* vm = lip_vm_create(lip_default_allocator, &vm_config, &rt.vtable);
 	lip_vm_t old_vm_state = *vm;
@@ -203,7 +202,7 @@ call_native(const MunitParameter params[], void* fixture)
 	};
 	struct dummy_runtime_interface_s rt = {
 		.allocator = arena_allocator,
-		.vtable = { .alloc_closure = alloc_closure }
+		.vtable = { .malloc = rt_malloc }
 	};
 	lip_vm_t* vm = lip_vm_create(arena_allocator, &vm_config, &rt.vtable);
 	lip_closure_t* closure = lip_new(arena_allocator, lip_closure_t);

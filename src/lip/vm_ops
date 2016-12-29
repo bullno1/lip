@@ -6,7 +6,26 @@ BEGIN_OP(POP)
 END_OP(POP)
 
 BEGIN_OP(LDK)
-	*(--sp) = fn.constants[operand];
+	lip_value_t constant = fn.constants[operand];
+	switch(constant.type)
+	{
+		case LIP_VAL_NUMBER:
+			*(--sp) = constant;
+			break;
+		case LIP_VAL_STRING:
+			*(--sp) = (lip_value_t) {
+				.type = LIP_VAL_STRING,
+				.data = {
+					.reference = lip_function_resource(
+						fp->closure->function.lip,
+						constant.data.index
+					)
+				}
+			};
+			break;
+		default:
+			return LIP_EXEC_ERROR;
+	}
 END_OP(LDK)
 
 BEGIN_OP(LARG)
@@ -139,7 +158,11 @@ END_OP(ADD)
 BEGIN_OP(CLS)
 	unsigned int function_index = operand & 0xFFF;
 	unsigned int num_captures = (operand >> 12) & 0xFFF;
-	lip_closure_t* closure = vm->rt->alloc_closure(vm->rt, num_captures);
+	size_t closure_size =
+		sizeof(lip_closure_t) + sizeof(lip_value_t) * num_captures;
+	lip_closure_t* closure = vm->rt->malloc(
+		vm->rt, LIP_VAL_FUNCTION, closure_size
+	);
 	closure->is_native = false;
 	closure->function.lip = lip_function_resource(
 		fp->closure->function.lip, fn.function_offsets[function_index]

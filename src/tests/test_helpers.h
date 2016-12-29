@@ -33,6 +33,22 @@
 		} \
 	} while (0)
 
+#define lip_assert_string_equal(EXPECTED, ACTUAL) \
+	do { \
+		lip_string_ref_t expected = (EXPECTED); \
+		lip_string_t* actual = (ACTUAL); \
+		lip_string_ref_t actual_ref = { \
+			.length = actual->length, .ptr = actual->ptr \
+		}; \
+		if(!lip_string_ref_equal(expected, actual_ref)) { \
+			munit_errorf( \
+				"assert failed: " #EXPECTED " == " #ACTUAL " (\"%.*s\" == \"%.*s\")", \
+				(int)expected.length, expected.ptr, \
+				(int)actual_ref.length, actual_ref.ptr \
+			); \
+		} \
+	} while (0)
+
 #define lip_assert_loc_equal(EXPECTED, ACTUAL) \
 	do { \
 		lip_loc_t loc_expected = (EXPECTED); \
@@ -79,12 +95,8 @@
 		size_t a_len_ = a_len; \
 		const char* b_ = b; \
 		size_t b_len_ = b_len; \
-		if (MUNIT_UNLIKELY(a_len_ != b_len_ || memcmp(a_, b_, a_len_) != 0)) { \
-			munit_errorf( \
-				"assertion failed: mem " #a " == " #b " (\"%.*s\" == \"%.*s\")", \
-				(int)a_len_, a_, (int)b_len_, b_ \
-			); \
-		} \
+		munit_assert_size(a_len_, ==, b_len_); \
+		munit_assert_memory_equal(a_len_, a_, b_); \
 	} while (0)
 
 #define LIP_CONSTRUCTOR_AND_DESTRUCTOR(T) \

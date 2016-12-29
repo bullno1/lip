@@ -83,7 +83,7 @@ lip_print_value(
 			break;
 		case LIP_VAL_STRING:
 			{
-				lip_string_ref_t* string = value.data.reference;
+				lip_string_t* string = value.data.reference;
 				lip_printf(
 					output, "\"%.*s\"\n", (int)string->length, string->ptr
 				);
@@ -165,9 +165,30 @@ lip_print_function(
 	for(uint16_t i = 0; i < function->num_constants; ++i)
 	{
 		lip_printf(output, "%*s%u: ", indent * 2 + 2, "", i);
-		lip_print_value(
-			depth - 1, indent + 1, output, layout.constants[i]
-		);
+		switch(layout.constants[i].type)
+		{
+			case LIP_VAL_NUMBER:
+				lip_print_value(
+					depth - 1, indent + 1, output, layout.constants[i]
+				);
+				break;
+			case LIP_VAL_STRING:
+				lip_print_value(
+					depth - 1, indent + 1, output,
+					(lip_value_t) {
+						.type = LIP_VAL_STRING,
+						.data = {
+							.reference = lip_function_resource(
+								function, layout.constants[i].data.index
+							)
+						}
+					}
+				);
+				break;
+			default:
+				lip_printf(output, "<corrupted>\n");
+				break;
+		}
 	}
 
 	lip_printf(output, "%*sCode:\n", indent * 2, "");

@@ -165,27 +165,29 @@ static MunitResult
 bad_string(const MunitParameter params[], void* fixture)
 {
 	(void)params;
-
-	lip_string_ref_t text = lip_string_ref(" \"ha");
-
-	struct lip_sstream_s sstream;
-	lip_in_t* input = lip_make_sstream(text, &sstream);
-
 	lip_lexer_t* lexer = fixture;
-	lip_lexer_reset(lexer, input);
 
-	lip_token_t token;
-	lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, lip_lexer_next_token(lexer, &token));
+#define lip_assert_bad_string(str, start_line, start_col, end_line, end_col) \
+	do { \
+		lip_string_ref_t text = lip_string_ref(str); \
+		struct lip_sstream_s sstream; \
+		lip_in_t* input = lip_make_sstream(text, &sstream); \
+		lip_lexer_reset(lexer, input); \
+		lip_token_t token; \
+		lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, lip_lexer_next_token(lexer, &token)); \
+		lip_error_t error = { \
+			.code = LIP_LEX_BAD_STRING, \
+			.location = { \
+				.start = { .line = start_line, .column = start_col}, \
+				.end = { .line = end_line, .column = end_col} \
+			} \
+		}; \
+		lip_assert_error_equal(error, *lip_lexer_last_error(lexer)); \
+	} while(0)
 
-	lip_error_t error = {
-		.code = LIP_LEX_BAD_STRING,
-		.location = {
-			.start = { .line = 1, .column = 2},
-			.end = { .line = 1, .column = 4}
-		}
-	};
-
-	lip_assert_error_equal(error, *lip_lexer_last_error(lexer));
+	lip_assert_bad_string(" \"ha", 1, 2, 1, 4);
+	lip_assert_bad_string(" \" \n\"", 1, 2, 1, 3);
+	lip_assert_bad_string(" \"  \r\"", 1, 2, 1, 4);
 
 	return MUNIT_OK;
 }

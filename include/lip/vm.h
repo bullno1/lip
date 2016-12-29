@@ -17,8 +17,7 @@ struct lip_runtime_interface_s
 		lip_string_t* symbol_name,
 		lip_value_t* result
 	);
-	lip_closure_t*(*alloc_closure)(lip_runtime_interface_t* rt, uint8_t env_len);
-	lip_string_t*(*alloc_string)(lip_runtime_interface_t* rt, size_t env_len);
+	void*(*malloc)(lip_runtime_interface_t* rt, lip_value_type_t type, size_t size);
 };
 
 struct lip_import_s
@@ -150,7 +149,7 @@ lip_function_layout(const lip_function_t* function, lip_function_layout_t* layou
 LIP_MAYBE_UNUSED static inline void*
 lip_function_resource(const lip_function_t* function, uint32_t offset)
 {
-	return (lip_string_t*)((char*)function + offset);
+	return ((char*)function + offset);
 }
 
 LIP_MAYBE_UNUSED static inline lip_memblock_info_t

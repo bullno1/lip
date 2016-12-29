@@ -266,6 +266,10 @@ lip_lexer_next_token(lip_lexer_t* lexer, lip_token_t* token)
 						lip_lexer_consume_char(lexer);
 						return LIP_STREAM_OK;
 					}
+					else if(ch == '\n' || ch == '\r')
+					{
+						return lip_lexer_error(lexer, LIP_LEX_BAD_STRING);
+					}
 					else
 					{
 						lip_lexer_consume_char(lexer);

@@ -279,13 +279,12 @@ lip_rt_resolve_import(
 	return lip_lookup_symbol(rt->ctx, symbol_name_ref, result);
 }
 
-static lip_closure_t*
-lip_rt_alloc_closure(lip_runtime_interface_t* vtable, uint8_t env_len)
+static void*
+lip_rt_malloc(lip_runtime_interface_t* vtable, lip_value_type_t type, size_t size)
 {
+	(void)type;
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vtable, lip_runtime_link_t, vtable);
-	return lip_malloc(
-		rt->allocator, sizeof(lip_closure_t) + sizeof(lip_value_t) * env_len
-	);
+	return lip_malloc(rt->allocator, size);
 }
 
 lip_vm_t*
@@ -322,7 +321,7 @@ lip_create_vm(lip_context_t* ctx, lip_vm_config_t* config)
 		.ctx = ctx,
 		.vtable = {
 			.resolve_import = lip_rt_resolve_import,
-			.alloc_closure = lip_rt_alloc_closure
+			.malloc = lip_rt_malloc
 		}
 	};
 	lip_vm_init(vm, config, &rt->vtable, vm_mem);

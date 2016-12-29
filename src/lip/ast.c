@@ -1,5 +1,8 @@
 #include <lip/ast.h>
 #include <stdlib.h>
+#include <limits.h>
+#include <stdio.h>
+#include <ctype.h>
 #include <lip/memory.h>
 #include <lip/array.h>
 
@@ -213,12 +216,137 @@ lip_translate_identifier(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	return lip_success(identifier);
 }
 
+// Reference: http://en.cppreference.com/w/cpp/language/escape
 static lip_ast_result_t
 lip_translate_string(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
 	lip_ast_t* string = lip_alloc_ast(allocator, sexp);
 	string->type = LIP_AST_STRING;
-	string->data.string = sexp->data.string;
+	lip_string_ref_t str = sexp->data.string;
+	char* unescaped = lip_malloc(allocator, str.length + 1);
+	char* outc = unescaped;
+	const char* end = str.ptr + str.length;
+	for(const char* ch = str.ptr; ch < end; ++ch)
+	{
+		if(*ch == '\\')
+		{
+			lip_loc_t start_loc = {
+				.line = sexp->location.start.line,
+				.column = sexp->location.start.column + (ch - str.ptr) + 1
+			};
+			++ch;
+
+			switch(*ch)
+			{
+				case 'a': *outc++ = '\a'; break;
+				case 'b': *outc++ = '\b'; break;
+				case 'f': *outc++ = '\f'; break;
+				case 'n': *outc++ = '\n'; break;
+				case 'r': *outc++ = '\r'; break;
+				case 't': *outc++ = '\t'; break;
+				case 'v': *outc++ = '\v'; break;
+				case 'x':
+					{
+						char hex[3] = { 0 };
+						bool has_non_hex_char = false;
+						for(unsigned int i = 0; i < 2; ++i)
+						{
+							++ch;
+							if(ch >= end) { break; }
+							if(isxdigit(*ch))
+							{
+								hex[i] = *ch;
+							}
+							else
+							{
+								has_non_hex_char = true;
+								break;
+							}
+						}
+
+						unsigned int num;
+						if(sscanf(hex, "%x", &num) != 1)
+						{
+							lip_loc_t end_loc = {
+								.line = sexp->location.start.line,
+								.column =
+									sexp->location.start.column + (ch - str.ptr)
+							};
+							return lip_syntax_error(
+								(lip_loc_range_t){
+									.start = start_loc, .end = end_loc
+								},
+								"Invalid hex escape sequence"
+							);
+						}
+						else
+						{
+							*outc++ = (char)num;
+							if(has_non_hex_char) { *outc++ = *ch; }
+						}
+					}
+					break;
+				default:
+					if(isdigit(*ch))
+					{
+						char oct[4] = { [0] = *ch };
+						bool has_non_oct_char = false;
+						for(unsigned int i = 1; i < 3; ++i)
+						{
+							++ch;
+							if(ch >= end) { break; }
+							if('0' <= *ch && *ch <= '7')
+							{
+								oct[i] = *ch;
+							}
+							else
+							{
+								has_non_oct_char = true;
+								break;
+							}
+						}
+
+						unsigned int num;
+						if(sscanf(oct, "%o", &num) != 1 || num > UCHAR_MAX)
+						{
+							lip_loc_t end_loc = {
+								.line = sexp->location.start.line,
+								.column =
+									sexp->location.start.column
+									+ (ch - str.ptr) + 1
+									+ (has_non_oct_char || ch >= end ? -1 : 0)
+							};
+							return lip_syntax_error(
+								(lip_loc_range_t){
+									.start = start_loc, .end = end_loc
+								},
+								"Invalid octal escape sequence"
+							);
+						}
+						else
+						{
+							*outc++ = (char)num;
+							if(has_non_oct_char) { *outc++ = *ch; }
+						}
+					}
+					else
+					{
+						*outc++ = *ch;
+					}
+					break;
+			}
+		}
+		else
+		{
+			*outc++ = *ch;
+		}
+	}
+	*outc++ = '\0';
+
+	string->data.string = (lip_string_ref_t){
+		.length = outc - unescaped - 1,
+		.ptr = unescaped
+	};
 	return lip_success(string);
 }
 
