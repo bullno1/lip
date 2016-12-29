@@ -115,3 +115,31 @@ lip_make_string_copy(lip_vm_t* vm, lip_string_ref_t str)
 		.data = { .reference = string }
 	};
 }
+
+
+LIP_API lip_value_t
+lip_make_function(
+	lip_vm_t* vm,
+	lip_native_fn_t native_fn,
+	uint8_t env_len,
+	lip_value_t env[]
+)
+{
+	size_t size = sizeof(lip_closure_t) + sizeof(lip_value_t) * env_len;
+	lip_closure_t* closure = vm->rt->malloc(vm->rt, LIP_VAL_FUNCTION, size);
+	*closure = (lip_closure_t){
+		.is_native = true,
+		.env_len = env_len,
+		.function = { .native = native_fn }
+	};
+
+	if(env_len > 0)
+	{
+		memcpy(closure->environment, env, sizeof(lip_value_t) * env_len);
+	}
+
+	return (lip_value_t){
+		.type = LIP_VAL_FUNCTION,
+		.data = { .reference = closure }
+	};
+}

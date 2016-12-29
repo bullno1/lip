@@ -82,12 +82,13 @@ cover: tests
 		--html --html-details \
 		--output $@/index.html
 
-bin/tests: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS CLEAR_ENV
+bin/tests: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS CLEAR_ENV LINK_FLAGS
 	${CLEAR_ENV}
 	${NUMAKE} exe:$@ \
 		sources="`find src/tests -name '*.cpp' -or -name '*.c'`" \
 		c_flags="${C_FLAGS} -g ${LIBLIP_EXTRA_FLAGS} -Isrc" \
 		cpp_flags="${CPP_FLAGS} -g ${LIBLIP_EXTRA_FLAGS} -Isrc" \
+		link_flags="${LINK_FLAGS} -lm" \
 		linker="${CC}" \
 		libs="${LIBLIP}"
 

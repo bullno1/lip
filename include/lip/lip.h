@@ -130,8 +130,32 @@ lip_get_args(const lip_vm_t* vm, uint8_t* num_args);
 LIP_API lip_value_t*
 lip_get_env(const lip_vm_t* vm, uint8_t* env_len);
 
-LIP_API lip_value_t
-lip_make_number(lip_vm_t* vm, double number);
+LIP_MAYBE_UNUSED static inline lip_value_t
+lip_make_boolean(lip_vm_t* vm, bool boolean)
+{
+	(void)vm;
+	return (lip_value_t){
+		.type = LIP_VAL_BOOLEAN,
+		.data = { .boolean = boolean }
+	};
+}
+
+LIP_MAYBE_UNUSED static inline lip_value_t
+lip_make_nil(lip_vm_t* vm)
+{
+	(void)vm;
+	return (lip_value_t){ .type = LIP_VAL_NIL };
+}
+
+LIP_MAYBE_UNUSED static inline lip_value_t
+lip_make_number(lip_vm_t* vm, double number)
+{
+	(void)vm;
+	return (lip_value_t){
+		.type = LIP_VAL_NUMBER,
+		.data = { .number = number }
+	};
+}
 
 LIP_API lip_value_t
 lip_make_string_copy(lip_vm_t* vm, lip_string_ref_t str);
@@ -145,7 +169,7 @@ lip_make_stringv(lip_vm_t* vm, const char* fmt, va_list args);
 LIP_API lip_value_t
 lip_make_function(
 	lip_vm_t* vm,
-	lip_native_fn_t,
+	lip_native_fn_t native_fn,
 	uint8_t env_len,
 	lip_value_t env[]
 );
