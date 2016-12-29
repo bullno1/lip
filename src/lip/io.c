@@ -45,8 +45,8 @@ lip_osstream_write(const void* buff, size_t size, lip_out_t* vtable)
 		LIP_CONTAINER_OF(vtable, struct lip_osstream_s, vtable);
 
 	lip_array(char)* buffer = osstream->buffer;
-	lip_array__prepare_push(*buffer);
 	size_t len = lip_array_len(*buffer);
+	lip_array__prepare_push(*buffer);
 	lip_array_resize(*buffer, len + size);
 	memcpy(*buffer + len, buff, size);
 	return size;

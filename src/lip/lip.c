@@ -196,10 +196,12 @@ lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg)
 		struct lip_osstream_s osstream;
 		lip_out_t* output = lip_make_osstream(&rt->ctx->string_buff, &osstream);
 		lip_print_value(1, 0, output, msg);
+		size_t msg_len = lip_array_len(rt->ctx->string_buff) - 1; // exclude new line
 		ctx->error.message = (lip_string_ref_t){
 			.ptr = rt->ctx->string_buff,
-			.length = lip_array_len(rt->ctx->string_buff)
+			.length = msg_len
 		};
+		rt->ctx->string_buff[msg_len] = '\0';
 	}
 
 	lip_array_clear(ctx->error_records);
