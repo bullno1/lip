@@ -118,6 +118,7 @@ basic_forms(const MunitParameter params[], void* fixture_)
 
 	lip_fixture_t* fixture = fixture_;
 	lip_context_t* ctx = fixture->context;
+	lip_load_builtins(ctx);
 	lip_vm_t* vm = fixture->vm;
 
 	lip_assert_num_result("2", 2.0);
@@ -188,6 +189,7 @@ basic_forms(const MunitParameter params[], void* fixture_)
 	lip_assert_num_result("(if (if true 2) 1 2)", 1.0);
 	lip_assert_num_result("(if (if false 2) 1 2)", 2.0);
 	lip_assert_num_result("(((letrec ((x 1.5)) (fn () (fn () x)))))", 1.5);
+	lip_assert_num_result("(let ((x (fn () (identity 3.5)))) (x))", 3.5);
 
 	return MUNIT_OK;
 }

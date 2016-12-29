@@ -1,5 +1,4 @@
 #include <lip/compiler.h>
-#include <assert.h> //TODO: replace with error return
 #include <lip/vm.h>
 #include <lip/ast.h>
 #include <lip/asm.h>
@@ -431,14 +430,14 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 	kh_foreach(itr, compiler->free_var_names)
 	{
 		lip_string_ref_t var_name = kh_key(compiler->free_var_names, itr);
-		assert(
-			lip_find_var(scope->parent, var_name, &free_vars[captured_var_index])
-		);// TODO: return error
-		*lip_array_alloc(scope->vars) = (lip_var_t){
-			.name = var_name,
-			.index = captured_var_index++,
-			.load_op = LIP_OP_LDCV
-		};
+		if(lip_find_var(scope->parent, var_name, &free_vars[captured_var_index]))
+		{
+			*lip_array_alloc(scope->vars) = (lip_var_t){
+				.name = var_name,
+				.index = captured_var_index++,
+				.load_op = LIP_OP_LDCV
+			};
+		}
 	}
 
 	// Compile body
