@@ -700,21 +700,7 @@ lip_repl(
 	}
 }
 
-LIP_API lip_value_t
-lip_make_string_copy(lip_vm_t* vm, lip_string_ref_t str)
-{
-	size_t size = sizeof(lip_string_t) + str.length + 1; // null-terminator
-	lip_string_t* string = vm->rt->malloc(vm->rt, LIP_VAL_STRING, size);
-	string->length = str.length;
-	memcpy(string->ptr, str.ptr, str.length);
-	string->ptr[str.length] = '\0';
-	return (lip_value_t){
-		.type = LIP_VAL_STRING,
-		.data = { .reference = string }
-	};
-}
-
-LIP_API LIP_PRINTF_LIKE(2, 3) lip_value_t
+lip_value_t
 lip_make_string(lip_vm_t* vm, const char* fmt, ...)
 {
 	va_list args;
@@ -725,7 +711,7 @@ lip_make_string(lip_vm_t* vm, const char* fmt, ...)
 	return string;
 }
 
-LIP_API lip_value_t
+lip_value_t
 lip_make_stringv(lip_vm_t* vm, const char* fmt, va_list args)
 {
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);

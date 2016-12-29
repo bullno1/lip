@@ -1,4 +1,5 @@
 #include "vm_dispatch.h"
+#include <lip/lip.h>
 #include <lip/vm.h>
 #include <lip/asm.h>
 #include <lip/memory.h>
@@ -55,6 +56,13 @@
 #define POSTAMBLE() \
 	END_LOOP()
 
+#define THROW(MSG) \
+	do { \
+		*(--sp) = lip_make_string_copy(vm, lip_string_ref(MSG)); \
+		SAVE_CONTEXT(); \
+		return LIP_EXEC_ERROR; \
+	} while(0)
+
 static lip_exec_status_t
 lip_vm_loop_with_hook(lip_vm_t* vm)
 {
@@ -78,14 +86,9 @@ POSTAMBLE()
 lip_exec_status_t
 lip_vm_loop(lip_vm_t* vm)
 {
-	if(vm->hook)
-	{
-		return lip_vm_loop_with_hook(vm);
-	}
-	else
-	{
-		return lip_vm_loop_without_hook(vm);
-	}
+	return vm->hook
+		? lip_vm_loop_with_hook(vm)
+		: lip_vm_loop_without_hook(vm);
 }
 
 lip_exec_status_t

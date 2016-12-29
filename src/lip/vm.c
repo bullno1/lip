@@ -101,3 +101,17 @@ lip_get_env(const lip_vm_t* vm, uint8_t* env_len)
 	if(env_len) { *env_len = vm->fp->closure->env_len; }
 	return vm->fp->closure->environment;
 }
+
+lip_value_t
+lip_make_string_copy(lip_vm_t* vm, lip_string_ref_t str)
+{
+	size_t size = sizeof(lip_string_t) + str.length + 1; // null-terminator
+	lip_string_t* string = vm->rt->malloc(vm->rt, LIP_VAL_STRING, size);
+	string->length = str.length;
+	memcpy(string->ptr, str.ptr, str.length);
+	string->ptr[str.length] = '\0';
+	return (lip_value_t){
+		.type = LIP_VAL_STRING,
+		.data = { .reference = string }
+	};
+}

@@ -24,7 +24,7 @@ BEGIN_OP(LDK)
 			};
 			break;
 		default:
-			return LIP_EXEC_ERROR;
+			THROW("Illegal instruction");
 	}
 END_OP(LDK)
 
@@ -55,7 +55,7 @@ BEGIN_OP(IMP)
 
 		SAVE_CONTEXT();
 		bool resolved = vm->rt->resolve_import(vm->rt, symbol_name, &result);
-		if(!resolved) { return LIP_EXEC_ERROR; }
+		if(!resolved) { THROW("Undefined symbol"); }
 		LOAD_CONTEXT();
 
 		fn.imports[operand].value = result;
@@ -186,8 +186,7 @@ BEGIN_OP(CLS)
 				base = fp->closure->environment;
 				break;
 			default:
-				SAVE_CONTEXT();
-				return LIP_EXEC_ERROR;
+				THROW("Illegal instruction");
 		}
 		closure->environment[i] = base[var_index];
 	}
