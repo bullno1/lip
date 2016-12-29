@@ -44,8 +44,8 @@ normal(const MunitParameter params[], void* fixture)
 		"  \" \\\\\""
 	);
 
-	struct lip_sstream_s sstream;
-	lip_in_t* input = lip_make_sstream(text, &sstream);
+	struct lip_isstream_s sstream;
+	lip_in_t* input = lip_make_isstream(text, &sstream);
 
 	lip_lexer_t* lexer = fixture;
 	lip_lexer_reset(lexer, input);
@@ -170,8 +170,8 @@ bad_string(const MunitParameter params[], void* fixture)
 #define lip_assert_bad_string(str, start_line, start_col, end_line, end_col) \
 	do { \
 		lip_string_ref_t text = lip_string_ref(str); \
-		struct lip_sstream_s sstream; \
-		lip_in_t* input = lip_make_sstream(text, &sstream); \
+		struct lip_isstream_s sstream; \
+		lip_in_t* input = lip_make_isstream(text, &sstream); \
 		lip_lexer_reset(lexer, input); \
 		lip_token_t token; \
 		lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, lip_lexer_next_token(lexer, &token)); \
@@ -199,8 +199,8 @@ bad_number(const MunitParameter params[], void* fixture)
 
 	lip_string_ref_t text = lip_string_ref(" 5a");
 
-	struct lip_sstream_s sstream;
-	lip_in_t* input = lip_make_sstream(text, &sstream);
+	struct lip_isstream_s sstream;
+	lip_in_t* input = lip_make_isstream(text, &sstream);
 
 	lip_lexer_t* lexer = fixture;
 	lip_lexer_reset(lexer, input);
@@ -219,7 +219,7 @@ bad_number(const MunitParameter params[], void* fixture)
 	lip_assert_error_equal(error, *lip_lexer_last_error(lexer));
 
 	text = lip_string_ref(" 5..4");
-	input = lip_make_sstream(text, &sstream);
+	input = lip_make_isstream(text, &sstream);
 	lip_lexer_reset(lexer, input);
 
 	lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, lip_lexer_next_token(lexer, &token));

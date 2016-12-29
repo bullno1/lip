@@ -12,9 +12,9 @@ sstream(const MunitParameter params[], void* fixture)
 		"second line\n"
 		;
 	lip_string_ref_t ref = lip_string_ref(text);
-	struct lip_sstream_s sstream;
+	struct lip_isstream_s sstream;
 	char ch;
-	lip_in_t* input = lip_make_sstream(ref, &sstream);
+	lip_in_t* input = lip_make_isstream(ref, &sstream);
 	for(unsigned int i = 0; i < ref.length; ++i)
 	{
 		munit_assert_size(1, ==, lip_read(&ch, sizeof(ch), input));

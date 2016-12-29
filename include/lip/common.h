@@ -26,8 +26,13 @@
 
 #if defined(__GNUC__) || defined(__clang__)
 #	define LIP_MAYBE_UNUSED __attribute__((unused))
+#	define LIP_PRINTF_LIKE(x, y) __attribute__((format(printf, x, y)))
 #else
 #	define LIP_MAYBE_UNUSED
+#	define LIP_PRINTF_LIKE(x, y)
+#endif
+
+#if defined(__GNUC__) || defined(__GNUG__) || defined(__clang__)
 #endif
 
 #define LIP_ENUM(NAME, FOREACH) \

@@ -32,6 +32,7 @@ struct repl_context_s
 {
 	lip_repl_handler_t vtable;
 	lip_context_t* ctx;
+	lip_vm_t* vm;
 	char* line_buff;
 	size_t read_pos;
 	size_t buff_len;
@@ -123,6 +124,7 @@ repl_print(lip_repl_handler_t* vtable, lip_exec_status_t status, lip_value_t res
 		}
 		break;
 	case LIP_EXEC_ERROR:
+		lip_traceback(repl->ctx, repl->vm, result);
 		print_error(repl->ctx);
 		break;
 	}
@@ -146,6 +148,7 @@ run_script(
 	lip_value_t result;
 	if(lip_exec_script(vm, script, &result) != LIP_EXEC_OK)
 	{
+		lip_traceback(ctx, vm, result);
 		print_error(ctx);
 		return false;
 	}
@@ -238,9 +241,9 @@ main(int argc, char* argv[])
 	if(exec_string)
 	{
 		lip_string_ref_t cmdline_str_ref = lip_string_ref(exec_string);
-		struct lip_sstream_s sstream;
+		struct lip_isstream_s sstream;
 
-		lip_in_t* input = lip_make_sstream(cmdline_str_ref, &sstream);
+		lip_in_t* input = lip_make_isstream(cmdline_str_ref, &sstream);
 
 		if(!run_script(ctx, vm, lip_string_ref("<cmdline>"), input))
 		{
@@ -278,6 +281,7 @@ main(int argc, char* argv[])
 		struct repl_context_s repl_context = {
 			.read_pos = 1,
 			.ctx = ctx,
+			.vm = vm,
 			.vtable = { .read = repl_read, .print = repl_print }
 		};
 		linenoiseInstallWindowChangeHandler();

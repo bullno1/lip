@@ -109,7 +109,7 @@ lip_vm_do_call(lip_vm_t* vm, lip_value_t* fn, uint8_t num_args)
 		lip_exec_status_t status = closure->function.native(vm, &result);
 		vm->sp = next_sp;
 		*next_sp = result;
-		--vm->fp;
+		if(status == LIP_EXEC_OK) { --vm->fp; }
 
 		return status;
 	}

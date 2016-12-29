@@ -88,8 +88,8 @@ normal(const MunitParameter params[], void* fixture)
 		")\n"
 	);
 
-	struct lip_sstream_s sstream;
-	lip_in_t* input = lip_make_sstream(text, &sstream);
+	struct lip_isstream_s sstream;
+	lip_in_t* input = lip_make_isstream(text, &sstream);
 
 	lip_parser_t* parser = fixture;
 	lip_parser_reset(parser, input);
@@ -228,8 +228,8 @@ unterminated_list(const MunitParameter params[], void* fixture)
 
 	lip_string_ref_t text = lip_string_ref("((");
 
-	struct lip_sstream_s sstream;
-	lip_in_t* input = lip_make_sstream(text, &sstream);
+	struct lip_isstream_s sstream;
+	lip_in_t* input = lip_make_isstream(text, &sstream);
 
 	lip_parser_t* parser = fixture;
 	lip_parser_reset(parser, input);
@@ -245,7 +245,7 @@ unterminated_list(const MunitParameter params[], void* fixture)
 	}));
 
 	text = lip_string_ref("a (()");
-	input = lip_make_sstream(text, &sstream);
+	input = lip_make_isstream(text, &sstream);
 	lip_parser_reset(parser, input);
 
 	status = lip_parser_next_sexp(parser, &sexp);
@@ -269,8 +269,8 @@ unexpected_token(const MunitParameter params[], void* fixture)
 
 	lip_string_ref_t text = lip_string_ref(")");
 
-	struct lip_sstream_s sstream;
-	lip_in_t* input = lip_make_sstream(text, &sstream);
+	struct lip_isstream_s sstream;
+	lip_in_t* input = lip_make_isstream(text, &sstream);
 
 	lip_parser_t* parser = fixture;
 	lip_parser_reset(parser, input);
@@ -299,8 +299,8 @@ lex_error(const MunitParameter params[], void* fixture)
 
 	lip_string_ref_t text = lip_string_ref("5..6");
 
-	struct lip_sstream_s sstream;
-	lip_in_t* input = lip_make_sstream(text, &sstream);
+	struct lip_isstream_s sstream;
+	lip_in_t* input = lip_make_isstream(text, &sstream);
 
 	lip_parser_t* parser = fixture;
 	lip_parser_reset(parser, input);

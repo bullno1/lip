@@ -2,6 +2,7 @@
 #define LIP_LIP_H
 
 #include "common.h"
+#include <stdarg.h>
 
 #define LIP_USERDATA_SCOPE(F) \
 	F(LIP_SCOPE_RUNTIME) \
@@ -58,6 +59,9 @@ lip_set_panic_handler(lip_context_t* ctx, lip_panic_fn_t panic_handler);
 
 LIP_API const lip_context_error_t*
 lip_get_error(lip_context_t* ctx);
+
+LIP_API const lip_context_error_t*
+lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg);
 
 LIP_API lip_ns_context_t*
 lip_begin_ns(lip_context_t* ctx, lip_string_ref_t name);
@@ -125,5 +129,25 @@ lip_get_args(const lip_vm_t* vm, uint8_t* num_args);
 
 LIP_API lip_value_t*
 lip_get_env(const lip_vm_t* vm, uint8_t* env_len);
+
+LIP_API lip_value_t
+lip_make_number(lip_vm_t* vm, double number);
+
+LIP_API lip_value_t
+lip_make_string_copy(lip_vm_t* vm, lip_string_ref_t str);
+
+LIP_API LIP_PRINTF_LIKE(2, 3) lip_value_t
+lip_make_string(lip_vm_t* vm, const char* fmt, ...);
+
+LIP_API lip_value_t
+lip_make_stringv(lip_vm_t* vm, const char* fmt, va_list args);
+
+LIP_API lip_value_t
+lip_make_function(
+	lip_vm_t* vm,
+	lip_native_fn_t,
+	uint8_t env_len,
+	lip_value_t env[]
+);
 
 #endif

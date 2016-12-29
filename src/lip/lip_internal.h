@@ -55,6 +55,7 @@ struct lip_context_s
 	lip_compiler_t compiler;
 	khash_t(lip_ptr_set)* scripts;
 	khash_t(lip_ptr_set)* vms;
+	lip_array(char) string_buff;
 };
 
 #endif

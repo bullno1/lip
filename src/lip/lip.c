@@ -4,6 +4,8 @@
 #include <lip/memory.h>
 #include <lip/ast.h>
 #include <lip/io.h>
+#include <lip/vm.h>
+#include <lip/print.h>
 
 #define lip_assert(ctx, cond) \
 	do { \
@@ -24,7 +26,6 @@ struct lip_repl_stream_s
 	lip_in_t vtable;
 	lip_repl_handler_t* repl_handler;
 };
-
 
 lip_runtime_t*
 lip_create_runtime(lip_allocator_t* allocator)
@@ -70,6 +71,7 @@ lip_do_destroy_context(lip_runtime_t* runtime, lip_context_t* ctx)
 		lip_do_unload_script(ctx, kh_key(ctx->scripts, itr));
 	}
 
+	lip_array_destroy(ctx->string_buff);
 	kh_destroy(lip_ptr_set, ctx->vms);
 	kh_destroy(lip_ptr_set, ctx->scripts);
 	lip_compiler_cleanup(&ctx->compiler);
@@ -139,6 +141,7 @@ lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator)
 		.error_records = lip_array_create(allocator, lip_error_record_t, 1),
 		.scripts = kh_init(lip_ptr_set, allocator),
 		.vms = kh_init(lip_ptr_set, allocator),
+		.string_buff = lip_array_create(allocator, char, 512),
 		.panic_handler = lip_default_panic_handler
 	};
 	lip_parser_init(&ctx->parser, allocator);
@@ -172,6 +175,78 @@ lip_destroy_context(lip_runtime_t* runtime, lip_context_t* ctx)
 const lip_context_error_t*
 lip_get_error(lip_context_t* ctx)
 {
+	return &ctx->error;
+}
+
+const lip_context_error_t*
+lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg)
+{
+	if(msg.type == LIP_VAL_STRING)
+	{
+		lip_string_t* str = msg.data.reference;
+		ctx->error.message = (lip_string_ref_t){
+			.ptr = str->ptr,
+			.length = str->length
+		};
+	}
+	else
+	{
+		lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
+		lip_array_clear(rt->ctx->string_buff);
+		struct lip_osstream_s osstream;
+		lip_out_t* output = lip_make_osstream(&rt->ctx->string_buff, &osstream);
+		lip_print_value(1, 0, output, msg);
+		ctx->error.message = (lip_string_ref_t){
+			.ptr = rt->ctx->string_buff,
+			.length = lip_array_len(rt->ctx->string_buff)
+		};
+	}
+
+	lip_array_clear(ctx->error_records);
+	lip_memblock_info_t os_block, env_block, cs_block;
+	lip_vm_memory_layout(&vm->config, &os_block, &env_block, &cs_block);
+	lip_stack_frame_t* fp_min = lip_locate_memblock(vm->mem, &cs_block);
+	for(lip_stack_frame_t* fp = vm->fp; fp >= fp_min; --fp)
+	{
+		if(fp->is_native)
+		{
+			*lip_array_alloc(ctx->error_records) = (lip_error_record_t){
+				.filename = lip_string_ref("<native>"),
+				.location = LIP_LOC_NOWHERE,
+				.message = lip_string_ref("")
+			};
+		}
+		else
+		{
+			lip_closure_t* closure = fp->closure;
+			if(closure->is_native)
+			{
+				*lip_array_alloc(ctx->error_records) = (lip_error_record_t){
+					.filename = lip_string_ref("<native>"),
+					.location = LIP_LOC_NOWHERE,
+					.message = lip_string_ref("")
+				};
+			}
+			else
+			{
+				lip_function_layout_t function_layout;
+				lip_function_layout(closure->function.lip, &function_layout);
+				lip_loc_range_t location =
+					function_layout.locations[fp->pc - function_layout.instructions - 1];
+				*lip_array_alloc(ctx->error_records) = (lip_error_record_t){
+					.filename = (lip_string_ref_t){
+						.ptr = function_layout.source_name->ptr,
+						.length = function_layout.source_name->length
+					},
+					.location = location,
+					.message = lip_string_ref("")
+				};
+			}
+		}
+	}
+	ctx->error.num_records = lip_array_len(ctx->error_records);
+	ctx->error.records = ctx->error_records;
+
 	return &ctx->error;
 }
 
@@ -623,4 +698,44 @@ lip_repl(
 				return;
 		}
 	}
+}
+
+LIP_API lip_value_t
+lip_make_string_copy(lip_vm_t* vm, lip_string_ref_t str)
+{
+	size_t size = sizeof(lip_string_t) + str.length + 1; // null-terminator
+	lip_string_t* string = vm->rt->malloc(vm->rt, LIP_VAL_STRING, size);
+	string->length = str.length;
+	memcpy(string->ptr, str.ptr, str.length);
+	string->ptr[str.length] = '\0';
+	return (lip_value_t){
+		.type = LIP_VAL_STRING,
+		.data = { .reference = string }
+	};
+}
+
+LIP_API LIP_PRINTF_LIKE(2, 3) lip_value_t
+lip_make_string(lip_vm_t* vm, const char* fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	lip_value_t string = lip_make_stringv(vm, fmt, args);
+	va_end(args);
+
+	return string;
+}
+
+LIP_API lip_value_t
+lip_make_stringv(lip_vm_t* vm, const char* fmt, va_list args)
+{
+	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
+	lip_array_clear(rt->ctx->string_buff);
+	struct lip_osstream_s osstream;
+	lip_out_t* output = lip_make_osstream(&rt->ctx->string_buff, &osstream);
+
+	lip_vprintf(output, fmt, args);
+	return lip_make_string_copy(vm, (lip_string_ref_t){
+		.ptr = rt->ctx->string_buff,
+		.length = lip_array_len(rt->ctx->string_buff)
+	});
 }

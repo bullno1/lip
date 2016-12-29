@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <lip/memory.h>
+#include <lip/array.h>
 #include "vendor/format/format.h"
 
 static struct lip_ofstream_s lip_stdout_ofstream;
@@ -26,10 +27,10 @@ lip_ifstream_read(void* buff, size_t size, lip_in_t* vtable)
 }
 
 static size_t
-lip_sstream_read(void* buff, size_t size, lip_in_t* vtable)
+lip_isstream_read(void* buff, size_t size, lip_in_t* vtable)
 {
-	struct lip_sstream_s* sstream =
-		LIP_CONTAINER_OF(vtable, struct lip_sstream_s, vtable);
+	struct lip_isstream_s* sstream =
+		LIP_CONTAINER_OF(vtable, struct lip_isstream_s, vtable);
 
 	size_t bytes_read = LIP_MIN(sstream->str.length - sstream->pos, size);
 	memcpy(buff, sstream->str.ptr + sstream->pos, bytes_read);
@@ -37,12 +38,35 @@ lip_sstream_read(void* buff, size_t size, lip_in_t* vtable)
 	return bytes_read;
 }
 
+static size_t
+lip_osstream_write(const void* buff, size_t size, lip_out_t* vtable)
+{
+	struct lip_osstream_s* osstream =
+		LIP_CONTAINER_OF(vtable, struct lip_osstream_s, vtable);
+
+	lip_array(char)* buffer = osstream->buffer;
+	lip_array__prepare_push(*buffer);
+	size_t len = lip_array_len(*buffer);
+	lip_array_resize(*buffer, len + size);
+	memcpy(*buffer + len, buff, size);
+	return size;
+}
+
 lip_in_t*
-lip_make_sstream(lip_string_ref_t str, struct lip_sstream_s* sstream)
+lip_make_isstream(lip_string_ref_t str, struct lip_isstream_s* sstream)
 {
 	sstream->str = str;
 	sstream->pos = 0;
-	sstream->vtable.read = lip_sstream_read;
+	sstream->vtable.read = lip_isstream_read;
+
+	return &sstream->vtable;
+}
+
+lip_out_t*
+lip_make_osstream(lip_array(char)* buffer, struct lip_osstream_s* sstream)
+{
+	sstream->buffer = buffer;
+	sstream->vtable.write = lip_osstream_write;
 
 	return &sstream->vtable;
 }

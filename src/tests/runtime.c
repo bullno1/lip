@@ -14,8 +14,8 @@
 	do { \
 		test_hook_t hook = { .printed = false, .vtable = { .step = step } }; \
 		lip_set_vm_hook(vm, &hook.vtable); \
-		struct lip_sstream_s sstream; \
-		lip_in_t* input = lip_make_sstream(lip_string_ref(code), &sstream); \
+		struct lip_isstream_s sstream; \
+		lip_in_t* input = lip_make_isstream(lip_string_ref(code), &sstream); \
 		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input); \
 		munit_assert_not_null(script); \
 		lip_print_closure(100, 0, lip_null, (lip_closure_t*)script); \
@@ -29,8 +29,8 @@
 	do { \
 		test_hook_t hook = { .printed = false, .vtable = { .step = step } }; \
 		lip_set_vm_hook(vm, &hook.vtable); \
-		struct lip_sstream_s sstream; \
-		lip_in_t* input = lip_make_sstream(lip_string_ref(code), &sstream); \
+		struct lip_isstream_s sstream; \
+		lip_in_t* input = lip_make_isstream(lip_string_ref(code), &sstream); \
 		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input); \
 		munit_assert_not_null(script); \
 		lip_print_closure(100, 0, lip_null, (lip_closure_t*)script); \
@@ -43,8 +43,8 @@
 
 #define lip_assert_syntax_error(code, error_msg, start_line, start_col, end_line, end_col) \
 	do { \
-		struct lip_sstream_s sstream; \
-		lip_in_t* input = lip_make_sstream(lip_string_ref(code), &sstream); \
+		struct lip_isstream_s sstream; \
+		lip_in_t* input = lip_make_isstream(lip_string_ref(code), &sstream); \
 		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input); \
 		munit_assert_null(script); \
 		const lip_context_error_t* error = lip_get_error(ctx); \
