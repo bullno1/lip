@@ -60,8 +60,8 @@ lip_exec_status_t
 	}
 	va_end(args);
 
-	lip_stack_frame_t* old_fp = vm->fp;
-	*(++vm->fp) = *old_fp;
+	lip_stack_frame_t* old_fp = vm->fp++;
+	vm->fp->ep = old_fp->ep;
 
 	lip_exec_status_t status = lip_vm_do_call(vm, &fn, num_args);
 	if(status != LIP_EXEC_OK) { return status; }

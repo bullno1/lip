@@ -108,7 +108,7 @@ BEGIN_OP(CALL)
 	lip_value_t* next_fn = sp++;
 	SAVE_CONTEXT();
 	++vm->fp;
-	*(vm->fp) = *(vm->fp - 1);
+	vm->fp->ep = ep;
 	lip_exec_status_t status = lip_vm_do_call(vm, next_fn, operand);
 	if(status != LIP_EXEC_OK) { return status; }
 	LOAD_CONTEXT();
