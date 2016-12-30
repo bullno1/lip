@@ -100,7 +100,6 @@ lip_vm_do_call(lip_vm_t* vm, lip_value_t* fn, uint8_t num_args)
 	vm->fp->bp = vm->sp;
 
 	bool is_native = closure->is_native;
-	vm->fp->is_native = is_native;
 	unsigned int num_locals = is_native ? 0 : closure->function.lip->num_locals;
 	vm->fp->ep -= num_locals;
 

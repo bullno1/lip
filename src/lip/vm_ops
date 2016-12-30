@@ -117,7 +117,7 @@ BEGIN_OP(TAIL)
 	vm->fp->ep = (vm->fp - 1)->ep;
 	lip_exec_status_t status = lip_vm_do_call(vm, next_fn, operand);
 	if(status != LIP_EXEC_OK) { return status; }
-	if(vm->fp->is_native) { return LIP_EXEC_OK; }
+	if(lip_stack_frame_is_native(vm->fp)) { return LIP_EXEC_OK; }
 	LOAD_CONTEXT();
 END_OP(TAIL)
 
@@ -127,7 +127,7 @@ BEGIN_OP(RET)
 	sp = next_sp;
 	SAVE_CONTEXT();
 	--vm->fp;
-	if(vm->fp->is_native) { return LIP_EXEC_OK; }
+	if(lip_stack_frame_is_native(vm->fp)) { return LIP_EXEC_OK; }
 	LOAD_CONTEXT();
 END_OP(RET)
 

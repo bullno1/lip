@@ -36,7 +36,6 @@ lip_vm_init(
 	vm->fp = lip_locate_memblock(mem, &cs_block);
 	vm->fp->ep = (lip_value_t*)lip_locate_memblock(mem, &env_block) + config->env_len;
 	vm->fp->bp = vm->sp;
-	vm->fp->is_native = false;
 	vm->fp->pc = NULL;
 	vm->fp->closure = NULL;
 }
@@ -60,7 +59,6 @@ lip_call(
 	va_end(args);
 
 	lip_stack_frame_t* old_fp = vm->fp;
-	vm->fp->is_native = true;
 	*(++vm->fp) = *old_fp;
 
 	lip_exec_status_t status = lip_vm_do_call(vm, &fn, num_args);

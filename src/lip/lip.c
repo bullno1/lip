@@ -210,7 +210,7 @@ lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg)
 	lip_stack_frame_t* fp_min = lip_locate_memblock(vm->mem, &cs_block);
 	for(lip_stack_frame_t* fp = vm->fp; fp >= fp_min; --fp)
 	{
-		if(fp->is_native)
+		if(lip_stack_frame_is_native(fp))
 		{
 			*lip_array_alloc(ctx->error_records) = (lip_error_record_t){
 				.filename = lip_string_ref("<native>"),

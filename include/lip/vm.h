@@ -83,7 +83,6 @@ struct lip_stack_frame_s
 	lip_value_t* ep;
 	lip_value_t* bp;
 	uint8_t num_args;
-	bool is_native;
 };
 
 struct lip_vm_s
@@ -150,6 +149,12 @@ LIP_MAYBE_UNUSED static inline void*
 lip_function_resource(const lip_function_t* function, uint32_t offset)
 {
 	return ((char*)function + offset);
+}
+
+LIP_MAYBE_UNUSED static inline bool
+lip_stack_frame_is_native(lip_stack_frame_t* frame)
+{
+	return frame->closure == NULL || frame->closure->is_native;
 }
 
 LIP_MAYBE_UNUSED static inline lip_memblock_info_t
