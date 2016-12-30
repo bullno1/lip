@@ -175,8 +175,8 @@ main(int argc, char* argv[])
 		return EXIT_FAILURE;
 	}
 
-	bool show_version = false;
-	bool interactive = false;
+	int show_version = false;
+	int interactive = false;
 	char* exec_string = NULL;
 	char* script_filename = NULL;
 	cargo_add_option(

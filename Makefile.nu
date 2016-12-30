@@ -38,21 +38,27 @@ LTO_0 =
 LTO_1 = -flto
 LTO_FLAGS = $(eval echo \${LTO_$WITH_LTO})
 
-WITH_UB_SAN ?= 0
-UB_FLAGS_0 =
-UB_FLAGS_1 = -fsanitize=undefined -fno-sanitize-recover=undefined
-UB_FLAGS = $(eval echo \${UB_FLAGS_$WITH_UB_SAN})
+WITH_UBSAN ?= 0
+UBSAN_COMPILE_FLAGS_0 =
+UBSAN_COMPILE_FLAGS_1 = -fsanitize=undefined -fno-sanitize-recover=undefined
+UBSAN_COMPILE_FLAGS = $(eval echo \${UBSAN_COMPILE_FLAGS_$WITH_UBSAN})
+UBSAN_LINK_FLAGS_0 =
+UBSAN_LINK_FLAGS_1 = -fsanitize=undefined -fno-sanitize-recover=undefined
+UBSAN_LINK_FLAGS = $(eval echo \${UBSAN_LINK_FLAGS_$WITH_UBSAN})
 
-WITH_ADDR_SAN ?= 0
-ADDR_SAN_FLAGS_0 =
-ADDR_SAN_FLAGS_1 = -fsanitize=address
-ADDR_SAN_FLAGS = $(eval echo \${ADDR_SAN_FLAGS_$WITH_ADDR_SAN})
+WITH_ASAN ?= 0
+ASAN_COMPILE_FLAGS_0 =
+ASAN_COMPILE_FLAGS_1 = -fsanitize=address
+ASAN_COMPILE_FLAGS = $(eval echo \${ASAN_COMPILE_FLAGS_$WITH_ASAN})
+ASAN_LINK_FLAGS_0 =
+ASAN_LINK_FLAGS_1 = -fsanitize=address
+ASAN_LINK_FLAGS = $(eval echo \${ASAN_LINK_FLAGS_$WITH_ASAN})
 
-COMMON_FLAGS = ${THREADING_FLAGS} ${UB_FLAGS} ${ADDR_SAN_FLAGS} ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
-COMPILATION_FLAGS = -g -Wall -Wextra -Werror -pedantic -Iinclude ${LIP_CONFIG_EXTRA_FLAGS} ${COMPUTED_GOTO_FLAGS}
-C_FLAGS ?= -std=c99 ${COMPILATION_FLAGS} ${COMMON_FLAGS}
-CPP_FLAGS ?= ${COMPILATION_FLAGS} ${COMMON_FLAGS}
-LINK_FLAGS ?= -g ${COMMON_FLAGS}
+COMMON_FLAGS = ${THREADING_FLAGS} ${COVERAGE_FLAGS} ${OPTIMIZATION_FLAGS} ${LTO_FLAGS}
+COMPILE_FLAGS = -g -Wall -Wextra -Werror -pedantic -Iinclude ${LIP_CONFIG_EXTRA_FLAGS} ${COMPUTED_GOTO_FLAGS} ${UBSAN_COMPILE_FLAGS} ${ASAN_COMPILE_FLAGS}
+C_FLAGS ?= -std=c99 ${COMPILE_FLAGS} ${COMMON_FLAGS}
+CPP_FLAGS ?= ${COMPILE_FLAGS} ${COMMON_FLAGS}
+LINK_FLAGS ?= -g ${COMMON_FLAGS} ${UBSAN_LINK_FLAGS} ${ASAN_LINK_FLAGS}
 
 -import cpp.nu
 
@@ -62,14 +68,14 @@ tests: repl-test unit-test ! live
 
 unit-test: bin/tests ! live
 	echo "-------------------------------------"
-	bin/lip -v
-	echo "-------------------------------------"
 	bin/tests --color always
 
 repl-test: src/tests/repl.sh bin/lip ! live
 	${deps}
 
 test:%: bin/tests ! live << SEED
+	echo "-------------------------------------"
+	bin/lip -v
 	echo "-------------------------------------"
 	if [ -z "${SEED}" ]; then
 		bin/tests --color always ${m}
@@ -142,17 +148,17 @@ include/lip/gen/%.h: src/lip/%.h.in << c_flags C_FLAGS link_flags LINK_FLAGS lin
 	mkdir -p $(dirname $@)
 	envsubst < ${deps} > $@
 
-bin/liblinenoise-ng.a: << C_FLAGS CPP_FLAGS CLEAR_ENV
+bin/liblinenoise-ng.a: << C_FLAGS CPP_FLAGS CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS
 	${CLEAR_ENV}
 	${NUMAKE} static-lib:$@ \
-		c_flags="-Ideps/linenoise-ng/include" \
+		c_flags="-Ideps/linenoise-ng/include ${ASAN_COMPILE_FLAGS} ${UBSAN_COMPILE_FLAGS}" \
 		cpp_flags="-Ideps/linenoise-ng/include" \
 		sources="`find deps/linenoise-ng/src -name '*.cpp' -or -name '*.c'`"
 
-bin/libcargo.a: << CLEAR_ENV
+bin/libcargo.a: << CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS
 	${CLEAR_ENV}
 	${NUMAKE} static-lib:$@ \
-		c_flags=" " \
+		c_flags="${ASAN_COMPILE_FLAGS} ${UBSAN_COMPILE_FLAGS}" \
 		sources="deps/cargo/cargo.c"
 
 # Only for vm_dispatch.c, remove -pedantic because we will be using a

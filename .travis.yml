@@ -24,7 +24,7 @@ env:
 install:
   - pip install --user cpp-coveralls
 script:
-  - ./numake tests WITH_LTO=0 WITH_UB_SAN=1 WITH_ADDR_SAN=1
+  - ./numake tests WITH_LTO=0 WITH_UBSAN=1 WITH_ASAN=1
 after_success:
   - if [ "$COMPILER" = "gcc" ]; then coveralls --root . --build-root . --exclude .build/*/src/tests --exclude .build/*/src/lip/vendor --exclude .build/*/src/lip/khash_impl.c ; fi
 sudo: required
