@@ -6,8 +6,6 @@ ${NUMAKE} $@
 ${NUMAKE} --gc
 while :
 do
-	inotifywait \
-		-e close_write \
-		`${NUMAKE} --sources` `find . -name '*.nu'` || exit 1
+	inotifywait -e close_write -r src include `find . -name '*.nu'` || exit 1
 	${NUMAKE} $@
 done
