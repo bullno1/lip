@@ -5,7 +5,7 @@
 	lip_exec_status_t name(lip_vm_t* vm, lip_value_t* result)
 
 #define lip_bind_track_native_location(vm) \
-	lip_set_native_location(vm, __FILE__, __LINE__); \
+	lip_set_native_location(vm, __func__, __FILE__, __LINE__); \
 
 #define lip_bind_prepare(vm) \
 	lip_bind_track_native_location(vm); \

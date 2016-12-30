@@ -125,7 +125,9 @@ lip_call(
 );
 
 LIP_API void
-lip_set_native_location(lip_vm_t* vm, const char* file, int line);
+lip_set_native_location(
+	lip_vm_t* vm, const char* function, const char* file, int line
+);
 
 LIP_API const lip_value_t*
 lip_get_args(const lip_vm_t* vm, uint8_t* num_args);
@@ -177,7 +179,14 @@ lip_make_function(
 	lip_value_t env[]
 );
 
+#ifndef LIP_NO_MAGIC
+
+#define lip_exec_script(vm, ...) \
+	(lip_set_native_location(vm, __func__, __FILE__, __LINE__), lip_exec_script(vm, __VA_ARGS__))
+
 #define lip_call(vm, ...) \
-	(lip_set_native_location(vm, __FILE__, __LINE__), lip_call(vm, __VA_ARGS__))
+	(lip_set_native_location(vm, __func__, __FILE__, __LINE__), lip_call(vm, __VA_ARGS__))
+
+#endif
 
 #endif

@@ -179,13 +179,19 @@ lip_get_error(lip_context_t* ctx)
 }
 
 static lip_string_ref_t
-lip_function_name(lip_closure_t* closure)
+lip_function_name(lip_stack_frame_t* fp)
 {
-	if(closure != NULL && closure->debug_name)
+	if(fp->closure == NULL)
+	{
+		return fp->native_function
+			? lip_string_ref(fp->native_function)
+			: lip_string_ref("?");
+	}
+	else if(fp->closure->debug_name)
 	{
 		return (lip_string_ref_t) {
-			.ptr = closure->debug_name->ptr,
-			.length = closure->debug_name->length
+			.ptr = fp->closure->debug_name->ptr,
+			.length = fp->closure->debug_name->length
 		};
 	}
 	else
@@ -245,7 +251,7 @@ lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg)
 			*lip_array_alloc(ctx->error_records) = (lip_error_record_t){
 				.filename = lip_string_ref(filename),
 				.location = location,
-				.message = lip_function_name(fp->closure)
+				.message = lip_function_name(fp)
 			};
 		}
 		else
@@ -260,7 +266,7 @@ lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg)
 					.length = function_layout.source_name->length
 				},
 				.location = location,
-				.message = lip_function_name(fp->closure)
+				.message = lip_function_name(fp)
 			};
 		}
 	}
@@ -609,12 +615,12 @@ lip_unload_script(lip_context_t* ctx, lip_script_t* script)
 }
 
 lip_exec_status_t
-lip_exec_script(lip_vm_t* vm, lip_script_t* script, lip_value_t* result)
+(lip_exec_script)(lip_vm_t* vm, lip_script_t* script, lip_value_t* result)
 {
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
 	lip_arena_allocator_reset(rt->allocator);
 
-	return lip_call(
+	return (lip_call)(
 		vm,
 		result,
 		(lip_value_t){
@@ -671,7 +677,7 @@ lip_repl(
 						};
 						lip_reset_vm(vm);
 						lip_value_t result;
-						lip_exec_status_t status = lip_call(
+						lip_exec_status_t status = (lip_call)(
 							vm,
 							&result,
 							(lip_value_t){

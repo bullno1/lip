@@ -36,6 +36,9 @@ lip_vm_init(
 		.fp = lip_locate_memblock(mem, &cs_block)
 	};
 
+	// Clear out debug info
+	memset(vm->fp, 0, sizeof(lip_stack_frame_t) * config->cs_len);
+
 	*(vm->fp) = (lip_stack_frame_t){
 		.ep = (lip_value_t*)lip_locate_memblock(mem, &env_block) + config->env_len,
 		.bp = vm->sp
@@ -81,8 +84,11 @@ lip_exec_status_t
 }
 
 void
-lip_set_native_location(lip_vm_t* vm, const char* file, int line)
+lip_set_native_location(
+	lip_vm_t* vm, const char* function, const char* file, int line
+)
 {
+	vm->fp->native_function = function;
 	vm->fp->native_filename = file;
 	vm->fp->native_line = line;
 }
