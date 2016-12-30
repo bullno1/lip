@@ -169,6 +169,11 @@ basic_forms(const MunitParameter params[], void* fixture_)
 		2.5
 	);
 	lip_assert_num_result(
+		"(let ((x (fn (x) (fn () x))))"
+		"   ((x 4.2)))",
+		4.2
+	);
+	lip_assert_num_result(
 		"(letrec ((y x)"
 		"         (x 2.5))"
 		"    y)",
@@ -205,6 +210,9 @@ basic_forms(const MunitParameter params[], void* fixture_)
 	lip_assert_num_result("(((letrec ((x 1.5)) (fn () (fn () x)))))", 1.5);
 	lip_assert_num_result("(let ((x (fn () (identity 3.5)))) (x))", 3.5);
 
+	lip_assert_nil_result("(do)");
+	lip_assert_nil_result("");
+
 	// Integers around 23 bits limit
 	lip_assert_num_result(STRINGIFY(LIP_LDI_MIN), LIP_LDI_MIN);
 	lip_assert_num_result(STRINGIFY(LIP_LDI_MAX), LIP_LDI_MAX);
@@ -219,6 +227,17 @@ basic_forms(const MunitParameter params[], void* fixture_)
 	lip_assert_num_result(buff, LIP_LDI_MIN + 1);
 	snprintf(buff, sizeof(buff), "%d", LIP_LDI_MAX - 1);
 	lip_assert_num_result(buff, LIP_LDI_MAX - 1);
+
+	lip_assert_num_result("(let ((x 1) (y (fn () (if false x 2)))) (y))", 2);
+	lip_assert_num_result("(let ((x 1) (y (fn () (if true x 2)))) (y))", 1);
+	lip_assert_nil_result("(let ((x 1) (y (fn () (if false x)))) (y))");
+	lip_assert_num_result("(let ((x 1) (y (fn () (do 3 x)))) (y))", 1);
+	lip_assert_num_result("(let ((x 1) (y (fn () (let ((x 5) (z x)) z)))) (y))", 5);
+	lip_assert_num_result("(let ((x 1) (y (fn () (let ((x2 5) (z x)) x)))) (y))", 1);
+	lip_assert_num_result("(let ((x 1) (y (fn () (let ((z x) (x 5)) z)))) (y))", 1);
+
+	lip_assert_num_result("(let ((x 1) (y (fn () (letrec ((x 5) (z x)) z)))) (y))", 5);
+	lip_assert_num_result("(let ((x 1) (y (fn () (letrec ((z x) (x 5)) z)))) (y))", 5);
 
 	return MUNIT_OK;
 }
