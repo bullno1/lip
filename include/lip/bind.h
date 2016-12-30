@@ -4,8 +4,15 @@
 #define lip_function(name) \
 	lip_exec_status_t name(lip_vm_t* vm, lip_value_t* result)
 
+#define lip_bind_track_native_location(vm) \
+	lip_set_native_location(vm, __FILE__, __LINE__); \
+
+#define lip_bind_prepare(vm) \
+	lip_bind_track_native_location(vm); \
+	uint8_t argc; lip_value_t* argv = lip_get_args(vm, &argc); (void)argv;
+
 #define lip_bind_args(...) \
-	uint8_t argc; lip_value_t* argv = lip_get_args(vm, &argc); (void)argv;\
+	lip_bind_prepare(vm); \
 	const uint8_t arity = lip_pp_len(__VA_ARGS__); \
 	lip_bind_assert_fmt( \
 		argc == arity, \
@@ -69,11 +76,13 @@
 #define lip_throw(err) \
 		do { \
 			*result = lip_make_string_copy(vm, lip_string_ref(err)); \
+			lip_bind_track_native_location(vm); \
 			return LIP_EXEC_ERROR; \
 		} while(0)
 #define lip_throw_fmt(fmt, ...) \
 		do { \
 			*result = lip_make_string(vm, fmt, __VA_ARGS__); \
+			lip_bind_track_native_location(vm); \
 			return LIP_EXEC_ERROR; \
 		} while(0)
 

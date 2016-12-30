@@ -25,23 +25,25 @@ lip_vm_init(
 	lip_vm_t* vm, lip_vm_config_t* config, lip_runtime_interface_t* rt, void* mem
 )
 {
-	vm->config = *config;
-	vm->rt = rt;
-	vm->hook = NULL;
-	vm->mem = mem;
-
 	lip_memblock_info_t os_block, env_block, cs_block;
 	lip_vm_memory_layout(config, &os_block, &env_block, &cs_block);
-	vm->sp = (lip_value_t*)lip_locate_memblock(mem, &os_block) + config->os_len;
-	vm->fp = lip_locate_memblock(mem, &cs_block);
-	vm->fp->ep = (lip_value_t*)lip_locate_memblock(mem, &env_block) + config->env_len;
-	vm->fp->bp = vm->sp;
-	vm->fp->pc = NULL;
-	vm->fp->closure = NULL;
+
+	*vm = (lip_vm_t){
+		.config = *config,
+		.rt = rt,
+		.mem = mem,
+		.sp = (lip_value_t*)lip_locate_memblock(mem, &os_block) + config->os_len,
+		.fp = lip_locate_memblock(mem, &cs_block)
+	};
+
+	*(vm->fp) = (lip_stack_frame_t){
+		.ep = (lip_value_t*)lip_locate_memblock(mem, &env_block) + config->env_len,
+		.bp = vm->sp
+	};
 }
 
 lip_exec_status_t
-lip_call(
+(lip_call)(
 	lip_vm_t* vm,
 	lip_value_t* result,
 	lip_value_t fn,
@@ -76,6 +78,13 @@ lip_call(
 	*result = *vm->sp;
 	++vm->sp;
 	return status;
+}
+
+void
+lip_set_native_location(lip_vm_t* vm, const char* file, int line)
+{
+	vm->fp->native_filename = file;
+	vm->fp->native_line = line;
 }
 
 lip_vm_hook_t*

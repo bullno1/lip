@@ -84,6 +84,10 @@ struct lip_stack_frame_s
 	lip_instruction_t* pc;
 	lip_value_t* ep;
 	lip_value_t* bp;
+
+	const char* native_filename;
+	int native_line;
+
 	uint8_t num_args;
 };
 

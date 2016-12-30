@@ -228,9 +228,23 @@ lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg)
 	{
 		if(lip_stack_frame_is_native(fp))
 		{
+			const char* filename = fp->native_filename ? fp->native_filename : "<native>";
+			lip_loc_range_t location;
+			if(fp->native_line)
+			{
+				location = (lip_loc_range_t){
+					.start = { .line = fp->native_line },
+					.end = { .line = fp->native_line }
+				};
+			}
+			else
+			{
+				location = LIP_LOC_NOWHERE;
+			}
+
 			*lip_array_alloc(ctx->error_records) = (lip_error_record_t){
-				.filename = lip_string_ref("<native>"),
-				.location = LIP_LOC_NOWHERE,
+				.filename = lip_string_ref(filename),
+				.location = location,
 				.message = lip_function_name(fp->closure)
 			};
 		}
