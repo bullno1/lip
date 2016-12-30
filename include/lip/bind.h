@@ -13,23 +13,56 @@
 
 #define lip_bind_args(...) \
 	lip_bind_prepare(vm); \
-	const uint8_t arity = lip_pp_len(__VA_ARGS__); \
-	lip_bind_assert_fmt( \
-		argc == arity, \
-		"Bad number of arguments (exactly %d expected, got %d)", \
-		arity, argc \
-	); \
+	const uint8_t arity_min = 0 + lip_pp_map(lip_bind_count_arity, __VA_ARGS__); \
+	const uint8_t arity_max = lip_pp_len(__VA_ARGS__); \
+	const bool has_optional = arity_min != arity_max; \
+	if(has_optional) { \
+		lip_bind_assert_fmt( \
+			argc >= arity_min, \
+			"Bad number of arguments (at least %d expected, got %d)", \
+			arity_min, argc \
+		); \
+		lip_bind_assert_fmt( \
+			argc <= arity_max, \
+			"Bad number of arguments (at most %d expected, got %d)", \
+			arity_max, argc \
+		); \
+	} else { \
+		lip_bind_assert_fmt( \
+			argc == arity_min, \
+			"Bad number of arguments (exactly %d expected, got %d)", \
+			arity_min, argc \
+		); \
+	} \
 	lip_pp_map(lip_bind_arg, __VA_ARGS__)
 #define lip_bind_arg(i, spec) \
 	lip_bind_arg1( \
 		i, \
 		lip_pp_nth(1, spec, any), \
-		lip_pp_nth(2, spec, junk), \
-		lip_pp_nth(3, spec, required) \
+		lip_pp_nth(2, spec, missing_argument_name[-1]), \
+		lip_pp_nth(3, spec, (required)) \
 	)
 #define lip_bind_arg1(i, type, name, extra) \
 	lip_pp_concat(lip_bind_declare_, type)(name); \
+	lip_pp_concat(lip_pp_concat(lip_bind_, lip_pp_nth(1, extra, required)), _arg)( \
+		i, type, name, extra \
+	)
+#define lip_bind_count_arity(i, spec) \
+	+ lip_pp_concat(lip_bind_count_arity_, lip_pp_nth(1, lip_pp_nth(3, spec, (required)), required))
+#define lip_bind_count_arity_required 1
+#define lip_bind_count_arity_optional 0
+
+#define lip_bind_required_arg(i, type, name, extra) \
 	lip_pp_concat(lip_bind_load_, type)(i, name, argv[i - 1]);
+
+#define lip_bind_optional_arg(i, type, name, extra) \
+	do { \
+		if(i <= argc) { \
+			lip_bind_required_arg(i, type, name, extra); \
+		} else { \
+			name = lip_pp_nth(2, extra, missing_optional); \
+		} \
+	} while(0);
 
 #define lip_bind_wrap_function(name, return_type, ...) \
 	lip_function(lip_bind_wrapper(name)) { \

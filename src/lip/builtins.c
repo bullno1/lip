@@ -18,8 +18,12 @@ static lip_function(identity)
 
 static lip_function(print)
 {
-	lip_bind_args((any, x));
-	lip_print_value(3, 0, lip_stdout(), x);
+	lip_bind_args(
+		(any, x),
+		(number, depth, (optional, 3)),
+		(number, indent, (optional, 0))
+	);
+	lip_print_value(depth, indent, lip_stdout(), x);
 	lip_return(lip_make_nil(vm));
 }
 
