@@ -82,7 +82,7 @@ quick_remove(const MunitParameter params[], void* fixture)
 	(void)params;
 	(void)fixture;
 
-	uint32_t num_elements = munit_rand_uint32() % 1000;
+	uint32_t num_elements = munit_rand_uint32() % 1000 + 1;
 	uint32_t deleted_element = munit_rand_uint32() % num_elements;
 
 	lip_array(uint32_t) array = lip_array_create(lip_default_allocator, uint32_t, 0);
