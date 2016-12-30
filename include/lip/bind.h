@@ -8,7 +8,6 @@
 	lip_set_native_location(vm, __func__, __FILE__, __LINE__); \
 
 #define lip_bind_prepare(vm) \
-	lip_bind_track_native_location(vm); \
 	uint8_t argc; const lip_value_t* argv = lip_get_args(vm, &argc); (void)argv;
 
 #define lip_bind_args(...) \

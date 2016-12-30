@@ -107,11 +107,8 @@ lip_vm_do_call(lip_vm_t* vm, lip_value_t* fn, uint8_t num_args)
 	{
 		// Ensure that a value is always returned
 		lip_value_t* next_sp = vm->sp + num_args - 1;
-		lip_value_t result = { .type = LIP_VAL_NIL };
-		lip_set_native_location(vm, __func__, __FILE__, __LINE__);
-		lip_exec_status_t status = closure->function.native(vm, &result);
+		lip_exec_status_t status = closure->function.native(vm, next_sp);
 		vm->sp = next_sp;
-		*next_sp = result;
 		if(status == LIP_EXEC_OK) { --vm->fp; }
 
 		return status;

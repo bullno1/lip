@@ -8,7 +8,7 @@ static lip_function(nop)
 {
 	(void)vm;
 	(void)result;
-	return LIP_EXEC_OK;
+	lip_return(lip_make_nil(vm));
 }
 
 static lip_function(identity)

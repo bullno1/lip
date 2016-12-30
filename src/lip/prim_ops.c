@@ -3,6 +3,7 @@
 
 #include "prim_ops.h"
 #include <lip/lip.h>
+#include <lip/extra.h>
 #include <string.h>
 
 #define lip_prim_op_bind_args(...) \
@@ -70,7 +71,7 @@ static int
 lip_gen_cmp(lip_value_t lhs, lip_value_t rhs)
 {
 	int type_cmp = lhs.type - rhs.type;
-	if(type_cmp != 0) { return type_cmp; }
+	if(LIP_UNLIKELY(type_cmp != 0)) { return type_cmp; }
 
 	switch(lhs.type)
 	{
@@ -81,15 +82,15 @@ lip_gen_cmp(lip_value_t lhs, lip_value_t rhs)
 		case LIP_VAL_BOOLEAN:
 			return lhs.data.boolean - rhs.data.boolean;
 		case LIP_VAL_STRING:
-		{
-			lip_string_t* lstr = lip_as_string(lhs);
-			lip_string_t* rstr = lip_as_string(rhs);
-			int len_cmp = lstr->length - lstr->length;
-			if(len_cmp != 0) { return len_cmp; }
+			{
+				lip_string_t* lstr = lip_as_string(lhs);
+				lip_string_t* rstr = lip_as_string(rhs);
+				int len_cmp = lstr->length - lstr->length;
+				if(len_cmp != 0) { return len_cmp; }
 
-			return strncmp(lstr->ptr, rstr->ptr, lstr->length);
-		}
-		break;
+				return strncmp(lstr->ptr, rstr->ptr, lstr->length);
+			}
+			break;
 		case LIP_VAL_PLACEHOLDER:
 			return lhs.data.index - rhs.data.index;
 		default:

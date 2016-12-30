@@ -1,4 +1,4 @@
-function fib(n)
+local function fib(n)
 	if n < 2 then
 		return n
 	else
@@ -6,4 +6,4 @@ function fib(n)
 	end
 end
 
-print(fib(36))
+print(fib(39))

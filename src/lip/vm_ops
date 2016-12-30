@@ -42,7 +42,7 @@ END_OP(LDCV)
 
 BEGIN_OP(IMP)
 	lip_value_t val = fn.imports[operand].value;
-	if(val.type != LIP_VAL_PLACEHOLDER)
+	if(LIP_LIKELY(val.type != LIP_VAL_PLACEHOLDER))
 	{
 		*(--sp) = val;
 	}

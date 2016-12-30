@@ -10,6 +10,14 @@
 
 LIP_ENUM(lip_stream_status_t, LIP_STREAM)
 
+#if defined(__GNUC__) || defined(__GNUG__) || defined(__clang__)
+#	define LIP_LIKELY(cond) __builtin_expect(cond, 1)
+#	define LIP_UNLIKELY(cond) __builtin_expect(cond, 0)
+#else
+#	define LIP_LIKELY(cond) cond
+#	define LIP_UNLIKELY(cond)
+#endif
+
 #define lip_error_m(T) \
 	struct { \
 		bool success; \
