@@ -148,17 +148,17 @@ include/lip/gen/%.h: src/lip/%.h.in << c_flags C_FLAGS link_flags LINK_FLAGS lin
 	mkdir -p $(dirname $@)
 	envsubst < ${deps} > $@
 
-bin/liblinenoise-ng.a: << C_FLAGS CPP_FLAGS CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS
+bin/liblinenoise-ng.a: << C_FLAGS CPP_FLAGS CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS  LTO_FLAGS
 	${CLEAR_ENV}
 	${NUMAKE} static-lib:$@ \
-		c_flags="-Ideps/linenoise-ng/include ${ASAN_COMPILE_FLAGS} ${UBSAN_COMPILE_FLAGS}" \
-		cpp_flags="-Ideps/linenoise-ng/include" \
+		c_flags="-Ideps/linenoise-ng/include ${ASAN_COMPILE_FLAGS} ${UBSAN_COMPILE_FLAGS} ${LTO_FLAGS}" \
+		cpp_flags="-Ideps/linenoise-ng/include ${ASAN_COMPILE_FLAGS} ${UBSAN_COMPILE_FLAGS} ${LTO_FLAGS}" \
 		sources="`find deps/linenoise-ng/src -name '*.cpp' -or -name '*.c'`"
 
-bin/libcargo.a: << CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS
+bin/libcargo.a: << CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS LTO_FLAGS
 	${CLEAR_ENV}
 	${NUMAKE} static-lib:$@ \
-		c_flags="${ASAN_COMPILE_FLAGS} ${UBSAN_COMPILE_FLAGS}" \
+		c_flags="${LTO_FLAGS} ${ASAN_COMPILE_FLAGS} ${UBSAN_COMPILE_FLAGS}" \
 		sources="deps/cargo/cargo.c"
 
 # Only for vm_dispatch.c, remove -pedantic because we will be using a

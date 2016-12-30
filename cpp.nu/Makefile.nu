@@ -37,7 +37,7 @@ exe:%: << BUILD_DIR CPPNU_DIR ! live
 # A phony rule to register target as a static library
 static-lib:%: << BUILD_DIR CPPNU_DIR ! live
 	${CPPNU_DIR}/generate lib
-	echo "-L$(dirname ${m}) -l:$(basename ${m})" > "${m}.meta"
+	echo "${m}" > "${m}.meta"
 
 # A phony rule to register target as a dynamic library
 dynamic-lib:%: << BUILD_DIR CPPNU_DIR ! live
