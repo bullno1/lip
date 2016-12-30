@@ -53,12 +53,16 @@ LINK_FLAGS ?= -g ${COMMON_FLAGS}
 
 all: tests bin/lip ! live
 
-tests: bin/lip bin/tests ! live
+tests: repl-test unit-test ! live
+
+unit-test: bin/tests ! live
 	echo "-------------------------------------"
 	bin/lip -v
 	echo "-------------------------------------"
 	bin/tests --color always
-	test "$(echo '(print (identity true))' | bin/lip)" = "true"
+
+repl-test: src/tests/repl.sh bin/lip ! live
+	${deps}
 
 test:%: bin/tests ! live << SEED
 	echo "-------------------------------------"
@@ -77,6 +81,7 @@ cover: tests
 		--sort-percentage \
 		--delete \
 		--filter '.*src/lip/.*' \
+		--filter '.*src/repl/.*' \
 		--exclude '.*src/lip/vendor/.*' \
 		--exclude '.*src/lip/khash_impl.c' \
 		--html --html-details \
