@@ -240,6 +240,14 @@ runtime_error(const MunitParameter params[], void* fixture_)
 	lip_assert_string_ref_equal(lip_string_ref(__FILE__), error->records[bottom].filename);
 	lip_assert_string_ref_equal(lip_string_ref(__func__), error->records[bottom].message);
 
+	lip_load_builtins(ctx);
+	lip_assert_error_msg("(identity)", "Bad number of arguments (exactly 1 expected, got 0)");
+	error = lip_traceback(ctx, vm, lip_make_nil(vm));
+	bottom = error->num_records - 1;
+	lip_assert_string_ref_equal(lip_string_ref(__FILE__), error->records[bottom].filename);
+	lip_assert_string_ref_equal(lip_string_ref(__func__), error->records[bottom].message);
+	lip_assert_string_ref_equal(lip_string_ref("identity"), error->records[0].message);
+
 	return MUNIT_OK;
 }
 
