@@ -293,6 +293,25 @@ syntax_error(const MunitParameter params[], void* fixture_)
 }
 
 static MunitResult
+utils(const MunitParameter params[], void* fixture_)
+{
+	(void)params;
+
+	lip_fixture_t* fixture = fixture_;
+	lip_vm_t* vm = fixture->vm;
+
+	lip_assert_num(4.21, lip_make_number(vm, 4.21));
+	lip_assert_nil(placeholder, lip_make_nil(vm));
+
+	lip_value_t str1 = lip_make_string(vm, "1 - abc %s gh %d", "def", 3);
+	lip_value_t str2 = lip_make_string_copy(vm, lip_string_ref("2 - abc wat gh 69"));
+	lip_assert_str("1 - abc def gh 3", str1);
+	lip_assert_str("2 - abc wat gh 69", str2);
+
+	return MUNIT_OK;
+}
+
+static MunitResult
 strings(const MunitParameter params[], void* fixture_)
 {
 	(void)params;
@@ -360,6 +379,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/builtins",
 		.test = builtins,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/utils",
+		.test = utils,
 		.setup = setup,
 		.tear_down = teardown
 	},
