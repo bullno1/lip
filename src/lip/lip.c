@@ -517,21 +517,30 @@ lip_lookup_symbol_locked(
 bool
 lip_lookup_symbol(lip_context_t* ctx, lip_string_ref_t symbol_name, lip_value_t* result)
 {
-	char* pos = memchr(symbol_name.ptr, '/', symbol_name.length);
 	lip_string_ref_t namespace;
 	lip_string_ref_t symbol;
 
-	if(pos)
-	{
-		namespace.ptr = symbol_name.ptr;
-		namespace.length = pos - symbol_name.ptr;
-		symbol.ptr = pos + 1;
-		symbol.length = symbol_name.length - namespace.length - 1;
-	}
-	else
+	if(symbol_name.length == 1 && symbol_name.ptr[0] == '/')
 	{
 		namespace = lip_string_ref("");
 		symbol = symbol_name;
+	}
+	else
+	{
+		char* pos = memchr(symbol_name.ptr, '/', symbol_name.length);
+
+		if(pos)
+		{
+			namespace.ptr = symbol_name.ptr;
+			namespace.length = pos - symbol_name.ptr;
+			symbol.ptr = pos + 1;
+			symbol.length = symbol_name.length - namespace.length - 1;
+		}
+		else
+		{
+			namespace = lip_string_ref("");
+			symbol = symbol_name;
+		}
 	}
 
 	lip_assert(ctx, lip_rwlock_begin_read(&ctx->runtime->symtab_lock));
