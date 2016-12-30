@@ -13,26 +13,13 @@
 
 #define lip_bind_args(...) \
 	lip_bind_prepare(vm); \
-	const uint8_t arity_min = 0 + lip_pp_map(lip_bind_count_arity, __VA_ARGS__); \
-	const uint8_t arity_max = lip_pp_len(__VA_ARGS__); \
-	const bool has_optional = arity_min != arity_max; \
-	if(has_optional) { \
-		lip_bind_assert_fmt( \
-			argc >= arity_min, \
-			"Bad number of arguments (at least %d expected, got %d)", \
-			arity_min, argc \
-		); \
-		lip_bind_assert_fmt( \
-			argc <= arity_max, \
-			"Bad number of arguments (at most %d expected, got %d)", \
-			arity_max, argc \
-		); \
+	const unsigned int arity_min = 0 + lip_pp_map(lip_bind_count_arity, __VA_ARGS__); \
+	const unsigned int arity_max = lip_pp_len(__VA_ARGS__); \
+	if(arity_min != arity_max) { \
+		lip_bind_assert_argc_at_least(arity_min); \
+		lip_bind_assert_argc_at_most(arity_max); \
 	} else { \
-		lip_bind_assert_fmt( \
-			argc == arity_min, \
-			"Bad number of arguments (exactly %d expected, got %d)", \
-			arity_min, argc \
-		); \
+		lip_bind_assert_argc(arity_min); \
 	} \
 	lip_pp_map(lip_bind_arg, __VA_ARGS__)
 #define lip_bind_arg(i, spec) \
@@ -63,6 +50,27 @@
 			name = lip_pp_nth(2, extra, missing_optional); \
 		} \
 	} while(0);
+
+#define lip_bind_assert_argc_at_least(arity_min) \
+	lip_bind_assert_fmt( \
+		argc >= arity_min, \
+		"Bad number of arguments (at least %u expected, got %u)", \
+		arity_min, argc \
+	);
+
+#define lip_bind_assert_argc_at_most(arity_max) \
+	lip_bind_assert_fmt( \
+		argc <= arity_max, \
+		"Bad number of arguments (at most %u expected, got %u)", \
+		arity_max, argc \
+	);
+
+#define lip_bind_assert_argc(arity) \
+	lip_bind_assert_fmt( \
+		argc == arity, \
+		"Bad number of arguments (exactly %d expected, got %d)", \
+		arity, argc \
+	);
 
 #define lip_bind_wrap_function(name, return_type, ...) \
 	lip_function(lip_bind_wrapper(name)) { \
