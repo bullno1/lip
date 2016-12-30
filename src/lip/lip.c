@@ -660,6 +660,7 @@ lip_repl(
 	{
 		lip_arena_allocator_reset(ctx->arena_allocator);
 		lip_parser_reset(&ctx->parser, &input.vtable);
+		ctx->error.num_records = 0;
 
 		lip_sexp_t sexp;
 		switch(lip_parser_next_sexp(&ctx->parser, &sexp))
@@ -681,7 +682,7 @@ lip_repl(
 						};
 						lip_reset_vm(vm);
 						lip_value_t result;
-						lip_exec_status_t status = (lip_call)(
+						lip_exec_status_t status = lip_call(
 							vm,
 							&result,
 							(lip_value_t){
