@@ -70,6 +70,8 @@ struct lip_closure_s
 		lip_native_fn_t native;
 	} function;
 
+	lip_string_t* debug_name;
+
 	unsigned env_len:8;
 	unsigned is_native:1;
 

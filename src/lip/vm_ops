@@ -58,6 +58,12 @@ BEGIN_OP(IMP)
 		if(!resolved) { THROW("Undefined symbol"); }
 		LOAD_CONTEXT();
 
+		if(result.type == LIP_VAL_FUNCTION)
+		{
+			lip_closure_t* closure = result.data.reference;
+			closure->debug_name = symbol_name;
+		}
+
 		fn.imports[operand].value = result;
 		*(--sp) = result;
 	}
@@ -163,11 +169,15 @@ BEGIN_OP(CLS)
 	lip_closure_t* closure = vm->rt->malloc(
 		vm->rt, LIP_VAL_FUNCTION, closure_size
 	);
-	closure->is_native = false;
-	closure->function.lip = lip_function_resource(
-		fp->closure->function.lip, fn.function_offsets[function_index]
-	);
-	closure->env_len = num_captures;
+	*closure = (lip_closure_t){
+		.is_native = false,
+		.function = {
+			.lip = lip_function_resource(
+				fp->closure->function.lip, fn.function_offsets[function_index]
+			)
+		},
+		.env_len = num_captures
+	};
 	for(unsigned int i = 0; i < num_captures; ++i)
 	{
 		lip_opcode_t opcode;

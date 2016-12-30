@@ -178,6 +178,22 @@ lip_get_error(lip_context_t* ctx)
 	return &ctx->error;
 }
 
+static lip_string_ref_t
+lip_function_name(lip_closure_t* closure)
+{
+	if(closure != NULL && closure->debug_name)
+	{
+		return (lip_string_ref_t) {
+			.ptr = closure->debug_name->ptr,
+			.length = closure->debug_name->length
+		};
+	}
+	else
+	{
+		return lip_string_ref("?");
+	}
+}
+
 const lip_context_error_t*
 lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg)
 {
@@ -215,35 +231,23 @@ lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg)
 			*lip_array_alloc(ctx->error_records) = (lip_error_record_t){
 				.filename = lip_string_ref("<native>"),
 				.location = LIP_LOC_NOWHERE,
-				.message = lip_string_ref("")
+				.message = lip_function_name(fp->closure)
 			};
 		}
 		else
 		{
-			lip_closure_t* closure = fp->closure;
-			if(closure->is_native)
-			{
-				*lip_array_alloc(ctx->error_records) = (lip_error_record_t){
-					.filename = lip_string_ref("<native>"),
-					.location = LIP_LOC_NOWHERE,
-					.message = lip_string_ref("")
-				};
-			}
-			else
-			{
-				lip_function_layout_t function_layout;
-				lip_function_layout(closure->function.lip, &function_layout);
-				lip_loc_range_t location =
-					function_layout.locations[fp->pc - function_layout.instructions - 1];
-				*lip_array_alloc(ctx->error_records) = (lip_error_record_t){
-					.filename = (lip_string_ref_t){
-						.ptr = function_layout.source_name->ptr,
-						.length = function_layout.source_name->length
-					},
-					.location = location,
-					.message = lip_string_ref("")
-				};
-			}
+			lip_function_layout_t function_layout;
+			lip_function_layout(fp->closure->function.lip, &function_layout);
+			lip_loc_range_t location =
+				function_layout.locations[fp->pc - function_layout.instructions - 1];
+			*lip_array_alloc(ctx->error_records) = (lip_error_record_t){
+				.filename = (lip_string_ref_t){
+					.ptr = function_layout.source_name->ptr,
+					.length = function_layout.source_name->length
+				},
+				.location = location,
+				.message = lip_function_name(fp->closure)
+			};
 		}
 	}
 	ctx->error.num_records = lip_array_len(ctx->error_records);
