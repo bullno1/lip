@@ -3,6 +3,9 @@
 
 #include "common.h"
 
+#define LIP_LDI_MIN -8388608
+#define LIP_LDI_MAX 8388607
+
 #define LIP_OP(F) \
 	F(LIP_OP_NOP) \
 	F(LIP_OP_POP) \

@@ -3,6 +3,7 @@
 #include <lip/io.h>
 #include <lip/print.h>
 #include <lip/vm.h>
+#include <lip/opcode.h>
 #include "munit.h"
 #include "test_helpers.h"
 
@@ -10,7 +11,7 @@
 #define STRINGIFY(X) STRINGIFY2(X)
 #define STRINGIFY2(X) #X
 
-#define lip_assert_num_result(code, result_value) \
+#define lip_assert_result(code, assert_fn, expected_result) \
 	do { \
 		test_hook_t hook = { .printed = false, .vtable = { .step = step } }; \
 		lip_set_vm_hook(vm, &hook.vtable); \
@@ -21,25 +22,36 @@
 		lip_print_closure(100, 0, lip_null, (lip_closure_t*)script); \
 		lip_value_t result; \
 		lip_assert_enum(lip_exec_status_t, LIP_EXEC_OK, ==, lip_exec_script(vm, script, &result)); \
-		lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type); \
-		munit_assert_double_equal(result_value, result.data.number, 3); \
+		assert_fn(expected_result, result); \
+		lip_unload_script(ctx, script); \
 	} while(0)
 
+#define lip_assert_num_result(code, result_value) \
+	lip_assert_result(code, lip_assert_num, result_value)
+
 #define lip_assert_str_result(code, result_value) \
+	lip_assert_result(code, lip_assert_str, result_value)
+
+#define lip_assert_nil_result(code) \
+	lip_assert_result(code, lip_assert_nil, placeholder)
+
+#define lip_assert_num(expected, actual) \
 	do { \
-		test_hook_t hook = { .printed = false, .vtable = { .step = step } }; \
-		lip_set_vm_hook(vm, &hook.vtable); \
-		struct lip_isstream_s sstream; \
-		lip_in_t* input = lip_make_isstream(lip_string_ref(code), &sstream); \
-		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input); \
-		munit_assert_not_null(script); \
-		lip_print_closure(100, 0, lip_null, (lip_closure_t*)script); \
-		lip_value_t result; \
-		lip_assert_enum(lip_exec_status_t, LIP_EXEC_OK, ==, lip_exec_script(vm, script, &result)); \
-		lip_assert_enum(lip_value_type_t, LIP_VAL_STRING, ==, result.type); \
-		lip_string_t* returned_str = result.data.reference; \
-		lip_assert_mem_equal(result_value, (sizeof(result_value) - 1), returned_str->ptr, returned_str->length); \
+		lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, actual.type); \
+		munit_assert_double_equal(expected, actual.data.number, 4); \
 	} while(0)
+
+#define lip_assert_str(expected, actual) \
+	do { \
+		lip_assert_enum(lip_value_type_t, LIP_VAL_STRING, ==, actual.type); \
+		lip_string_t* returned_str = actual.data.reference; \
+		lip_assert_mem_equal( \
+			expected, (sizeof(expected) - 1), returned_str->ptr, returned_str->length \
+		); \
+	} while(0)
+
+#define lip_assert_nil(placeholder, actual) \
+	lip_assert_enum(lip_value_type_t, LIP_VAL_NIL, ==, actual.type); \
 
 #define lip_assert_syntax_error(code, error_msg, start_line, start_col, end_line, end_col) \
 	do { \
@@ -107,6 +119,8 @@ static void
 teardown(void* fixture_)
 {
 	lip_fixture_t* fixture = fixture_;
+	lip_destroy_vm(fixture->context, fixture->vm);
+	lip_destroy_context(fixture->runtime, fixture->context);
 	lip_destroy_runtime(fixture->runtime);
 	lip_free(lip_default_allocator, fixture);
 }
@@ -190,6 +204,21 @@ basic_forms(const MunitParameter params[], void* fixture_)
 	lip_assert_num_result("(if (if false 2) 1 2)", 2.0);
 	lip_assert_num_result("(((letrec ((x 1.5)) (fn () (fn () x)))))", 1.5);
 	lip_assert_num_result("(let ((x (fn () (identity 3.5)))) (x))", 3.5);
+
+	// Integers around 23 bits limit
+	lip_assert_num_result(STRINGIFY(LIP_LDI_MIN), LIP_LDI_MIN);
+	lip_assert_num_result(STRINGIFY(LIP_LDI_MAX), LIP_LDI_MAX);
+	char buff[256];
+
+	snprintf(buff, sizeof(buff), "%d", LIP_LDI_MIN - 1);
+	lip_assert_num_result(buff, LIP_LDI_MIN - 1);
+	snprintf(buff, sizeof(buff), "%d", LIP_LDI_MAX + 1);
+	lip_assert_num_result(buff, LIP_LDI_MAX + 1);
+
+	snprintf(buff, sizeof(buff), "%d", LIP_LDI_MIN + 1);
+	lip_assert_num_result(buff, LIP_LDI_MIN + 1);
+	snprintf(buff, sizeof(buff), "%d", LIP_LDI_MAX - 1);
+	lip_assert_num_result(buff, LIP_LDI_MAX - 1);
 
 	return MUNIT_OK;
 }

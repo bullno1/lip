@@ -35,7 +35,7 @@ lip_compile_number(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
 	double number = ast->data.number;
 	int integer = (int)number;
-	if(number == (double)integer && -16777216 <= integer && integer <= 16777215)
+	if(number == (double)integer && LIP_LDI_MIN <= integer && integer <= LIP_LDI_MAX)
 	{
 		LASM(compiler, LIP_OP_LDI, integer, ast->location);
 	}
