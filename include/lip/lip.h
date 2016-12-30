@@ -127,10 +127,10 @@ lip_call(
 LIP_API void
 lip_set_native_location(lip_vm_t* vm, const char* file, int line);
 
-LIP_API lip_value_t*
+LIP_API const lip_value_t*
 lip_get_args(const lip_vm_t* vm, uint8_t* num_args);
 
-LIP_API lip_value_t*
+LIP_API const lip_value_t*
 lip_get_env(const lip_vm_t* vm, uint8_t* env_len);
 
 LIP_MAYBE_UNUSED static inline lip_value_t

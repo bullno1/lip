@@ -9,7 +9,7 @@
 
 #define lip_bind_prepare(vm) \
 	lip_bind_track_native_location(vm); \
-	uint8_t argc; lip_value_t* argv = lip_get_args(vm, &argc); (void)argv;
+	uint8_t argc; const lip_value_t* argv = lip_get_args(vm, &argc); (void)argv;
 
 #define lip_bind_args(...) \
 	lip_bind_prepare(vm); \

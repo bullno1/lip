@@ -181,7 +181,7 @@ static lip_exec_status_t
 identity(lip_vm_t* vm, lip_value_t* result)
 {
 	uint8_t num_args;
-	lip_value_t* args = lip_get_args(vm, &num_args);
+	const lip_value_t* args = lip_get_args(vm, &num_args);
 	*result = args[0];
 	return LIP_EXEC_OK;
 }

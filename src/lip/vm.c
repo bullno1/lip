@@ -95,14 +95,14 @@ lip_set_vm_hook(lip_vm_t* vm, lip_vm_hook_t* hook)
 	return old_hook;
 }
 
-lip_value_t*
+const lip_value_t*
 lip_get_args(const lip_vm_t* vm, uint8_t* num_args)
 {
 	if(num_args) { *num_args = vm->fp->num_args; }
 	return vm->fp->bp;
 }
 
-lip_value_t*
+const lip_value_t*
 lip_get_env(const lip_vm_t* vm, uint8_t* env_len)
 {
 	if(env_len) { *env_len = vm->fp->closure->env_len; }
