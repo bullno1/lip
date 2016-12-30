@@ -71,6 +71,7 @@ wrapper(const MunitParameter params[], void* fixture_)
 {
 	(void)params;
 	lip_fixture_t* fixture = fixture_;
+	lip_context_t* ctx = fixture->context;
 	lip_vm_t* vm = fixture->vm;
 
 	lip_value_t fn = lip_make_function(vm, lip_bind_wrapper(pow), 0, NULL);
@@ -81,6 +82,26 @@ wrapper(const MunitParameter params[], void* fixture_)
 	lip_assert_enum(lip_exec_status_t, LIP_EXEC_OK, ==, status);
 	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
 	munit_assert_double_equal(pow(3.5, 3.6), result.data.number, 3);
+
+	status = lip_call(vm, &result, fn, 1, lip_make_number(vm, 3.5));
+	lip_assert_enum(lip_exec_status_t, LIP_EXEC_ERROR, ==, status);
+	lip_assert_str("Bad number of arguments (exactly 2 expected, got 1)", result);
+
+	status = lip_call(vm, &result, fn, 2, lip_make_number(vm, 3.5), lip_make_string(vm, "wat"));
+	lip_assert_enum(lip_exec_status_t, LIP_EXEC_ERROR, ==, status);
+	lip_assert_str("Bad argument #2 (LIP_VAL_NUMBER expected, got LIP_VAL_STRING)", result);
+
+	const lip_context_error_t* error = lip_traceback(ctx, vm, lip_make_nil(vm));
+	unsigned int bottom = error->num_records - 1;
+	lip_assert_string_ref_equal(lip_string_ref(__FILE__), error->records[bottom].filename);
+	lip_assert_string_ref_equal(lip_string_ref(__func__), error->records[bottom].message);
+	lip_assert_string_ref_equal(lip_string_ref(__FILE__), error->records[0].filename);
+#define lip_stringify(x) lip_stringify1(x)
+#define lip_stringify1(x) #x
+	lip_assert_string_ref_equal(
+		lip_string_ref(lip_stringify(lip_bind_wrapper(pow))),
+		error->records[0].message
+	);
 
 	return MUNIT_OK;
 }

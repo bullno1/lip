@@ -194,6 +194,10 @@ lip_function_name(lip_stack_frame_t* fp)
 			.length = fp->closure->debug_name->length
 		};
 	}
+	else if(fp->native_function)
+	{
+		return lip_string_ref(fp->native_function);
+	}
 	else
 	{
 		return lip_string_ref("?");

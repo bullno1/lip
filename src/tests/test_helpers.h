@@ -112,6 +112,22 @@
 		lip_free(instance->allocator, instance); \
 	}
 
+#define lip_assert_num(expected, actual) \
+	do { \
+		lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, actual.type); \
+		munit_assert_double_equal(expected, actual.data.number, 4); \
+	} while(0)
+
+#define lip_assert_str(expected, actual) \
+	do { \
+		lip_assert_enum(lip_value_type_t, LIP_VAL_STRING, ==, actual.type); \
+		lip_string_t* returned_str = actual.data.reference; \
+		munit_assert_string_equal(expected, returned_str->ptr); \
+	} while(0)
+
+#define lip_assert_nil(placeholder, actual) \
+	lip_assert_enum(lip_value_type_t, LIP_VAL_NIL, ==, actual.type); \
+
 static size_t
 lip_null_write(const void* buff, size_t size, lip_out_t* vtable)
 {

@@ -11,7 +11,7 @@
 #define STRINGIFY(X) STRINGIFY2(X)
 #define STRINGIFY2(X) #X
 
-#define lip_assert_result(code, assert_fn, expected_result) \
+#define lip_assert_result(code, expected_status, assert_fn, expected_result) \
 	do { \
 		test_hook_t hook = { .printed = false, .vtable = { .step = step } }; \
 		lip_set_vm_hook(vm, &hook.vtable); \
@@ -21,37 +21,21 @@
 		munit_assert_not_null(script); \
 		lip_print_closure(100, 0, lip_null, (lip_closure_t*)script); \
 		lip_value_t result; \
-		lip_assert_enum(lip_exec_status_t, LIP_EXEC_OK, ==, lip_exec_script(vm, script, &result)); \
+		lip_assert_enum(lip_exec_status_t, expected_status, ==, lip_exec_script(vm, script, &result)); \
 		assert_fn(expected_result, result); \
-		lip_unload_script(ctx, script); \
 	} while(0)
 
 #define lip_assert_num_result(code, result_value) \
-	lip_assert_result(code, lip_assert_num, result_value)
+	lip_assert_result(code, LIP_EXEC_OK, lip_assert_num, result_value)
 
 #define lip_assert_str_result(code, result_value) \
-	lip_assert_result(code, lip_assert_str, result_value)
+	lip_assert_result(code, LIP_EXEC_OK, lip_assert_str, result_value)
 
 #define lip_assert_nil_result(code) \
-	lip_assert_result(code, lip_assert_nil, placeholder)
+	lip_assert_result(code, LIP_EXEC_OK, lip_assert_nil, placeholder)
 
-#define lip_assert_num(expected, actual) \
-	do { \
-		lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, actual.type); \
-		munit_assert_double_equal(expected, actual.data.number, 4); \
-	} while(0)
-
-#define lip_assert_str(expected, actual) \
-	do { \
-		lip_assert_enum(lip_value_type_t, LIP_VAL_STRING, ==, actual.type); \
-		lip_string_t* returned_str = actual.data.reference; \
-		lip_assert_mem_equal( \
-			expected, (sizeof(expected) - 1), returned_str->ptr, returned_str->length \
-		); \
-	} while(0)
-
-#define lip_assert_nil(placeholder, actual) \
-	lip_assert_enum(lip_value_type_t, LIP_VAL_NIL, ==, actual.type); \
+#define lip_assert_error_msg(code, msg) \
+	lip_assert_result(code, LIP_EXEC_ERROR, lip_assert_str, msg)
 
 #define lip_assert_syntax_error(code, error_msg, start_line, start_col, end_line, end_col) \
 	do { \
@@ -243,6 +227,23 @@ basic_forms(const MunitParameter params[], void* fixture_)
 }
 
 static MunitResult
+runtime_error(const MunitParameter params[], void* fixture_)
+{
+	(void)params;
+	lip_fixture_t* fixture = fixture_;
+	lip_context_t* ctx = fixture->context;
+	lip_vm_t* vm = fixture->vm;
+
+	lip_assert_error_msg("(identity 5)", "Undefined symbol");
+	const lip_context_error_t* error = lip_traceback(ctx, vm, lip_make_nil(vm));
+	unsigned int bottom = error->num_records - 1;
+	lip_assert_string_ref_equal(lip_string_ref(__FILE__), error->records[bottom].filename);
+	lip_assert_string_ref_equal(lip_string_ref(__func__), error->records[bottom].message);
+
+	return MUNIT_OK;
+}
+
+static MunitResult
 builtins(const MunitParameter params[], void* fixture_)
 {
 	(void)params;
@@ -253,6 +254,7 @@ builtins(const MunitParameter params[], void* fixture_)
 	lip_load_builtins(ctx);
 
 	lip_assert_num_result("(identity 5)", 5.0);
+	lip_assert_num_result("(identity 4) (identity 5)", 5.0);
 
 	return MUNIT_OK;
 }
@@ -373,6 +375,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/syntax_error",
 		.test = syntax_error,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/runtime_error",
+		.test = runtime_error,
 		.setup = setup,
 		.tear_down = teardown
 	},

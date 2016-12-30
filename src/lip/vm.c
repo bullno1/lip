@@ -67,7 +67,7 @@ lip_exec_status_t
 	vm->fp->ep = old_fp->ep;
 
 	lip_exec_status_t status = lip_vm_do_call(vm, &fn, num_args);
-	if(status != LIP_EXEC_OK) { return status; }
+	if(status != LIP_EXEC_OK) { goto end; }
 
 	if(vm->fp == old_fp)
 	{
@@ -78,6 +78,7 @@ lip_exec_status_t
 		status = lip_vm_loop(vm);
 	}
 
+end:
 	*result = *vm->sp;
 	++vm->sp;
 	return status;
