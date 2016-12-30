@@ -234,10 +234,63 @@ call_native(const MunitParameter params[], void* fixture)
 	return MUNIT_OK;
 }
 
+static MunitResult
+error(const MunitParameter params[], void* fixture)
+{
+	(void)params;
+	(void)fixture;
+
+	lip_asm_t* lasm = lip_asm_create(lip_default_allocator);
+	lip_asm_begin(lasm, lip_string_ref(__func__));
+	lip_asm_add(lasm, LIP_OP_LABEL - 1, 0, LIP_LOC_NOWHERE);
+	lip_function_t* fn = lip_asm_end(lasm, lip_default_allocator);
+
+	lip_vm_config_t vm_config = {
+		.os_len = 256,
+		.cs_len = 256,
+		.env_len = 256
+	};
+	lip_allocator_t* arena_allocator = lip_arena_allocator_create(lip_default_allocator, 2048);
+	struct dummy_runtime_interface_s rt = {
+		.allocator = arena_allocator,
+		.vtable = { .malloc = rt_malloc }
+	};
+	lip_vm_t* vm = lip_vm_create(lip_default_allocator, &vm_config, &rt.vtable);
+	lip_closure_t* closure = lip_new(lip_default_allocator, lip_closure_t);
+	*closure = (lip_closure_t) {
+		.is_native = false,
+		.env_len = 0,
+		.function = { .lip = fn }
+	};
+
+	lip_value_t result;
+	lip_exec_status_t status = lip_call(vm,
+		&result,
+		(lip_value_t){ .type = LIP_VAL_FUNCTION, .data = { .reference = closure } },
+		0
+	);
+	lip_assert_enum(lip_exec_status_t, LIP_EXEC_ERROR, ==, status);
+	lip_assert_str("Illegal instruction", result);
+
+	lip_free(lip_default_allocator, closure);
+	lip_arena_allocator_destroy(arena_allocator);
+	lip_vm_destroy(lip_default_allocator, vm);
+	lip_asm_destroy(lasm);
+	lip_free(lip_default_allocator, fn);
+
+	return MUNIT_OK;
+}
+
 static MunitTest tests[] = {
 	{
 		.name = "/fibonacci",
 		.test = fibonacci,
+		.setup = NULL,
+		.tear_down = NULL
+	},
+	{
+		.name = "/error",
+		.test = error,
 		.setup = NULL,
 		.tear_down = NULL
 	},

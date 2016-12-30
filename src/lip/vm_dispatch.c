@@ -4,20 +4,20 @@
 #include <lip/asm.h>
 #include <lip/memory.h>
 
-#if defined(__GNUC__) || defined(__GNUG__) || defined(__clang__)
+#if !defined(LIP_NO_COMPUTED_GOTO) && (defined(__GNUC__) || defined(__GNUG__) || defined(__clang__))
 #	define GENERATE_LABEL(ENUM) &&do_##ENUM,
 #	define BEGIN_LOOP() \
-		void* dispatch_table[] = { LIP_OP(GENERATE_LABEL) }; \
+		void* dispatch_table[] = { LIP_OP(GENERATE_LABEL) &&do_LIP_OP_ILLEGAL }; \
 		lip_opcode_t opcode; \
 		lip_operand_t operand; \
 		DISPATCH()
-#	define END_LOOP()
+#	define END_LOOP() do_LIP_OP_ILLEGAL: THROW("Illegal instruction");
 #	define BEGIN_OP(OP) do_LIP_OP_##OP: {
 #	define END_OP(OP) } DISPATCH();
 #	define DISPATCH() \
 		CALL_HOOK(); \
 		lip_disasm(*(pc++), &opcode, &operand); \
-		goto *dispatch_table[opcode];
+		goto *dispatch_table[LIP_MIN((unsigned int)opcode, LIP_STATIC_ARRAY_LEN(dispatch_table) - 1)];
 #else
 #	define BEGIN_LOOP() \
 		while(true) { \
@@ -26,7 +26,7 @@
 			int32_t operand; \
 			lip_disasm(*(pc++), &opcode, &operand); \
 			switch(opcode) {
-#	define END_LOOP() }}
+#	define END_LOOP() default: THROW("Illegal instruction"); }}
 #	define BEGIN_OP(OP) case LIP_OP_##OP: {
 #	define END_OP(OP) } continue;
 #endif
