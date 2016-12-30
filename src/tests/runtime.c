@@ -263,6 +263,8 @@ builtins(const MunitParameter params[], void* fixture_)
 
 	lip_assert_num_result("(identity 5)", 5.0);
 	lip_assert_num_result("(identity 4) (identity 5)", 5.0);
+	lip_assert_nil_result("(nop 1 2 3 identity \"f\")");
+	lip_assert_error_msg("(throw \"custom error\")", "custom error");
 
 	return MUNIT_OK;
 }

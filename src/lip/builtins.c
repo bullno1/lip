@@ -27,6 +27,13 @@ static lip_function(print)
 	lip_return(lip_make_nil(vm));
 }
 
+static lip_function(throw)
+{
+	lip_bind_args((string, msg));
+	*result = msg;
+	return LIP_EXEC_ERROR;
+}
+
 void
 lip_load_builtins(lip_context_t* ctx)
 {
@@ -34,5 +41,6 @@ lip_load_builtins(lip_context_t* ctx)
 	lip_declare_function(ns, lip_string_ref("nop"), nop);
 	lip_declare_function(ns, lip_string_ref("identity"), identity);
 	lip_declare_function(ns, lip_string_ref("print"), print);
+	lip_declare_function(ns, lip_string_ref("throw"), throw);
 	lip_end_ns(ctx, ns);
 }

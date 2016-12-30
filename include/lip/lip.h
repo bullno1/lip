@@ -179,6 +179,12 @@ lip_make_function(
 	lip_value_t env[]
 );
 
+LIP_MAYBE_UNUSED static inline lip_string_t*
+lip_as_string(lip_value_t val)
+{
+	return val.type == LIP_VAL_STRING ? val.data.reference : NULL;
+}
+
 #ifndef LIP_NO_MAGIC
 
 #define lip_exec_script(vm, ...) \

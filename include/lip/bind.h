@@ -90,6 +90,13 @@
 #define lip_bind_declare_any(name) lip_value_t name;
 #define lip_bind_load_any(i, name, value) name = value;
 
+#define lip_bind_declare_string(name) lip_value_t name;
+#define lip_bind_load_string(i, name, value) \
+	do { \
+		lip_bind_check_type(i, LIP_VAL_STRING, value.type); \
+		name = value; \
+	} while(0)
+
 #define lip_bind_declare_number(name) double name;
 #define lip_bind_load_number(i, name, value) \
 	do { \
