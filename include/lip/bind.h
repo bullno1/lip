@@ -31,20 +31,20 @@
 	lip_pp_concat(lip_bind_declare_, type)(name); \
 	lip_pp_concat(lip_bind_load_, type)(i, name, argv[i - 1]);
 
-#define lip_wrap_function(name, return_type, ...) \
-	lip_function(lip_wrapper(name)) { \
-		lip_bind_args(lip_pp_map(lip_wrapper_gen_binding, __VA_ARGS__)); \
+#define lip_bind_wrap_function(name, return_type, ...) \
+	lip_function(lip_bind_wrapper(name)) { \
+		lip_bind_args(lip_pp_map(lip_bind_wrapper_gen_binding, __VA_ARGS__)); \
 		lip_pp_concat(lip_bind_store_, return_type)( \
 			(*result), \
-			name(lip_pp_map(lip_wrapper_ref_binding, __VA_ARGS__)) \
+			name(lip_pp_map(lip_bind_wrapper_ref_binding, __VA_ARGS__)) \
 		); \
 		return LIP_EXEC_OK; \
 	}
 
-#define lip_wrapper_gen_binding(i, type) lip_pp_sep(i) (type, lip_pp_concat(arg, i))
-#define lip_wrapper_ref_binding(i, type) lip_pp_sep(i) lip_pp_concat(arg, i)
+#define lip_bind_wrapper_gen_binding(i, type) lip_pp_sep(i) (type, lip_pp_concat(arg, i))
+#define lip_bind_wrapper_ref_binding(i, type) lip_pp_sep(i) lip_pp_concat(arg, i)
 
-#define lip_wrapper(name) lip_pp_concat(lip_, lip_pp_concat(name, _wrapper))
+#define lip_bind_wrapper(name) lip_pp_concat(lip_, lip_pp_concat(name, _wrapper))
 
 #define lip_bind_declare_any(name) lip_value_t name;
 #define lip_bind_load_any(i, name, value) name = value;

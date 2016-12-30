@@ -64,7 +64,7 @@ direct(const MunitParameter params[], void* fixture_)
 	return MUNIT_OK;
 }
 
-static lip_wrap_function(pow, number, number, number)
+static lip_bind_wrap_function(pow, number, number, number)
 
 static MunitResult
 wrapper(const MunitParameter params[], void* fixture_)
@@ -73,7 +73,7 @@ wrapper(const MunitParameter params[], void* fixture_)
 	lip_fixture_t* fixture = fixture_;
 	lip_vm_t* vm = fixture->vm;
 
-	lip_value_t fn = lip_make_function(vm, lip_wrapper(pow), 0, NULL);
+	lip_value_t fn = lip_make_function(vm, lip_bind_wrapper(pow), 0, NULL);
 	lip_value_t result;
 	lip_exec_status_t status =
 		lip_call(vm, &result, fn, 2, lip_make_number(vm, 3.5), lip_make_number(vm, 3.6));
