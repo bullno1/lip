@@ -24,10 +24,20 @@
 	F(LIP_OP_CALL) \
 	F(LIP_OP_TAIL) \
 	F(LIP_OP_RET) \
-	F(LIP_OP_ADD) \
-	F(LIP_OP_LT) \
 	F(LIP_OP_CLS) \
-	F(LIP_OP_RCLS)
+	F(LIP_OP_RCLS) \
+	F(LIP_OP_ADD) \
+	F(LIP_OP_SUB) \
+	F(LIP_OP_MUL) \
+	F(LIP_OP_FDIV) \
+	F(LIP_OP_NOT) \
+	F(LIP_OP_CMP) \
+	F(LIP_OP_EQ) \
+	F(LIP_OP_NEQ) \
+	F(LIP_OP_GT) \
+	F(LIP_OP_LT) \
+	F(LIP_OP_GTE) \
+	F(LIP_OP_LTE)
 
 LIP_ENUM(lip_opcode_t, LIP_OP)
 

@@ -137,30 +137,6 @@ BEGIN_OP(RET)
 	LOAD_CONTEXT();
 END_OP(RET)
 
-BEGIN_OP(LT)
-	lip_value_t* lhs = sp;
-	lip_value_t* rhs = sp + 1;
-	lip_value_t result = {
-		.type = LIP_VAL_BOOLEAN,
-		.data = { .boolean = lhs->data.number < rhs->data.number }
-	};
-	*(++sp) = result;
-END_OP(LT)
-
-BEGIN_OP(ADD)
-	double acc = 0.0;
-	for(int i = 0; i < operand; ++i)
-	{
-		acc += sp[i].data.number;
-	}
-	lip_value_t result = {
-		.type = LIP_VAL_NUMBER,
-		.data = { .number = acc }
-	};
-	sp += (operand - 1);
-	*sp = result;
-END_OP(ADD)
-
 BEGIN_OP(CLS)
 	unsigned int function_index = operand & 0xFFF;
 	unsigned int num_captures = (operand >> 12) & 0xFFF;
@@ -231,3 +207,5 @@ END_OP(RCLS)
 BEGIN_OP(SET)
 	ep[operand] = *(sp++);
 END_OP(SET)
+
+LIP_PRIM_OP(DO_PRIM_OP)

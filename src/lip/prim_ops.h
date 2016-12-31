@@ -5,21 +5,21 @@
 #include <lip/bind.h>
 
 #define LIP_PRIM_OP(F) \
-	F(+, add) \
-	F(-, sub) \
-	F(*, mul) \
-	F(/, fdiv) \
-	F(!, not) \
-	F(cmp, cmp) \
+	F(+, ADD) \
+	F(-, SUB) \
+	F(*, MUL) \
+	F(/, FDIV) \
+	F(!, NOT) \
+	F(cmp, CMP) \
 	LIP_CMP_OP(F)
 
 #define LIP_CMP_OP(F) \
-	F(==, eq) \
-	F(!=, neq) \
-	F(>, gt) \
-	F(<, lt) \
-	F(>=, gte) \
-	F(<=, lte) \
+	F(==, EQ) \
+	F(!=, NEQ) \
+	F(>, GT) \
+	F(<, LT) \
+	F(>=, GTE) \
+	F(<=, LTE) \
 
 #define LIP_PRIM_OP_FN_NAME(name) lip_pp_concat(lip_, name)
 #define LIP_PRIM_OP_FN(name) \

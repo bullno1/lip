@@ -2,6 +2,8 @@
 #include <lip/vm.h>
 #include <lip/asm.h>
 #include <lip/memory.h>
+#include <lip/print.h>
+#include <lip/io.h>
 #include <lip/arena_allocator.h>
 #include "munit.h"
 #include "test_helpers.h"
@@ -72,7 +74,7 @@ fibonacci(const MunitParameter params[], void* fixture)
 	// n < 2
 	lip_asm_add(lasm, LIP_OP_LDI, 2, LIP_LOC_NOWHERE);
 	lip_asm_add(lasm, LIP_OP_LARG, n, LIP_LOC_NOWHERE);
-	lip_asm_add(lasm, LIP_OP_LT, 0, LIP_LOC_NOWHERE);
+	lip_asm_add(lasm, LIP_OP_LT, 2, LIP_LOC_NOWHERE);
 
 	// then
 	lip_asm_add(lasm, LIP_OP_JOF, else_label, LIP_LOC_NOWHERE);
@@ -138,6 +140,7 @@ fibonacci(const MunitParameter params[], void* fixture)
 		.env_len = 0,
 		.function = { .lip = fn }
 	};
+	lip_print_closure(10, 0, lip_stderr(), closure);
 
 	lip_allocator_t* arena_allocator =
 		lip_arena_allocator_create(lip_default_allocator, 2048);

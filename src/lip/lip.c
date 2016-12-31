@@ -392,6 +392,18 @@ lip_rt_malloc(lip_runtime_interface_t* vtable, lip_value_type_t type, size_t siz
 	return lip_malloc(rt->allocator, size);
 }
 
+static const char*
+lip_rt_format(lip_runtime_interface_t* vtable, const char* fmt, va_list args)
+{
+	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vtable, lip_runtime_link_t, vtable);
+	lip_array_clear(rt->ctx->string_buff);
+	struct lip_osstream_s osstream;
+	lip_out_t* output = lip_make_osstream(&rt->ctx->string_buff, &osstream);
+	lip_vprintf(output, fmt, args);
+	lip_array_push(rt->ctx->string_buff, '\0');
+	return rt->ctx->string_buff;
+}
+
 lip_vm_t*
 lip_create_vm(lip_context_t* ctx, lip_vm_config_t* config)
 {
@@ -426,7 +438,8 @@ lip_create_vm(lip_context_t* ctx, lip_vm_config_t* config)
 		.ctx = ctx,
 		.vtable = {
 			.resolve_import = lip_rt_resolve_import,
-			.malloc = lip_rt_malloc
+			.malloc = lip_rt_malloc,
+			.format = lip_rt_format
 		}
 	};
 	lip_vm_init(vm, config, &rt->vtable, vm_mem);
@@ -738,30 +751,4 @@ lip_repl(
 				return;
 		}
 	}
-}
-
-lip_value_t
-lip_make_string(lip_vm_t* vm, const char* fmt, ...)
-{
-	va_list args;
-	va_start(args, fmt);
-	lip_value_t string = lip_make_stringv(vm, fmt, args);
-	va_end(args);
-
-	return string;
-}
-
-lip_value_t
-lip_make_stringv(lip_vm_t* vm, const char* fmt, va_list args)
-{
-	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
-	lip_array_clear(rt->ctx->string_buff);
-	struct lip_osstream_s osstream;
-	lip_out_t* output = lip_make_osstream(&rt->ctx->string_buff, &osstream);
-
-	lip_vprintf(output, fmt, args);
-	return lip_make_string_copy(vm, (lip_string_ref_t){
-		.ptr = rt->ctx->string_buff,
-		.length = lip_array_len(rt->ctx->string_buff)
-	});
 }

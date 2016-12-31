@@ -24,7 +24,7 @@
 		lip_return(lip_make_boolean(vm, lip_gen_cmp(lhs, rhs) op 0)); \
 	}
 
-LIP_PRIM_OP_FN(add)
+LIP_PRIM_OP_FN(ADD)
 {
 	double sum = 0;
 	for(unsigned int i = 1; i <= argc; ++i)
@@ -35,13 +35,13 @@ LIP_PRIM_OP_FN(add)
 	lip_return(lip_make_number(vm, sum));
 }
 
-LIP_PRIM_OP_FN(sub)
+LIP_PRIM_OP_FN(SUB)
 {
 	lip_prim_op_bind_args((number, lhs), (number, rhs, (optional, 0)));
 	lip_return(lip_make_number(vm, argc == 1 ? -lhs : lhs - rhs));
 }
 
-LIP_PRIM_OP_FN(mul)
+LIP_PRIM_OP_FN(MUL)
 {
 	double product = 0;
 	for(unsigned int i = 1; i <= argc; ++i)
@@ -52,13 +52,13 @@ LIP_PRIM_OP_FN(mul)
 	lip_return(lip_make_number(vm, product));
 }
 
-LIP_PRIM_OP_FN(fdiv)
+LIP_PRIM_OP_FN(FDIV)
 {
 	lip_prim_op_bind_args((number, lhs), (number, rhs, (optional, 0)));
 	lip_return(lip_make_number(vm, argc == 1 ? 1.0 / lhs : lhs / rhs));
 }
 
-LIP_PRIM_OP_FN(not)
+LIP_PRIM_OP_FN(NOT)
 {
 	lip_bind_assert_argc(1);
 	bool is_false =
@@ -98,7 +98,7 @@ lip_gen_cmp(lip_value_t lhs, lip_value_t rhs)
 	}
 }
 
-LIP_PRIM_OP_FN(cmp)
+LIP_PRIM_OP_FN(CMP)
 {
 	lip_prim_op_bind_args((any, lhs), (any, rhs)); \
 	lip_return(lip_make_number(vm, lip_gen_cmp(lhs, rhs))); \

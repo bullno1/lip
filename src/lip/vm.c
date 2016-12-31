@@ -130,6 +130,28 @@ lip_make_string_copy(lip_vm_t* vm, lip_string_ref_t str)
 	};
 }
 
+lip_value_t
+lip_make_string(lip_vm_t* vm, const char* fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	lip_value_t string = lip_make_stringv(vm, fmt, args);
+	va_end(args);
+
+	return string;
+}
+
+lip_value_t
+lip_make_stringv(lip_vm_t* vm, const char* fmt, va_list args)
+{
+	const char* str = vm->rt->format(vm->rt, fmt, args);
+	size_t len = strlen(str);
+
+	return lip_make_string_copy(vm, (lip_string_ref_t){
+		.ptr = str,
+		.length = len
+	});
+}
 
 LIP_API lip_value_t
 lip_make_function(

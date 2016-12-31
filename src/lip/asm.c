@@ -1,6 +1,7 @@
 #include <lip/asm.h>
 #include <lip/vm.h>
 #include <lip/array.h>
+#include "prim_ops.h"
 
 void
 lip_asm_init(lip_asm_t* lasm, lip_allocator_t* allocator)
@@ -238,6 +239,46 @@ lip_asm_end(lip_asm_t* lasm, lip_allocator_t* allocator)
 				}
 			}
 		}
+	}
+
+	// Prim op inlining: Tranfrom [IMP op; CALL y] where op is a prim op into
+	// [OP y]
+	{
+		lip_asm_index_t num_instructions = lip_array_len(lasm->instructions);
+		lip_asm_index_t out_index = 0;
+		for(lip_asm_index_t i = 0; i < num_instructions; ++i)
+		{
+			lasm->instructions[out_index] = lasm->instructions[i];
+
+			if(i + 1 < num_instructions)
+			{
+				lip_opcode_t opcode1, opcode2;
+				lip_operand_t operand1, operand2;
+				lip_disasm(lasm->instructions[i].instruction, &opcode1, &operand1);
+				lip_disasm(lasm->instructions[i + 1].instruction, &opcode2, &operand2);
+
+				if(opcode1 == LIP_OP_IMP && opcode2 == LIP_OP_CALL)
+				{
+					lip_string_ref_t symbol = lasm->string_pool[lasm->imports[operand1]];
+					lip_instruction_t op_instr = 0;
+
+#define LIP_PRIM_OP_OPTIMIZE(op, name) \
+					if(lip_string_ref_equal(lip_string_ref(#op), symbol)) { \
+						op_instr = lip_asm(LIP_OP_ ## name, operand2); \
+					}
+					LIP_PRIM_OP(LIP_PRIM_OP_OPTIMIZE)
+
+					if(op_instr != 0)
+					{
+						lasm->instructions[out_index].instruction = op_instr;
+						++i;
+					}
+				}
+			}
+
+			++out_index;
+		}
+		lip_array_resize(lasm->instructions, out_index);
 	}
 
 	// Perform Tail call optimization

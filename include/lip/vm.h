@@ -1,6 +1,7 @@
 #ifndef LIP_VM_H
 #define LIP_VM_H
 
+#include <stdarg.h>
 #include "extra.h"
 #include "opcode.h"
 #include "memory.h"
@@ -18,6 +19,7 @@ struct lip_runtime_interface_s
 		lip_value_t* result
 	);
 	void*(*malloc)(lip_runtime_interface_t* rt, lip_value_type_t type, size_t size);
+	const char*(*format)(lip_runtime_interface_t* rt, const char* fmt, va_list args);
 };
 
 struct lip_import_s

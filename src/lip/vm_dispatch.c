@@ -3,6 +3,7 @@
 #include <lip/vm.h>
 #include <lip/asm.h>
 #include <lip/memory.h>
+#include "prim_ops.h"
 
 #if !defined(LIP_NO_COMPUTED_GOTO) && (defined(__GNUC__) || defined(__GNUG__) || defined(__clang__))
 #	define GENERATE_LABEL(ENUM) &&do_##ENUM,
@@ -62,6 +63,13 @@
 		SAVE_CONTEXT(); \
 		return LIP_EXEC_ERROR; \
 	} while(0)
+
+#define DO_PRIM_OP(op, name) \
+	BEGIN_OP(name) \
+		lip_exec_status_t status = lip_ ## name (vm, sp + operand - 1, operand, sp); \
+		sp += operand - 1; \
+		if(status != LIP_EXEC_OK) { SAVE_CONTEXT(); return status; } \
+	END_OP(name)
 
 static lip_exec_status_t
 lip_vm_loop_with_hook(lip_vm_t* vm)
