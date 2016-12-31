@@ -102,10 +102,20 @@ lip_vm_loop(lip_vm_t* vm)
 lip_exec_status_t
 lip_vm_do_call(lip_vm_t* vm, lip_value_t* fn, uint8_t num_args)
 {
-	lip_closure_t* closure = (lip_closure_t*)fn->data.reference;
-	vm->fp->closure = closure;
+	if(fn->type != LIP_VAL_FUNCTION)
+	{
+		lip_value_t* next_sp = vm->sp + num_args - 1;
+		*next_sp = lip_make_string_copy(
+			vm, lip_string_ref("Trying to call a non-function")
+		);
+		vm->sp = next_sp;
+		return LIP_EXEC_ERROR;
+	}
+
 	vm->fp->num_args = num_args;
 	vm->fp->bp = vm->sp;
+	lip_closure_t* closure = (lip_closure_t*)fn->data.reference;
+	vm->fp->closure = closure;
 
 	bool is_native = closure->is_native;
 	unsigned int num_locals = is_native ? 0 : closure->function.lip->num_locals;
