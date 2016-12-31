@@ -7,3 +7,4 @@ set -x
 time python $DIR/fib.py
 time lua $DIR/fib.lua
 time bin/lip $DIR/fib.lip
+time guile $DIR/fib.scm
