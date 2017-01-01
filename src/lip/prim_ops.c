@@ -43,7 +43,7 @@ LIP_PRIM_OP_FN(SUB)
 
 LIP_PRIM_OP_FN(MUL)
 {
-	double product = 0;
+	double product = 1.0;
 	for(unsigned int i = 1; i <= argc; ++i)
 	{
 		lip_bind_arg(i, (number, x));
@@ -85,10 +85,9 @@ lip_gen_cmp(lip_value_t lhs, lip_value_t rhs)
 			{
 				lip_string_t* lstr = lip_as_string(lhs);
 				lip_string_t* rstr = lip_as_string(rhs);
-				int len_cmp = lstr->length - lstr->length;
-				if(len_cmp != 0) { return len_cmp; }
-
-				return strncmp(lstr->ptr, rstr->ptr, lstr->length);
+				size_t min_len = LIP_MIN(lstr->length, rstr->length);
+				int cmp = memcmp(lstr->ptr, rstr->ptr, min_len);
+				return cmp != 0 ? cmp : (int)(lstr->length - rstr->length);
 			}
 			break;
 		case LIP_VAL_PLACEHOLDER:

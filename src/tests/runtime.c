@@ -34,6 +34,9 @@
 #define lip_assert_nil_result(code) \
 	lip_assert_result(code, LIP_EXEC_OK, lip_assert_nil, placeholder)
 
+#define lip_assert_boolean_result(code, result_value) \
+	lip_assert_result(code, LIP_EXEC_OK, lip_assert_boolean, result_value)
+
 #define lip_assert_error_msg(code, msg) \
 	lip_assert_result(code, LIP_EXEC_ERROR, lip_assert_str, msg)
 
@@ -270,6 +273,100 @@ builtins(const MunitParameter params[], void* fixture_)
 }
 
 static MunitResult
+prim_ops(const MunitParameter params[], void* fixture_)
+{
+	(void)params;
+
+	lip_fixture_t* fixture = fixture_;
+	lip_context_t* ctx = fixture->context;
+	lip_vm_t* vm = fixture->vm;
+	lip_load_builtins(ctx);
+
+	lip_assert_num_result("(+)", 0.0);
+	lip_assert_num_result("(+ 1 2)", 3.0);
+	lip_assert_num_result("(+ -1 2 3.5)", 4.5);
+	lip_assert_num_result("(let ((op +)) (op 1 2))", 3.0);
+
+	lip_assert_num_result("(*)", 1.0);
+	lip_assert_num_result("(* 1 2)", 2.0);
+	lip_assert_num_result("(* 2 2 3)", 12.0);
+	lip_assert_num_result("(let ((op *)) (op 1 2))", 2.0);
+
+	lip_assert_error_msg("(-)", "Bad number of arguments (at least 1 expected, got 0)");
+	lip_assert_num_result("(- 5)", -5.0);
+	lip_assert_num_result("(- 5 2.6)", 2.4);
+	lip_assert_error_msg("(- 5 2 3)", "Bad number of arguments (at most 2 expected, got 3)");
+	lip_assert_num_result("(let ((op -)) (op 1 2))", -1.0);
+	lip_assert_num_result("(let ((op -)) (op 2.5))", -2.5);
+
+	lip_assert_error_msg("(/)", "Bad number of arguments (at least 1 expected, got 0)");
+	lip_assert_num_result("(/ 5)", (1.0 / 5.0));
+	lip_assert_num_result("(/ 5 2.6)", (5.0 / 2.6));
+	lip_assert_error_msg("(/ 5 2 3)", "Bad number of arguments (at most 2 expected, got 3)");
+	lip_assert_num_result("(let ((op /)) (op 1 2))", (1.0 / 2.0));
+	lip_assert_num_result("(let ((op /)) (op 2.5))", (1 / 2.5));
+
+	lip_assert_error_msg("(!)", "Bad number of arguments (exactly 1 expected, got 0)");
+	lip_assert_error_msg("(! 1 2)", "Bad number of arguments (exactly 1 expected, got 2)");
+	lip_assert_boolean_result("(! 1)", false);
+	lip_assert_boolean_result("(! 0)", false);
+	lip_assert_boolean_result("(! nil)", true);
+	lip_assert_boolean_result("(! true)", false);
+	lip_assert_boolean_result("(! false)", true);
+	lip_assert_boolean_result("(let ((not !)) (not not))", false);
+	lip_assert_boolean_result("(let ((not !)) (not nil))", true);
+
+	lip_assert_error_msg("(cmp)", "Bad number of arguments (exactly 2 expected, got 0)");
+	lip_assert_num_result("(let ((op cmp)) (op 1 2))", -1);
+	lip_assert_num_result("(cmp 1 2)", -1);
+	lip_assert_num_result("(cmp nil 2)", -1);
+	lip_assert_num_result("(cmp nil nil)", 0);
+
+	lip_assert_error_msg("(<)", "Bad number of arguments (exactly 2 expected, got 0)");
+	lip_assert_boolean_result("(let ((op <)) (op 1 2))", true);
+	lip_assert_boolean_result("(< 1 2)", true);
+	lip_assert_boolean_result("(< \"a\" \"ab\")", true);
+	lip_assert_boolean_result("(< \"ab\" \"ab\")", false);
+	lip_assert_boolean_result("(< \"a\" \"b\")", true);
+
+	lip_assert_error_msg("(<=)", "Bad number of arguments (exactly 2 expected, got 0)");
+	lip_assert_boolean_result("(let ((op <=)) (op 1 2))", true);
+	lip_assert_boolean_result("(<= 1 2)", true);
+	lip_assert_boolean_result("(<= \"a\" \"ab\")", true);
+
+	lip_assert_error_msg("(>)", "Bad number of arguments (exactly 2 expected, got 0)");
+	lip_assert_boolean_result("(let ((op >)) (op 1 2))", false);
+	lip_assert_boolean_result("(> 1 2)", false);
+	lip_assert_boolean_result("(> \"a\" \"ab\")", false);
+	lip_assert_boolean_result("(> \"abc\" \"ab\")", true);
+	lip_assert_boolean_result("(> \"ab\" \"ab\")", false);
+	lip_assert_boolean_result("(> false true)", false);
+
+	lip_assert_error_msg("(>=)", "Bad number of arguments (exactly 2 expected, got 0)");
+	lip_assert_boolean_result("(let ((op >=)) (op 1 2))", false);
+	lip_assert_boolean_result("(>= 1 2)", false);
+	lip_assert_boolean_result("(>= \"a\" \"ab\")", false);
+	lip_assert_boolean_result("(>= \"ab\" \"ab\")", true);
+	lip_assert_boolean_result("(>= \"abc\" \"ab\")", true);
+
+	lip_assert_error_msg("(==)", "Bad number of arguments (exactly 2 expected, got 0)");
+	lip_assert_boolean_result("(let ((op ==)) (op \"a\" \"ab\"))", false);
+	lip_assert_boolean_result("(== \"a\" \"ab\")", false);
+	lip_assert_boolean_result("(== \"a\" \"a\")", true);
+	lip_assert_boolean_result("(== true true)", true);
+	lip_assert_boolean_result("(== true false)", false);
+
+	lip_assert_error_msg("(!=)", "Bad number of arguments (exactly 2 expected, got 0)");
+	lip_assert_boolean_result("(let ((op !=)) (op \"a\" \"ab\"))", true);
+	lip_assert_boolean_result("(!= \"a\" \"ab\")", true);
+	lip_assert_boolean_result("(!= \"a\" \"a\")", false);
+	lip_assert_boolean_result("(!= true false)", true);
+	lip_assert_boolean_result("(!= true true)", false);
+
+	return MUNIT_OK;
+}
+
+static MunitResult
 syntax_error(const MunitParameter params[], void* fixture_)
 {
 	(void)params;
@@ -397,6 +494,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/builtins",
 		.test = builtins,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/prim_ops",
+		.test = prim_ops,
 		.setup = setup,
 		.tear_down = teardown
 	},
