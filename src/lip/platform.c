@@ -81,4 +81,43 @@ lip_rwlock_end_write(lip_rwlock_t* rwlock)
 
 #elif defined(LIP_THREADING_WINAPI)
 
+bool
+lip_rwlock_init(lip_rwlock_t* rwlock)
+{
+	InitializeSRWLock(rwlock);
+	return true;
+}
+
+void
+lip_rwlock_destroy(lip_rwlock_t* rwlock)
+{
+	(void)rwlock;
+}
+
+bool
+lip_rwlock_begin_read(lip_rwlock_t* rwlock)
+{
+	AcquireSRWLockShared(rwlock);
+	return true;
+}
+
+void
+lip_rwlock_end_read(lip_rwlock_t* rwlock)
+{
+	ReleaseSRWLockShared(rwlock);
+}
+
+bool
+lip_rwlock_begin_write(lip_rwlock_t* rwlock)
+{
+	AcquireSRWLockExclusive(rwlock);
+	return true;
+}
+
+void
+lip_rwlock_end_write(lip_rwlock_t* rwlock)
+{
+	ReleaseSRWLockExclusive(rwlock);
+}
+
 #endif

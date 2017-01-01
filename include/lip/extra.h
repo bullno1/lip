@@ -15,7 +15,7 @@ LIP_ENUM(lip_stream_status_t, LIP_STREAM)
 #	define LIP_UNLIKELY(cond) __builtin_expect(cond, 0)
 #else
 #	define LIP_LIKELY(cond) cond
-#	define LIP_UNLIKELY(cond)
+#	define LIP_UNLIKELY(cond) cond
 #endif
 
 #define lip_error_m(T) \

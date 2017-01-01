@@ -6,8 +6,6 @@ solution "lip"
 	debugdir "."
 
 	flags {
-		"ExtraWarnings",
-		"FatalWarnings",
 		"StaticRuntime",
 		"Symbols",
 		"NoEditAndContinue",
@@ -15,11 +13,15 @@ solution "lip"
 		"NoExceptions"
 	}
 
+	defines {
+		"_CRT_SECURE_NO_WARNINGS"
+	}
+
 	configuration "Release"
-	flags { "OptimizeSpeed" }
+	    flags { "OptimizeSpeed" }
 
 	configuration "Debug"
-	targetsuffix "_d"
+	    targetsuffix "_d"
 
 	project "repl"
 		kind "ConsoleApp"
@@ -32,27 +34,66 @@ solution "lip"
 		}
 
 		includedirs {
-			"include"
+			"include",
+			"deps/linenoise-ng/include",
+			"deps/cargo"
 		}
 
 		links {
-			"liblip"
+			"lip",
+            "cargo",
+            "linenoise-ng"
 		}
 
-	project "liblip"
-		kind "StaticLib"
+	project "tests"
+		kind "ConsoleApp"
 		language "C"
 
-		defines {
-			"_CRT_SECURE_NO_WARNINGS"
+		includedirs {
+			"include",
+            "src"
+        }
+
+		files {
+			"src/tests/*.h",
+			"src/tests/*.c"
 		}
+
+		links {
+			"lip"
+        }
+
+	project "lip"
+		kind "StaticLib"
+		language "C"
 
 		includedirs {
 			"include"
 		}
 
 		files {
-			"src/lip/*.h",
-			"src/lip/*.c"
+			"include/lip/*.h",
+			"src/lip/**"
 		}
 
+	project "linenoise-ng"
+		kind "StaticLib"
+		language "C++"
+
+		includedirs {
+			"deps/linenoise-ng/include",
+		}
+
+		files {
+			"deps/linenoise-ng/include/*.h",
+			"deps/linenoise-ng/src/*.cpp"
+		}
+
+	project "cargo"
+		kind "StaticLib"
+		language "C"
+
+		files {
+			"deps/cargo/*.h",
+			"deps/cargo/*.c"
+		}
