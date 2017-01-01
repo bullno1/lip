@@ -1,0 +1,20 @@
+version: '0.2.{build}'
+image: Visual Studio 2015
+
+configuration:
+  - Release
+
+install:
+  - git submodule update --init --recursive
+
+before_build:
+  - tools\genie.exe vs2015
+
+build:
+  parallel: true
+  project: vs2015/lip.sln
+  verbosity: normal
+
+test_script:
+  - bin\tests.exe
+  - bin\lip.exe -v
