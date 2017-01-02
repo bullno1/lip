@@ -102,6 +102,74 @@ lip_parser_parse(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp)
 		case LIP_TOKEN_SYMBOL:
 		case LIP_TOKEN_NUMBER:
 			return lip_parser_parse_element(parser, token, sexp);
+		case LIP_TOKEN_QUOTE:
+		case LIP_TOKEN_QUASIQUOTE:
+		case LIP_TOKEN_UNQUOTE:
+		case LIP_TOKEN_UNQUOTE_SPLICING:
+			{
+				lip_sexp_t quoted_sexp;
+				lip_stream_status_t status;
+				switch(status = lip_parser_next_sexp(parser, &quoted_sexp))
+				{
+					case LIP_STREAM_OK:
+					case LIP_STREAM_END:
+						{
+							lip_array(lip_sexp_t) list = lip_array_create(
+								parser->allocator, lip_sexp_t, 2
+							);
+							lip_array_push(parser->lists, list);
+
+							const char* symbol;
+							switch(token->type)
+							{
+								case LIP_TOKEN_QUOTE:
+									symbol = "quote";
+									break;
+								case LIP_TOKEN_QUASIQUOTE:
+									symbol = "quasiquote";
+									break;
+								case LIP_TOKEN_UNQUOTE:
+									symbol = "unquote";
+									break;
+								case LIP_TOKEN_UNQUOTE_SPLICING:
+									symbol = "unquote-splicing";
+									break;
+								default:
+									// Impossibru!!
+									lip_set_last_error(
+										&parser->last_error,
+										LIP_PARSE_UNEXPECTED_TOKEN,
+										token->location,
+										NULL
+									);
+									return LIP_STREAM_ERROR;
+							}
+
+							lip_sexp_t quote_sexp = {
+								.type = LIP_SEXP_SYMBOL,
+								.location = token->location,
+								.data  = { .string = lip_string_ref(symbol) }
+							};
+
+							lip_array_push(list, quote_sexp);
+							lip_array_push(list, quoted_sexp);
+
+							*sexp = (lip_sexp_t){
+								.type = LIP_SEXP_LIST,
+								.location = {
+									.start = token->location.start,
+									.end = quoted_sexp.location.end
+								},
+								.data = { .list = list }
+							};
+						}
+						break;
+					case LIP_STREAM_ERROR:
+						break;
+				}
+
+				return status;
+			}
 	}
 
 	// Impossibru!!

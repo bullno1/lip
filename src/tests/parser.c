@@ -86,6 +86,8 @@ normal(const MunitParameter params[], void* fixture)
 		"(5 d)) \"string\")\n"
 		"()(\n"
 		")\n"
+		"'ab\n"
+		"`(cd ,@3 ,(e f))\n"
 	);
 
 	struct lip_isstream_s sstream;
@@ -201,6 +203,132 @@ normal(const MunitParameter params[], void* fixture)
 				.end = { .line = 6, .column = 1 }
 			},
 			.data = LIP_EMPTY_LIST
+		},
+		{
+			.type = LIP_SEXP_LIST,
+			.location = {
+				.start = { .line = 7, .column = 1 },
+				.end = { .line = 7, .column = 3 }
+			},
+			.data = LIP_LIST(
+				{
+					.type = LIP_SEXP_SYMBOL,
+					.location = {
+						.start = { .line = 7, .column = 1 },
+						.end = { .line = 7, .column = 1 }
+					},
+					.data = { .string = lip_string_ref("quote") }
+				},
+				{
+					.type = LIP_SEXP_SYMBOL,
+					.location = {
+						.start = { .line = 7, .column = 2 },
+						.end = { .line = 7, .column = 3 }
+					},
+					.data = { .string = lip_string_ref("ab") }
+				}
+			)
+		},
+		{
+			.type = LIP_SEXP_LIST,
+			.location = {
+				.start = { .line = 8, .column = 1 },
+				.end = { .line = 8, .column = 16 }
+			},
+			.data = LIP_LIST(
+				{
+					.type = LIP_SEXP_SYMBOL,
+					.location = {
+						.start = { .line = 8, .column = 1 },
+						.end = { .line = 8, .column = 1 }
+					},
+					.data = { .string = lip_string_ref("quasiquote") }
+				},
+				{
+					.type = LIP_SEXP_LIST,
+					.location = {
+						.start = { .line = 8, .column = 2 },
+						.end = { .line = 8, .column = 16}
+					},
+					.data = LIP_LIST(
+						{
+							.type = LIP_SEXP_SYMBOL,
+							.location = {
+								.start = { .line = 8, .column = 3 },
+								.end = { .line = 8, .column = 4 }
+							},
+							.data = { .string = lip_string_ref("cd") }
+						},
+						{
+							.type = LIP_SEXP_LIST,
+							.location = {
+								.start = { .line = 8, .column = 6 },
+								.end = { .line = 8, .column = 8 }
+							},
+							.data = LIP_LIST(
+								{
+									.type = LIP_SEXP_SYMBOL,
+									.location = {
+										.start = { .line = 8, .column = 6 },
+										.end = { .line = 8, .column = 7 }
+									},
+									.data = { .string = lip_string_ref("unquote-splicing") }
+								},
+								{
+									.type = LIP_SEXP_NUMBER,
+									.location = {
+										.start = { .line = 8, .column = 8 },
+										.end = { .line = 8, .column = 8 }
+									},
+									.data = { .string = lip_string_ref("3") }
+								}
+							)
+						},
+						{
+							.type = LIP_SEXP_LIST,
+							.location = {
+								.start = { .line = 8, .column = 10 },
+								.end = { .line = 8, .column = 15 }
+							},
+							.data = LIP_LIST(
+								{
+									.type = LIP_SEXP_SYMBOL,
+									.location = {
+										.start = { .line = 8, .column = 10 },
+										.end = { .line = 8, .column = 10 }
+									},
+									.data = { .string = lip_string_ref("unquote") }
+								},
+								{
+									.type = LIP_SEXP_LIST,
+									.location = {
+										.start = { .line = 8, .column = 11 },
+										.end = { .line = 8, .column = 15 }
+									},
+									.data = LIP_LIST(
+										{
+											.type = LIP_SEXP_SYMBOL,
+											.location = {
+												.start = { .line = 8, .column = 12 },
+												.end = { .line = 8, .column = 12 }
+											},
+											.data = { .string = lip_string_ref("e") }
+										},
+										{
+											.type = LIP_SEXP_SYMBOL,
+											.location = {
+												.start = { .line = 8, .column = 14 },
+												.end = { .line = 8, .column = 14 }
+											},
+											.data = { .string = lip_string_ref("f") }
+										}
+									)
+								}
+							)
+						}
+					)
+				}
+			)
 		}
 	};
 
@@ -267,7 +395,7 @@ unexpected_token(const MunitParameter params[], void* fixture)
 {
 	(void)params;
 
-	lip_string_ref_t text = lip_string_ref(")");
+	lip_string_ref_t text = lip_string_ref(",)");
 
 	struct lip_isstream_s sstream;
 	lip_in_t* input = lip_make_isstream(text, &sstream);
@@ -285,8 +413,8 @@ unexpected_token(const MunitParameter params[], void* fixture)
 	lip_assert_string_ref_equal(lip_string_ref(")"), token->lexeme);
 	lip_assert_loc_range_equal(error->location, token->location);
 	lip_assert_loc_range_equal(error->location, ((lip_loc_range_t){
-		.start = { .line = 1, .column = 1 },
-		.end = { .line = 1, .column = 1 }
+		.start = { .line = 1, .column = 2 },
+		.end = { .line = 1, .column = 2 }
 	}));
 
 	return MUNIT_OK;
