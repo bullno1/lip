@@ -59,6 +59,7 @@ struct lip_ast_s
 		struct
 		{
 			lip_array(lip_string_ref_t) arguments;
+			bool is_vararg;
 			lip_array(lip_ast_t*) body;
 		} lambda;
 

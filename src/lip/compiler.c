@@ -446,6 +446,7 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 	LASM(compiler, LIP_OP_RET, 0, LIP_LOC_NOWHERE);
 	lip_function_t* function = lip_end_scope(compiler, compiler->arena_allocator);
 	function->num_args = lip_array_len(ast->data.lambda.arguments);
+	function->is_vararg = ast->data.lambda.is_vararg;
 
 	// Compiler closure capture
 	lip_asm_index_t function_index =

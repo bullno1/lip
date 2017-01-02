@@ -47,6 +47,7 @@ struct lip_function_s
 	uint32_t size;
 
 	uint8_t num_args;
+	uint8_t is_vararg;
 	uint16_t num_locals;
 	uint16_t num_imports;
 	uint16_t num_constants;

@@ -144,17 +144,36 @@ lip_vm_do_call(lip_vm_t* vm, lip_value_t* fn, uint8_t num_args)
 		lip_function_layout(closure->function.lip, &layout);
 		vm->fp->pc = layout.instructions;
 
-		const uint8_t arity = closure->function.lip->num_args;
-		if(LIP_UNLIKELY(arity != num_args))
+		bool is_vararg = closure->function.lip->is_vararg;
+		const uint8_t arity = is_vararg
+			? closure->function.lip->num_args - 1
+			: closure->function.lip->num_args;
+		bool wrong_arity = is_vararg ? num_args < arity : num_args != arity;
+		if(LIP_UNLIKELY(wrong_arity))
 		{
 			lip_value_t* next_sp = vm->sp + num_args - 1;
 			*next_sp = lip_make_string(
 				vm,
-				"Bad number of arguments (exactly %u expected, got %u)",
-				arity, num_args
+				"Bad number of arguments (%s %u expected, got %u)",
+				is_vararg ? "at least" : "exactly", arity, num_args
 			);
 			vm->sp = next_sp;
 			return LIP_EXEC_ERROR;
+		}
+
+		if(is_vararg)
+		{
+			size_t num_varargs = num_args - arity;
+			lip_list_t* list = vm->rt->malloc(vm->rt, LIP_VAL_LIST, sizeof(lip_list_t));
+			list->root = list->elements =
+				vm->rt->malloc(vm->rt, LIP_VAL_NATIVE, sizeof(lip_value_t) * num_varargs);
+			list->length = num_varargs;
+			memcpy(list->elements, vm->sp + arity, sizeof(lip_value_t) * num_varargs);
+
+			vm->sp[arity] = (lip_value_t){
+				.type = LIP_VAL_LIST,
+				.data = { .reference = list }
+			};
 		}
 
 		return LIP_EXEC_OK;

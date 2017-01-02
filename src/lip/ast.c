@@ -153,20 +153,41 @@ lip_translate_lambda(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 		lip_string_ref_t,
 		lip_array_len(list[1].data.list)
 	);
+
+	size_t pos = 0;
+	bool is_vararg = false;
 	lip_array_foreach(lip_sexp_t, arg, list[1].data.list)
 	{
 		CHECK_SEXP(
 			arg, arg->type == LIP_SEXP_SYMBOL, "argument name must be a symbol"
 		);
+
+		lip_string_ref_t arg_name = arg->data.string;
+
+		++pos;
+		if(arg_name.length >= 1 && arg_name.ptr[0] == '&')
+		{
+			if(pos != lip_array_len(list[1].data.list))
+			{
+				return lip_syntax_error(
+					arg->location, "Only last argument can be prefixed with '&'"
+				);
+			}
+
+			arg_name.ptr += 1;
+			arg_name.length -= 1;
+			is_vararg = true;
+		}
+
 		lip_array_foreach(lip_string_ref_t, previous_arg, arguments)
 		{
-			if(lip_string_ref_equal(*previous_arg, arg->data.string))
+			if(lip_string_ref_equal(*previous_arg, arg_name))
 			{
-				return lip_syntax_error(arg->location, "Duplicated parameter name");
+				return lip_syntax_error(arg->location, "Duplicated argument name");
 			}
 		}
 
-		lip_array_push(arguments, arg->data.string);
+		lip_array_push(arguments, arg_name);
 	}
 
 	TRANSLATE_BLOCK(body, &list[2], arity - 1);
@@ -175,6 +196,7 @@ lip_translate_lambda(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	lambda->type = LIP_AST_LAMBDA;
 	lambda->data.lambda.arguments = arguments;
 	lambda->data.lambda.body = body;
+	lambda->data.lambda.is_vararg = is_vararg;
 	return lip_success(lambda);
 }
 

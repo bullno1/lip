@@ -21,6 +21,7 @@
 		munit_assert_not_null(script); \
 		lip_print_closure(100, 0, lip_null, (lip_closure_t*)script); \
 		lip_value_t result; \
+		lip_reset_vm(vm); \
 		lip_assert_enum(lip_exec_status_t, expected_status, ==, lip_exec_script(vm, script, &result)); \
 		assert_fn(expected_result, result); \
 	} while(0)
@@ -485,6 +486,38 @@ arity(const MunitParameter params[], void* fixture_)
 	lip_assert_error_msg(
 		"((fn (x) x) 1 2)",
 		"Bad number of arguments (exactly 1 expected, got 2)"
+	);
+
+	lip_assert_error_msg(
+		"((fn (x &y) y))",
+		"Bad number of arguments (at least 1 expected, got 0)"
+	);
+
+	lip_assert_num_result(
+		"((fn (x &y) (list/len y)) 1 2 3)",
+		2
+	);
+
+	lip_assert_num_result(
+		"((fn (x &y) (list/nth 1 y)) 1 2 3)",
+		3
+	);
+
+	lip_assert_num_result(
+		"((fn (x &y) (list/nth 0 y)) 2 4 6)",
+		4
+	);
+
+	lip_assert_syntax_error(
+		"((fn (x y &y) y))",
+		"Duplicated argument name",
+		1, 11, 1, 12
+	);
+
+	lip_assert_syntax_error(
+		"((fn (x &y z) y))",
+		"Only last argument can be prefixed with '&'",
+		1, 9, 1, 10
 	);
 
 	return MUNIT_OK;
