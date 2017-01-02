@@ -496,7 +496,7 @@ lip_translate_quote(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	{
 		case LIP_SEXP_LIST:
 			{
-				lip_sexp_result_t result = lip_quote_list(allocator, quoted_sexp);
+				lip_sexp_result_t result = lip_quote(allocator, quoted_sexp);
 				return result.success
 					? lip_translate_sexp(allocator, result.value.result)
 					: lip_syntax_error(
@@ -513,6 +513,142 @@ lip_translate_quote(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	}
 
 	return lip_syntax_error(sexp->location, "Unknown error");
+}
+
+static lip_sexp_result_t
+lip_quasiquote(lip_allocator_t* allocator, const lip_sexp_t* sexp);
+
+static lip_sexp_result_t
+lip_quasiquote_list(lip_allocator_t* allocator, const lip_sexp_t* sexp)
+{
+	lip_array(lip_sexp_t) list = sexp->data.list;
+
+	size_t length = lip_array_len(list);
+	lip_array(lip_sexp_t) new_list = lip_array_create(allocator, lip_sexp_t, length + 1);
+	lip_array_push(new_list, ((lip_sexp_t){
+		.type =  LIP_SEXP_SYMBOL,
+		.data = { .string = lip_string_ref("list/concat") }
+	}));
+
+	for(size_t i = 0; i < length; ++i)
+	{
+		if(list[i].type == LIP_SEXP_LIST
+			&& lip_array_len(list[i].data.list) > 0
+			&& list[i].data.list[0].type == LIP_SEXP_SYMBOL
+			&& lip_string_ref_equal(list[i].data.list[0].data.string, lip_string_ref("unquote-splicing"))
+		)
+		{
+			if(lip_array_len(list[i].data.list) != 2)
+			{
+				return lip_quote_error(
+					sexp->location,
+					"'unquote-splicing' must have the form: (unquote-splicing <sexp>)"
+				);
+			}
+
+			lip_sexp_type_t type = list[i].data.list[1].type;
+			if(type == LIP_SEXP_NUMBER || type == LIP_SEXP_STRING)
+			{
+				return lip_quote_error(
+					sexp->location,
+					"The expression passed to unquote-splicing must evaluate to a list"
+				);
+			}
+
+			lip_array_push(new_list, list[i].data.list[1]);
+		}
+		else
+		{
+			lip_sexp_result_t result = lip_quasiquote(allocator, &list[i]);
+			if(!result.success) { return result; }
+
+			lip_array(lip_sexp_t) list = lip_array_create(allocator, lip_sexp_t, 2);
+			lip_array_push(list, ((lip_sexp_t){
+				.type = LIP_SEXP_SYMBOL,
+				.data = { .string = lip_string_ref("/list") }
+			}));
+			lip_array_push(list, *result.value.result);
+
+			lip_sexp_t* list_sexp = lip_new(allocator, lip_sexp_t);
+			*list_sexp = (lip_sexp_t){
+				.type = LIP_SEXP_LIST,
+				.data = { .list = list }
+			};
+
+			lip_array_push(new_list, *list_sexp);
+		}
+	}
+
+	lip_sexp_t* list_sexp = lip_new(allocator, lip_sexp_t);
+	*list_sexp = (lip_sexp_t){
+		.type = LIP_SEXP_LIST,
+		.data = { .list = new_list }
+	};
+	return lip_quote_success(list_sexp);
+}
+
+static lip_sexp_result_t
+lip_quasiquote(lip_allocator_t* allocator, const lip_sexp_t* sexp)
+{
+	switch(sexp->type)
+	{
+		case LIP_SEXP_NUMBER:
+		case LIP_SEXP_STRING:
+		case LIP_SEXP_SYMBOL:
+			return lip_quote(allocator, sexp);
+		case LIP_SEXP_LIST:
+			if(lip_array_len(sexp->data.list) > 0
+				&& sexp->data.list[0].type == LIP_SEXP_SYMBOL
+				&& lip_string_ref_equal(sexp->data.list[0].data.string, lip_string_ref("unquote"))
+			)
+			{
+				if(lip_array_len(sexp->data.list) != 2)
+				{
+					return lip_quote_error(
+						sexp->location,
+						"'unquote' must have the form: (unquote <sexp>)"
+					);
+				}
+
+				return lip_quote_success(&sexp->data.list[1]);
+			}
+			else if(lip_array_len(sexp->data.list) > 0
+				&& sexp->data.list[0].type == LIP_SEXP_SYMBOL
+				&& lip_string_ref_equal(sexp->data.list[0].data.string, lip_string_ref("unquote-splicing"))
+			)
+			{
+				return lip_quote_error(
+					sexp->location,
+					"Cannot unquote-splicing outside of quasiquoted list"
+				);
+			}
+			else
+			{
+				return lip_quasiquote_list(allocator, sexp);
+			}
+			break;
+	}
+
+	return lip_quote_error(sexp->location, "Unknown error");
+}
+
+static lip_ast_result_t
+lip_translate_quasiquote(lip_allocator_t* allocator, const lip_sexp_t* sexp)
+{
+	lip_array(lip_sexp_t) list = sexp->data.list;
+	unsigned int arity = lip_array_len(list) - 1;
+
+	ENSURE(
+		arity == 1,
+		"'quasiquote' must have the form: (quasiquote <exp>)"
+	);
+
+	lip_sexp_result_t result = lip_quasiquote(allocator, &list[1]);
+	return result.success
+		? lip_translate_sexp(allocator, result.value.result)
+		: lip_syntax_error(
+			result.value.error.location, result.value.error.extra
+		);
 }
 
 lip_ast_result_t
@@ -552,13 +688,20 @@ lip_translate_sexp(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 				{
 					return lip_translate_quote(allocator, sexp);
 				}
-				else if(false
-					|| lip_string_ref_equal(symbol, lip_string_ref("unquote"))
-					|| lip_string_ref_equal(symbol, lip_string_ref("unquote-splicing"))
-				)
+				else if(lip_string_ref_equal(symbol, lip_string_ref("quasiquote")))
+				{
+					return lip_translate_quasiquote(allocator, sexp);
+				}
+				else if(lip_string_ref_equal(symbol, lip_string_ref("unquote")))
 				{
 					return lip_syntax_error(
-						sexp->location, "Cannot unquote outside of quote"
+						sexp->location, "Cannot unquote outside of quasiquote"
+					);
+				}
+				else if(lip_string_ref_equal(symbol, lip_string_ref("unquote-splicing")))
+				{
+					return lip_syntax_error(
+						sexp->location, "Cannot unquote-splicing outside of quasiquoted list"
 					);
 				}
 				else
