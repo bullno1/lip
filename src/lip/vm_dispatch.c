@@ -64,6 +64,13 @@
 		return LIP_EXEC_ERROR; \
 	} while(0)
 
+#define THROW_FMT(MSG, ...) \
+	do { \
+		*(--sp) = lip_make_string(vm, MSG, __VA_ARGS__); \
+		SAVE_CONTEXT(); \
+		return LIP_EXEC_ERROR; \
+	} while(0)
+
 #define DO_PRIM_OP(op, name) \
 	BEGIN_OP(name) \
 		lip_exec_status_t status = lip_ ## name (vm, sp + operand - 1, operand, sp); \

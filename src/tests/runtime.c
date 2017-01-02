@@ -237,7 +237,7 @@ runtime_error(const MunitParameter params[], void* fixture_)
 	lip_context_t* ctx = fixture->context;
 	lip_vm_t* vm = fixture->vm;
 
-	lip_assert_error_msg("(identity 5)", "Undefined symbol");
+	lip_assert_error_msg("(identity 5)", "Undefined symbol: identity");
 	const lip_context_error_t* error = lip_traceback(ctx, vm, lip_make_nil(vm));
 	unsigned int bottom = error->num_records - 1;
 	lip_assert_string_ref_equal(lip_string_ref(__FILE__), error->records[bottom].filename);

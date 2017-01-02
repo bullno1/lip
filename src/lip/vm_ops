@@ -55,7 +55,11 @@ BEGIN_OP(IMP)
 
 		SAVE_CONTEXT();
 		bool resolved = vm->rt->resolve_import(vm->rt, symbol_name, &result);
-		if(!resolved) { THROW("Undefined symbol"); }
+		if(LIP_UNLIKELY(!resolved)) {
+			THROW_FMT(
+				"Undefined symbol: %.*s", (int)symbol_name->length, symbol_name->ptr
+			);
+		}
 		LOAD_CONTEXT();
 
 		if(result.type == LIP_VAL_FUNCTION)
