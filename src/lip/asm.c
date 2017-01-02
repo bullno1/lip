@@ -130,15 +130,17 @@ lip_asm_alloc_numeric_constant(lip_asm_t* lasm, double number)
 	return index;
 }
 
-lip_asm_index_t
-lip_asm_alloc_string_constant(lip_asm_t* lasm, lip_string_ref_t string)
+static lip_asm_index_t
+lip_asm_alloc_string_type_constant(
+	lip_asm_t* lasm, lip_string_ref_t string, lip_value_type_t type
+)
 {
 	uint32_t num_constants = lip_array_len(lasm->constants);
 	for(uint32_t i = 0; i < num_constants; ++i)
 	{
 		lip_value_t constant = lasm->constants[i];
 		if(true
-			&& constant.type == LIP_VAL_STRING
+			&& constant.type == type
 			&& lip_string_ref_equal(lasm->string_pool[constant.data.index], string))
 		{
 			return i;
@@ -147,10 +149,22 @@ lip_asm_alloc_string_constant(lip_asm_t* lasm, lip_string_ref_t string)
 
 	uint32_t index = lip_array_len(lasm->constants);
 	lip_array_push(lasm->constants, ((lip_value_t){
-		.type = LIP_VAL_STRING,
+		.type = type,
 		.data = {.index = lip_asm_alloc_string(lasm, string)}
 	}));
 	return index;
+}
+
+lip_asm_index_t
+lip_asm_alloc_string_constant(lip_asm_t* lasm, lip_string_ref_t string)
+{
+	return lip_asm_alloc_string_type_constant(lasm, string, LIP_VAL_STRING);
+}
+
+lip_asm_index_t
+lip_asm_alloc_symbol(lip_asm_t* lasm, lip_string_ref_t string)
+{
+	return lip_asm_alloc_string_type_constant(lasm, string, LIP_VAL_SYMBOL);
 }
 
 void

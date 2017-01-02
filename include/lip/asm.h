@@ -66,6 +66,9 @@ lip_asm_alloc_numeric_constant(lip_asm_t* lasm, double number);
 LIP_API lip_asm_index_t
 lip_asm_alloc_string_constant(lip_asm_t* lasm, lip_string_ref_t string);
 
+LIP_API lip_asm_index_t
+lip_asm_alloc_symbol(lip_asm_t* lasm, lip_string_ref_t string);
+
 LIP_API lip_function_t*
 lip_asm_end(lip_asm_t* lasm, lip_allocator_t* allocator);
 

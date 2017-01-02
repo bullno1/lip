@@ -89,6 +89,14 @@ lip_print_value(
 				);
 			}
 			break;
+		case LIP_VAL_SYMBOL:
+			{
+				lip_string_t* string = value.data.reference;
+				lip_printf(
+					output, "'%.*s\n", (int)string->length, string->ptr
+				);
+			}
+			break;
 		case LIP_VAL_LIST:
 			lip_print_list(depth, indent, output, value.data.reference);
 			break;
