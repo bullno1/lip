@@ -114,6 +114,20 @@
 		.data = { .number = value } \
 	}
 
+#define lip_bind_declare_list(name) lip_value_t name;
+#define lip_bind_load_list(i, name, value) \
+	do { \
+		lip_bind_check_type(i, LIP_VAL_LIST, value.type); \
+		name = value; \
+	} while(0)
+
+#define lip_bind_declare_function(name) lip_value_t name;
+#define lip_bind_load_function(i, name, value) \
+	do { \
+		lip_bind_check_type(i, LIP_VAL_FUNCTION, value.type); \
+		name = value; \
+	} while(0)
+
 #define lip_bind_check_type(i, expected_type, actual_type) \
 	lip_bind_assert_fmt( \
 		expected_type == actual_type, \

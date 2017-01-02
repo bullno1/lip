@@ -20,6 +20,14 @@ lip_print_value(
 );
 
 LIP_API void
+lip_print_list(
+	unsigned int depth,
+	unsigned int indent,
+	lip_out_t* output,
+	const lip_list_t* list
+);
+
+LIP_API void
 lip_print_closure(
 	unsigned int depth,
 	unsigned int indent,

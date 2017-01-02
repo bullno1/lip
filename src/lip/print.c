@@ -89,10 +89,11 @@ lip_print_value(
 				);
 			}
 			break;
+		case LIP_VAL_LIST:
+			lip_print_list(depth, indent, output, value.data.reference);
+			break;
 		case LIP_VAL_FUNCTION:
-			lip_print_closure(
-				depth, indent, output, value.data.reference
-			);
+			lip_print_closure(depth, indent, output, value.data.reference);
 			break;
 		case LIP_VAL_PLACEHOLDER:
 			lip_printf(output, "<placeholder: #%u>\n", value.data.index);
@@ -210,6 +211,27 @@ lip_print_function(
 			depth - 1, indent + 1, output,
 			lip_function_resource(function, layout.function_offsets[i])
 		);
+	}
+}
+
+void
+lip_print_list(
+	unsigned int depth,
+	unsigned int indent,
+	lip_out_t* output,
+	const lip_list_t* list
+)
+{
+	lip_printf(
+		output, "<list: 0x%" PRIxPTR ">\n", (uintptr_t)list
+	);
+
+	if(depth == 0) { return; }
+
+	for(size_t i = 0; i < list->length; ++i)
+	{
+		lip_printf(output, "%*s- ", indent * 2 + 2, "");
+		lip_print_value(depth - 1, indent + 1, output, list->elements[i]);
 	}
 }
 

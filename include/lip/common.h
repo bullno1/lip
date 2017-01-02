@@ -67,6 +67,7 @@
 	F(LIP_VAL_NUMBER) \
 	F(LIP_VAL_BOOLEAN) \
 	F(LIP_VAL_STRING) \
+	F(LIP_VAL_LIST) \
 	F(LIP_VAL_FUNCTION) \
 	F(LIP_VAL_PLACEHOLDER) \
 	F(LIP_VAL_NATIVE)
@@ -83,6 +84,7 @@ typedef struct lip_loc_s lip_loc_t;
 typedef struct lip_loc_range_s lip_loc_range_t;
 typedef struct lip_string_ref_s lip_string_ref_t;
 typedef struct lip_string_s lip_string_t;
+typedef struct lip_list_s lip_list_t;
 typedef struct lip_in_s lip_in_t;
 typedef struct lip_out_s lip_out_t;
 typedef struct lip_allocator_s lip_allocator_t;
@@ -114,6 +116,13 @@ struct lip_string_s
 {
 	size_t length;
 	char ptr[];
+};
+
+struct lip_list_s
+{
+	size_t length;
+	lip_value_t* elements;
+	lip_value_t* root;
 };
 
 struct lip_value_s

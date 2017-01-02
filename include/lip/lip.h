@@ -185,6 +185,12 @@ lip_as_string(lip_value_t val)
 	return val.type == LIP_VAL_STRING ? val.data.reference : NULL;
 }
 
+LIP_MAYBE_UNUSED static inline const lip_list_t*
+lip_as_list(lip_value_t val)
+{
+	return val.type == LIP_VAL_LIST ? val.data.reference : NULL;
+}
+
 #ifndef LIP_NO_MAGIC
 
 #define lip_exec_script(vm, ...) \
