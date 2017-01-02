@@ -33,9 +33,10 @@ void lip_asm_cleanup(lip_asm_t* lasm)
 	lip_array_destroy(lasm->labels);
 }
 
-void lip_asm_begin(lip_asm_t* lasm, lip_string_ref_t source_name)
+void lip_asm_begin(lip_asm_t* lasm, lip_string_ref_t source_name, lip_loc_range_t location)
 {
 	lasm->source_name = source_name;
+	lasm->location = location;
 	lip_array_clear(lasm->labels);
 	lip_array_clear(lasm->jumps);
 	lip_array_clear(lasm->instructions);
@@ -399,7 +400,7 @@ lip_asm_end(lip_asm_t* lasm, lip_allocator_t* allocator)
 	lip_memblock_info_t instruction_block = LIP_ARRAY_BLOCK(lip_instruction_t, num_instructions);
 	lip_array_push(lasm->function_layout, &instruction_block);
 
-	lip_memblock_info_t location_block = LIP_ARRAY_BLOCK(lip_loc_range_t, num_instructions);
+	lip_memblock_info_t location_block = LIP_ARRAY_BLOCK(lip_loc_range_t, num_instructions + 1);
 	lip_array_push(lasm->function_layout, &location_block);
 
 	lip_array_foreach(lip_memblock_info_t, block, lasm->string_layout)
@@ -469,10 +470,11 @@ lip_asm_end(lip_asm_t* lasm, lip_allocator_t* allocator)
 
 	lip_instruction_t* instructions = lip_locate_memblock(function, &instruction_block);
 	lip_loc_range_t* locations = lip_locate_memblock(function, &location_block);
+	locations[0] = lasm->location;
 	for(uint32_t i = 0; i < num_instructions; ++i)
 	{
 		instructions[i] = lasm->instructions[i].instruction;
-		locations[i] = lasm->instructions[i].location;
+		locations[i + 1] = lasm->instructions[i].location;
 	}
 
 	size_t num_strings = lip_array_len(lasm->string_pool);

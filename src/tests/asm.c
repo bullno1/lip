@@ -28,7 +28,7 @@ empty(const MunitParameter params[], void* fixture)
 
 	lip_allocator_t* temp_allocator = lip_temp_allocator_create(lip_default_allocator);
 	lip_asm_t* lasm = fixture;
-	lip_asm_begin(lasm, lip_string_ref(__func__));
+	lip_asm_begin(lasm, lip_string_ref(__func__), LIP_LOC_NOWHERE);
 	lip_function_t* function = lip_asm_end(lasm, temp_allocator);
 
 	munit_assert_size(0, ==, function->num_functions);
@@ -49,7 +49,7 @@ dedupe(const MunitParameter params[], void* fixture)
 	(void)params;
 
 	lip_asm_t* lasm = fixture;
-	lip_asm_begin(lasm, lip_string_ref(__func__));
+	lip_asm_begin(lasm, lip_string_ref(__func__), LIP_LOC_NOWHERE);
 
 	lip_asm_index_t import_foo = lip_asm_alloc_import(lasm, lip_string_ref("foo"));
 	lip_asm_index_t import_bar = lip_asm_alloc_import(lasm, lip_string_ref("bar"));
@@ -114,7 +114,7 @@ normal(const MunitParameter params[], void* fixture)
 	(void)params;
 
 	lip_asm_t* lasm = fixture;
-	lip_asm_begin(lasm, lip_string_ref(__func__));
+	lip_asm_begin(lasm, lip_string_ref(__func__), LIP_LOC_NOWHERE);
 
 	lip_asm_index_t num_functions = munit_rand_uint32() % 20;
 	lip_asm_t* lasm2 = lip_asm_create(lip_default_allocator);
@@ -124,7 +124,7 @@ normal(const MunitParameter params[], void* fixture)
 	memset(&dummy_loc, 0, sizeof(lip_loc_range_t));
 	for(lip_asm_index_t i = 0; i < num_functions; ++i)
 	{
-		lip_asm_begin(lasm2, lip_string_ref("nested"));
+		lip_asm_begin(lasm2, lip_string_ref("nested"), LIP_LOC_NOWHERE);
 		lip_asm_add(lasm2, LIP_OP_NOP, i, dummy_loc);
 		lip_function_t* nested_function = lip_asm_end(lasm2, lip_default_allocator);
 
@@ -218,7 +218,7 @@ normal(const MunitParameter params[], void* fixture)
 			.start = { .line = i, .column = i},
 			.end = { .line = i, .column = i + 1}
 		};
-		lip_assert_loc_range_equal(location, function_layout.locations[i]);
+		lip_assert_loc_range_equal(location, function_layout.locations[i + 1]);
 	}
 
 	lip_free(lip_default_allocator, function);
@@ -270,7 +270,7 @@ lip_assert_asm_(
 
 		lip_assert_enum(lip_opcode_t, opcode1, ==, opcode2);
 		munit_assert_int32(operand1, ==, operand2);
-		munit_assert_uint(expected_locations[i], ==, function_layout.locations[i].start.line);
+		munit_assert_uint(expected_locations[i], ==, function_layout.locations[i + 1].start.line);
 	}
 
 	lip_free(lip_default_allocator, function);
@@ -282,7 +282,7 @@ jump(const MunitParameter params[], void* fixture)
 	(void)params;
 
 	lip_asm_t* lasm = fixture;
-	lip_asm_begin(lasm, lip_string_ref(__func__));
+	lip_asm_begin(lasm, lip_string_ref(__func__), LIP_LOC_NOWHERE);
 
 	lip_asm_index_t label = lip_asm_new_label(lasm);
 	lip_asm_index_t label2 = lip_asm_new_label(lasm);
@@ -327,7 +327,7 @@ short_circuit(const MunitParameter params[], void* fixture)
 	(void)params;
 
 	lip_asm_t* lasm = fixture;
-	lip_asm_begin(lasm, lip_string_ref(__func__));
+	lip_asm_begin(lasm, lip_string_ref(__func__), LIP_LOC_NOWHERE);
 
 	lip_asm_index_t label = lip_asm_new_label(lasm);
 
@@ -365,7 +365,7 @@ nil_pop(const MunitParameter params[], void* fixture)
 
 	lip_asm_t* lasm = fixture;
 	{
-		lip_asm_begin(lasm, lip_string_ref(__func__));
+		lip_asm_begin(lasm, lip_string_ref(__func__), LIP_LOC_NOWHERE);
 
 		lip_instruction_t before[] = {
 			lip_asm(LIP_OP_NIL, 0),
@@ -386,7 +386,7 @@ nil_pop(const MunitParameter params[], void* fixture)
 	}
 
 	{
-		lip_asm_begin(lasm, lip_string_ref(__func__));
+		lip_asm_begin(lasm, lip_string_ref(__func__), LIP_LOC_NOWHERE);
 
 		lip_instruction_t before[] = {
 			lip_asm(LIP_OP_NIL, 0),
@@ -414,7 +414,7 @@ tail_call(const MunitParameter params[], void* fixture)
 	(void)params;
 
 	lip_asm_t* lasm = fixture;
-	lip_asm_begin(lasm, lip_string_ref(__func__));
+	lip_asm_begin(lasm, lip_string_ref(__func__), LIP_LOC_NOWHERE);
 
 	lip_asm_index_t label = lip_asm_new_label(lasm);
 

@@ -46,7 +46,7 @@ struct lip_function_s
 	/// Total size, including body
 	uint32_t size;
 
-	uint16_t num_args;
+	uint8_t num_args;
 	uint16_t num_locals;
 	uint16_t num_imports;
 	uint16_t num_constants;

@@ -21,6 +21,7 @@ struct lip_asm_s
 {
 	lip_allocator_t* allocator;
 	lip_string_ref_t source_name;
+	lip_loc_range_t location;
 	lip_array(lip_asm_index_t) labels;
 	lip_array(lip_asm_index_t) jumps;
 	lip_array(lip_tagged_instruction_t) instructions;
@@ -40,7 +41,7 @@ LIP_API void
 lip_asm_cleanup(lip_asm_t* lasm);
 
 LIP_API void
-lip_asm_begin(lip_asm_t* lasm, lip_string_ref_t source_name);
+lip_asm_begin(lip_asm_t* lasm, lip_string_ref_t source_name, lip_loc_range_t location);
 
 LIP_API void
 lip_asm_add(

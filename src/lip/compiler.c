@@ -61,7 +61,7 @@ lip_compile_string(lip_compiler_t* compiler, const lip_ast_t* ast)
 }
 
 static lip_scope_t*
-lip_begin_scope(lip_compiler_t* compiler)
+lip_begin_scope(lip_compiler_t* compiler, lip_loc_range_t location)
 {
 	lip_scope_t* scope;
 	if(compiler->free_scopes)
@@ -83,7 +83,7 @@ lip_begin_scope(lip_compiler_t* compiler)
 	scope->current_num_locals = 0;
 	scope->max_num_locals = 0;
 	compiler->current_scope = scope;
-	lip_asm_begin(&scope->lasm, compiler->source_name);
+	lip_asm_begin(&scope->lasm, compiler->source_name, location);
 	return scope;
 }
 
@@ -404,7 +404,7 @@ lip_find_free_vars(const lip_ast_t* ast, khash_t(lip_string_ref_set)* out)
 static bool
 lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 {
-	lip_scope_t* scope = lip_begin_scope(compiler);
+	lip_scope_t* scope = lip_begin_scope(compiler, ast->location);
 
 	// Allocate arguments
 	uint16_t arg_index = 0;
@@ -558,7 +558,7 @@ lip_compiler_begin(lip_compiler_t* compiler, lip_string_ref_t source_name)
 {
 	compiler->source_name = source_name;
 	lip_compiler_reset(compiler);
-	lip_begin_scope(compiler);
+	lip_begin_scope(compiler, LIP_LOC_NOWHERE);
 	// Push nil so that the next expression has something to pop
 	// It can also help to compile an empty file safely and return nil
 	LASM(compiler, LIP_OP_NIL, 0, LIP_LOC_NOWHERE);

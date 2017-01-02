@@ -109,7 +109,7 @@ lip_vm_loop(lip_vm_t* vm)
 lip_exec_status_t
 lip_vm_do_call(lip_vm_t* vm, lip_value_t* fn, uint8_t num_args)
 {
-	if(fn->type != LIP_VAL_FUNCTION)
+	if(LIP_UNLIKELY(fn->type != LIP_VAL_FUNCTION))
 	{
 		lip_value_t* next_sp = vm->sp + num_args - 1;
 		*next_sp = lip_make_string_copy(
@@ -143,6 +143,19 @@ lip_vm_do_call(lip_vm_t* vm, lip_value_t* fn, uint8_t num_args)
 		lip_function_layout_t layout;
 		lip_function_layout(closure->function.lip, &layout);
 		vm->fp->pc = layout.instructions;
+
+		const uint8_t arity = closure->function.lip->num_args;
+		if(LIP_UNLIKELY(arity != num_args))
+		{
+			lip_value_t* next_sp = vm->sp + num_args - 1;
+			*next_sp = lip_make_string(
+				vm,
+				"Bad number of arguments (exactly %u expected, got %u)",
+				arity, num_args
+			);
+			vm->sp = next_sp;
+			return LIP_EXEC_ERROR;
+		}
 
 		return LIP_EXEC_OK;
 	}

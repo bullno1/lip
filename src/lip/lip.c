@@ -263,7 +263,7 @@ lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg)
 			lip_function_layout_t function_layout;
 			lip_function_layout(fp->closure->function.lip, &function_layout);
 			lip_loc_range_t location =
-				function_layout.locations[fp->pc - function_layout.instructions - 1];
+				function_layout.locations[LIP_MAX(0, fp->pc - function_layout.instructions)];
 			*lip_array_alloc(ctx->error_records) = (lip_error_record_t){
 				.filename = (lip_string_ref_t){
 					.ptr = function_layout.source_name->ptr,

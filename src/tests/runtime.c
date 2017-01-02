@@ -472,6 +472,24 @@ strings(const MunitParameter params[], void* fixture_)
 	return MUNIT_OK;
 }
 
+static MunitResult
+arity(const MunitParameter params[], void* fixture_)
+{
+	(void)params;
+
+	lip_fixture_t* fixture = fixture_;
+	lip_context_t* ctx = fixture->context;
+	lip_vm_t* vm = fixture->vm;
+	lip_load_builtins(ctx);
+
+	lip_assert_error_msg(
+		"((fn (x) x) 1 2)",
+		"Bad number of arguments (exactly 1 expected, got 2)"
+	);
+
+	return MUNIT_OK;
+}
+
 static MunitTest tests[] = {
 	{
 		.name = "/basic_forms",
@@ -512,6 +530,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/strings",
 		.test = strings,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/arity",
+		.test = arity,
 		.setup = setup,
 		.tear_down = teardown
 	},
