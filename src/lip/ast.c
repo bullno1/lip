@@ -32,6 +32,17 @@
 		lip_array_push(var, exp); \
 	}
 
+typedef lip_error_m(const lip_sexp_t*) lip_sexp_result_t;
+
+static lip_ast_result_t
+lip_success(lip_ast_t* ast)
+{
+	return (lip_ast_result_t){
+		.success = true,
+		.value = {.result = ast}
+	};
+}
+
 static lip_ast_result_t
 lip_syntax_error(lip_loc_range_t location, const char* msg)
 {
@@ -46,12 +57,26 @@ lip_syntax_error(lip_loc_range_t location, const char* msg)
 	};
 }
 
-static lip_ast_result_t
-lip_success(lip_ast_t* ast)
+static lip_sexp_result_t
+lip_quote_success(const lip_sexp_t* sexp)
 {
-	return (lip_ast_result_t){
+	return (lip_sexp_result_t){
 		.success = true,
-		.value = {.result = ast}
+		.value = {.result = sexp}
+	};
+}
+
+static lip_sexp_result_t
+lip_quote_error(lip_loc_range_t location, const char* msg)
+{
+	return (lip_sexp_result_t){
+		.success = false,
+		.value = {
+			.error = {
+				.location = location,
+				.extra = msg
+			}
+		}
 	};
 }
 
@@ -66,7 +91,7 @@ lip_alloc_ast(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 static lip_ast_result_t
 lip_translate_if(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
-	lip_sexp_t* list = sexp->data.list;
+	lip_array(lip_sexp_t) list = sexp->data.list;
 	unsigned int arity = lip_array_len(list) - 1;
 
 	ENSURE(
@@ -96,7 +121,7 @@ lip_translate_let(
 	lip_allocator_t* allocator, const lip_sexp_t* sexp, bool recursive
 )
 {
-	lip_sexp_t* list = sexp->data.list;
+	lip_array(lip_sexp_t) list = sexp->data.list;
 	unsigned int arity = lip_array_len(list) - 1;
 
 	ENSURE(
@@ -140,7 +165,7 @@ lip_translate_let(
 static lip_ast_result_t
 lip_translate_lambda(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
-	lip_sexp_t* list = sexp->data.list;
+	lip_array(lip_sexp_t) list = sexp->data.list;
 	unsigned int arity = lip_array_len(list) - 1;
 
 	ENSURE(
@@ -236,6 +261,15 @@ lip_translate_identifier(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	identifier->type = LIP_AST_IDENTIFIER;
 	identifier->data.string = sexp->data.string;
 	return lip_success(identifier);
+}
+
+static lip_ast_result_t
+lip_translate_symbol(lip_allocator_t* allocator, const lip_sexp_t* sexp)
+{
+	lip_ast_t* symbol = lip_alloc_ast(allocator, sexp);
+	symbol->type = LIP_AST_SYMBOL;
+	symbol->data.string = sexp->data.string;
+	return lip_success(symbol);
 }
 
 // Reference: http://en.cppreference.com/w/cpp/language/escape
@@ -382,6 +416,105 @@ lip_translate_number(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 	return lip_success(number);
 }
 
+static lip_sexp_result_t
+lip_quote(lip_allocator_t* allocator, const lip_sexp_t* sexp);
+
+static lip_sexp_result_t
+lip_quote_list(lip_allocator_t* allocator, const lip_sexp_t* sexp)
+{
+	lip_array(lip_sexp_t) list = sexp->data.list;
+
+	size_t length = lip_array_len(list);
+	lip_array(lip_sexp_t) new_list = lip_array_create(allocator, lip_sexp_t, length + 1);
+	lip_array_push(new_list, ((lip_sexp_t){
+		.type =  LIP_SEXP_SYMBOL,
+		.data = { .string = lip_string_ref("/list") }
+	}));
+
+	for(size_t i = 0; i < length; ++i)
+	{
+		lip_sexp_result_t result = lip_quote(allocator, &list[i]);
+		if(!result.success) { return result; }
+
+		lip_array_push(new_list, *result.value.result);
+	}
+
+	lip_sexp_t* list_sexp = lip_new(allocator, lip_sexp_t);
+	*list_sexp = (lip_sexp_t){
+		.type = LIP_SEXP_LIST,
+		.data = { .list = new_list }
+	};
+	return lip_quote_success(list_sexp);
+}
+
+static lip_sexp_result_t
+lip_quote(lip_allocator_t* allocator, const lip_sexp_t* sexp)
+{
+	switch(sexp->type)
+	{
+		case LIP_SEXP_NUMBER:
+		case LIP_SEXP_STRING:
+			return lip_quote_success(sexp);
+		case LIP_SEXP_SYMBOL:
+			{
+				lip_array(lip_sexp_t) quote_list =
+					lip_array_create(allocator, lip_sexp_t, 2);
+				lip_array_push(quote_list, ((lip_sexp_t){
+					.type = LIP_SEXP_SYMBOL,
+					.data = { .string = lip_string_ref("quote") }
+				}));
+				lip_array_push(quote_list, *sexp);
+
+				lip_sexp_t* quote_sexp = lip_new(allocator, lip_sexp_t);
+				*quote_sexp = (lip_sexp_t){
+					.type = LIP_SEXP_LIST,
+					.data = { .list = quote_list }
+				};
+				return lip_quote_success(quote_sexp);
+			}
+			break;
+		case LIP_SEXP_LIST:
+			return lip_quote_list(allocator, sexp);
+	}
+
+	return lip_quote_error(sexp->location, "Unknown error");
+}
+
+static lip_ast_result_t
+lip_translate_quote(lip_allocator_t* allocator, const lip_sexp_t* sexp)
+{
+	lip_array(lip_sexp_t) list = sexp->data.list;
+	unsigned int arity = lip_array_len(list) - 1;
+
+	ENSURE(
+		arity == 1,
+		"'quote' must have the form: (quote <exp>)"
+	);
+
+	lip_sexp_t* quoted_sexp = &list[1];
+	switch(quoted_sexp->type)
+	{
+		case LIP_SEXP_LIST:
+			{
+				lip_sexp_result_t result = lip_quote_list(allocator, quoted_sexp);
+				return result.success
+					? lip_translate_sexp(allocator, result.value.result)
+					: lip_syntax_error(
+						result.value.error.location, result.value.error.extra
+					);
+			}
+			break;
+		case LIP_SEXP_SYMBOL:
+			return lip_translate_symbol(allocator, quoted_sexp);
+		case LIP_SEXP_STRING:
+			return lip_translate_string(allocator, quoted_sexp);
+		case LIP_SEXP_NUMBER:
+			return lip_translate_number(allocator, quoted_sexp);
+	}
+
+	return lip_syntax_error(sexp->location, "Unknown error");
+}
+
 lip_ast_result_t
 lip_translate_sexp(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 {
@@ -414,6 +547,19 @@ lip_translate_sexp(lip_allocator_t* allocator, const lip_sexp_t* sexp)
 				else if(lip_string_ref_equal(symbol, lip_string_ref("do")))
 				{
 					return lip_translate_do(allocator, sexp);
+				}
+				else if(lip_string_ref_equal(symbol, lip_string_ref("quote")))
+				{
+					return lip_translate_quote(allocator, sexp);
+				}
+				else if(false
+					|| lip_string_ref_equal(symbol, lip_string_ref("unquote"))
+					|| lip_string_ref_equal(symbol, lip_string_ref("unquote-splicing"))
+				)
+				{
+					return lip_syntax_error(
+						sexp->location, "Cannot unquote outside of quote"
+					);
 				}
 				else
 				{

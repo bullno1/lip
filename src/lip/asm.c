@@ -465,6 +465,7 @@ lip_asm_end(lip_asm_t* lasm, lip_allocator_t* allocator)
 		constants[i].type = constant.type;
 		switch(constant.type)
 		{
+			case LIP_VAL_SYMBOL:
 			case LIP_VAL_STRING:
 				constants[i].data.index = lasm->string_layout[constant.data.index].offset;
 				break;

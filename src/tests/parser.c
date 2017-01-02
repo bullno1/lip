@@ -86,7 +86,7 @@ normal(const MunitParameter params[], void* fixture)
 		"(5 d)) \"string\")\n"
 		"()(\n"
 		")\n"
-		"'ab\n"
+		"'\"ab\"\n"
 		"`(cd ,@3 ,(e f))\n"
 	);
 
@@ -208,7 +208,7 @@ normal(const MunitParameter params[], void* fixture)
 			.type = LIP_SEXP_LIST,
 			.location = {
 				.start = { .line = 7, .column = 1 },
-				.end = { .line = 7, .column = 3 }
+				.end = { .line = 7, .column = 5 }
 			},
 			.data = LIP_LIST(
 				{
@@ -220,10 +220,10 @@ normal(const MunitParameter params[], void* fixture)
 					.data = { .string = lip_string_ref("quote") }
 				},
 				{
-					.type = LIP_SEXP_SYMBOL,
+					.type = LIP_SEXP_STRING,
 					.location = {
 						.start = { .line = 7, .column = 2 },
-						.end = { .line = 7, .column = 3 }
+						.end = { .line = 7, .column = 5 }
 					},
 					.data = { .string = lip_string_ref("ab") }
 				}

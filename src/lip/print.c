@@ -182,10 +182,11 @@ lip_print_function(
 				);
 				break;
 			case LIP_VAL_STRING:
+			case LIP_VAL_SYMBOL:
 				lip_print_value(
 					depth - 1, indent + 1, output,
 					(lip_value_t) {
-						.type = LIP_VAL_STRING,
+						.type = layout.constants[i].type,
 						.data = {
 							.reference = lip_function_resource(
 								function, layout.constants[i].data.index
@@ -426,6 +427,12 @@ lip_print_ast(
 		case LIP_AST_STRING:
 			lip_printf(
 				output, "\"%.*s\"\n",
+				(int)ast->data.string.length, ast->data.string.ptr
+			);
+			break;
+		case LIP_AST_SYMBOL:
+			lip_printf(
+				output, "'%.*s\n",
 				(int)ast->data.string.length, ast->data.string.ptr
 			);
 			break;

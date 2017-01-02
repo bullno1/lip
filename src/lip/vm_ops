@@ -13,8 +13,9 @@ BEGIN_OP(LDK)
 			*(--sp) = constant;
 			break;
 		case LIP_VAL_STRING:
+		case LIP_VAL_SYMBOL:
 			*(--sp) = (lip_value_t) {
-				.type = LIP_VAL_STRING,
+				.type = constant.type,
 				.data = {
 					.reference = lip_function_resource(
 						fp->closure->function.lip,

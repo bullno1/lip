@@ -60,6 +60,16 @@ lip_compile_string(lip_compiler_t* compiler, const lip_ast_t* ast)
 	return true;
 }
 
+static bool
+lip_compile_symbol(lip_compiler_t* compiler, const lip_ast_t* ast)
+{
+	lip_asm_index_t index = lip_asm_alloc_symbol(
+		&compiler->current_scope->lasm, ast->data.string
+	);
+	LASM(compiler, LIP_OP_LDK, index, ast->location);
+	return true;
+}
+
 static lip_scope_t*
 lip_begin_scope(lip_compiler_t* compiler, lip_loc_range_t location)
 {
@@ -395,6 +405,7 @@ lip_find_free_vars(const lip_ast_t* ast, khash_t(lip_string_ref_set)* out)
 				}
 			}
 			break;
+		case LIP_AST_SYMBOL:
 		case LIP_AST_STRING:
 		case LIP_AST_NUMBER:
 			break;
@@ -481,6 +492,9 @@ lip_compile_exp(lip_compiler_t* compiler, const lip_ast_t* ast)
 			break;
 		case LIP_AST_STRING:
 			lip_compile_string(compiler, ast);
+			break;
+		case LIP_AST_SYMBOL:
+			lip_compile_symbol(compiler, ast);
 			break;
 		case LIP_AST_IDENTIFIER:
 			lip_compile_identifier(compiler, ast);
