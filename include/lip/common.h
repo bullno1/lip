@@ -151,8 +151,11 @@ struct lip_vm_hook_s
 };
 
 static const lip_loc_range_t LIP_LOC_NOWHERE = {
-	.start = { .line = 0, .column = 0 },
-	.end = { .line = 0, .column = 0 }
+	// For C++ compatibility, I can't do this:
+	//.start = { .line = 0, .column = 0 },
+	//.end = { .line = 0, .column = 0 }
+	{ 0, 0 },
+	{ 0, 0 }
 };
 
 LIP_MAYBE_UNUSED static inline lip_string_ref_t

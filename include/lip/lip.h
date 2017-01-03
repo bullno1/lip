@@ -139,27 +139,31 @@ LIP_MAYBE_UNUSED static inline lip_value_t
 lip_make_boolean(lip_vm_t* vm, bool boolean)
 {
 	(void)vm;
-	return (lip_value_t){
-		.type = LIP_VAL_BOOLEAN,
-		.data = { .boolean = boolean }
-	};
+	lip_value_t val;
+	val.type = LIP_VAL_BOOLEAN;
+	val.data.boolean = boolean;
+	return val;
 }
 
 LIP_MAYBE_UNUSED static inline lip_value_t
 lip_make_nil(lip_vm_t* vm)
 {
 	(void)vm;
-	return (lip_value_t){ .type = LIP_VAL_NIL };
+	lip_value_t val;
+	val.type = LIP_VAL_NIL;
+	val.data.reference = NULL;
+	return val;
 }
 
 LIP_MAYBE_UNUSED static inline lip_value_t
 lip_make_number(lip_vm_t* vm, double number)
 {
 	(void)vm;
-	return (lip_value_t){
-		.type = LIP_VAL_NUMBER,
-		.data = { .number = number }
-	};
+	(void)vm;
+	lip_value_t val;
+	val.type = LIP_VAL_NUMBER;
+	val.data.number = number;
+	return val;
 }
 
 LIP_API lip_value_t
@@ -182,13 +186,13 @@ lip_make_function(
 LIP_MAYBE_UNUSED static inline lip_string_t*
 lip_as_string(lip_value_t val)
 {
-	return val.type == LIP_VAL_STRING ? val.data.reference : NULL;
+	return val.type == LIP_VAL_STRING ? (lip_string_t*)val.data.reference : NULL;
 }
 
 LIP_MAYBE_UNUSED static inline const lip_list_t*
 lip_as_list(lip_value_t val)
 {
-	return val.type == LIP_VAL_LIST ? val.data.reference : NULL;
+	return val.type == LIP_VAL_LIST ? (lip_list_t*)val.data.reference : NULL;
 }
 
 #ifndef LIP_NO_MAGIC

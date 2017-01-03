@@ -56,7 +56,8 @@ solution "lip"
 
 		files {
 			"src/tests/*.h",
-			"src/tests/*.c"
+			"src/tests/*.c",
+			"src/tests/*.cpp"
 		}
 
 		links {

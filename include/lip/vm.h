@@ -134,23 +134,23 @@ LIP_MAYBE_UNUSED static inline void
 lip_function_layout(const lip_function_t* function, lip_function_layout_t* layout)
 {
 	char* function_end = (char*)function + sizeof(lip_function_t);
-	layout->source_name = lip_align_ptr(function_end, lip_string_t_alignment);
+	layout->source_name = (lip_string_t*)lip_align_ptr(function_end, lip_string_t_alignment);
 
 	char* source_name_end =
 		(char*)layout->source_name
 		+ sizeof(lip_string_t)
 		+ layout->source_name->length;
-	layout->imports = lip_align_ptr(source_name_end, LIP_ALIGN_OF(lip_import_t));
-	layout->constants = lip_align_ptr(
+	layout->imports = (lip_import_t*)lip_align_ptr(source_name_end, LIP_ALIGN_OF(lip_import_t));
+	layout->constants = (lip_value_t*)lip_align_ptr(
 		layout->imports + function->num_imports, LIP_ALIGN_OF(lip_value_t)
 	);
-	layout->function_offsets = lip_align_ptr(
+	layout->function_offsets = (uint32_t*)lip_align_ptr(
 		layout->constants + function->num_constants, LIP_ALIGN_OF(uint32_t)
 	);
-	layout->instructions = lip_align_ptr(
+	layout->instructions = (lip_instruction_t*)lip_align_ptr(
 		layout->function_offsets + function->num_functions, LIP_ALIGN_OF(lip_instruction_t)
 	);
-	layout->locations = lip_align_ptr(
+	layout->locations = (lip_loc_range_t*)lip_align_ptr(
 		layout->instructions + function->num_instructions, LIP_ALIGN_OF(lip_loc_range_t)
 	);
 }
