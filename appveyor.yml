@@ -19,5 +19,5 @@ build:
   verbosity: normal
 
 test_script:
-  - bin\$(CONFIGURATION)\tests.exe
-  - bin\$(CONFIGURATION)\lip.exe -v
+  - bin\%CONFIGURATION%\tests.exe
+  - bin\%CONFIGURATION%\repl.exe -v
