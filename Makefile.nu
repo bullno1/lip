@@ -105,7 +105,6 @@ bin/tests: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS CLEAR_ENV LINK_FLAG
 		c_flags="${C_FLAGS} -g ${LIBLIP_EXTRA_FLAGS} -Isrc" \
 		cpp_flags="${CPP_FLAGS} -g ${LIBLIP_EXTRA_FLAGS} -Isrc" \
 		link_flags="${LINK_FLAGS} -lm" \
-		linker="${CC}" \
 		libs="${LIBLIP}"
 
 bin/lip: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS CLEAR_ENV
@@ -118,12 +117,11 @@ bin/lip: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS CLEAR_ENV
 
 bin/liblip.so: << CC C_FLAGS CLEAR_ENV LIP_CONFIG_H
 	${CLEAR_ENV}
-	linker="${CC}"
 	c_flags="${C_FLAGS} -DLIP_DYNAMIC=1 -DLIP_BUILDING"
 	${NUMAKE} --depend ${LIP_CONFIG_H}
 	${NUMAKE} dynamic-lib:$@ \
 		c_flags="${c_flags}" \
-		linker="${linker}" \
+		linker="${CC}" \
 		sources="$(find src/lip -name '*.cpp' -or -name '*.c')"
 
 bin/liblip.a: << C_FLAGS CLEAR_ENV LIP_CONFIG_H
