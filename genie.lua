@@ -1,8 +1,7 @@
 solution "lip"
 	location(_ACTION)
-	configurations {"Release", "Debug"}
+	configurations {"ReleaseLib", "DebugLib", "ReleaseDLL", "DebugDLL"}
 	platforms {"x64"}
-	targetdir "bin"
 	debugdir "."
 
 	flags {
@@ -17,16 +16,31 @@ solution "lip"
 		"_CRT_SECURE_NO_WARNINGS"
 	}
 
-	configuration "Release"
+	configuration "Release*"
 	    flags { "OptimizeSpeed" }
 
-	configuration "Debug"
-	    targetsuffix "_d"
+	configuration "*DLL"
+		defines {
+			"LIP_DYNAMIC=1"
+		}
+
+	configuration "ReleaseLib"
+		targetdir "bin/ReleaseLib"
+
+	configuration "ReleaseDLL"
+		targetdir "bin/ReleaseDLL"
+
+	configuration "DebugLib"
+		targetdir "bin/DebugLib"
+
+	configuration "DebugDLL"
+		targetdir "bin/DebugDLL"
+
+	configuration {}
 
 	project "repl"
 		kind "ConsoleApp"
 		language "C"
-		targetname "lip"
 
 		files {
 			"src/repl/*.h",
@@ -49,6 +63,10 @@ solution "lip"
 		kind "ConsoleApp"
 		language "C"
 
+		defines {
+			"LIP_TEST_SKIP_CPP"
+		}
+
 		includedirs {
 			"include",
             "src"
@@ -56,7 +74,22 @@ solution "lip"
 
 		files {
 			"src/tests/*.h",
-			"src/tests/*.c",
+			"src/tests/*.c"
+		}
+
+		links {
+			"lip"
+        }
+
+	project "cpp-tests"
+		kind "SharedLib"
+		language "C++"
+
+		includedirs {
+			"include"
+        }
+
+		files {
 			"src/tests/*.cpp"
 		}
 
@@ -65,8 +98,19 @@ solution "lip"
         }
 
 	project "lip"
-		kind "StaticLib"
+		configuration { "*Lib" }
+			kind "StaticLib"
+
+		configuration { "*DLL" }
+			kind "SharedLib"
+
+		configuration {}
+
 		language "C"
+
+		defines {
+			"LIP_BUILDING=1"
+		}
 
 		includedirs {
 			"include"

@@ -153,7 +153,7 @@ lip_make_stringv(lip_vm_t* vm, const char* fmt, va_list args)
 	});
 }
 
-LIP_API lip_value_t
+lip_value_t
 lip_make_function(
 	lip_vm_t* vm,
 	lip_native_fn_t native_fn,
