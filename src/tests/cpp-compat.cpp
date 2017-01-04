@@ -15,3 +15,9 @@
 #include <lip/print.h>
 #include <lip/sexp.h>
 #include <lip/vm.h>
+
+extern "C" void test_cpp()
+{
+	lip_runtime_t* runtime = lip_create_runtime(lip_default_allocator);
+	lip_destroy_runtime(runtime);
+}

@@ -78,7 +78,7 @@ struct lip_closure_s
 	unsigned env_len:8;
 	unsigned is_native:1;
 
-	lip_value_t environment[];
+	LIP_FLEXIBLE_ARRAY_MEMBER(lip_value_t, environment);
 };
 
 struct lip_stack_frame_s
@@ -106,20 +106,28 @@ struct lip_vm_s
 	lip_vm_hook_t* hook;
 };
 
+struct lip_string_t_alignment_helper
+{
+	size_t size; char ptr[1];
+};
+
 static const size_t lip_string_t_alignment =
-	LIP_ALIGN_OF(struct{ size_t size; char ptr[1]; });
+	LIP_ALIGN_OF(struct lip_string_t_alignment_helper);
+
+struct lip_function_t_alignment_helper
+{
+	lip_function_t function;
+	lip_import_t import;
+	uint32_t index;
+	lip_instruction_t instruction;
+	lip_loc_range_t location;
+};
 
 // I don't know a better way too do this at compile-time
 static const size_t lip_function_t_alignment =
 	LIP_MAX(
-		LIP_ALIGN_OF(struct{ size_t size; char ptr[1]; }),
-		LIP_ALIGN_OF(struct{
-			lip_function_t function;
-			lip_import_t import;
-			uint32_t index;
-			lip_instruction_t instruction;
-			lip_loc_range_t location;
-		})
+		LIP_ALIGN_OF(struct lip_string_t_alignment_helper),
+		LIP_ALIGN_OF(struct lip_function_t_alignment_helper)
 	);
 
 LIP_API size_t

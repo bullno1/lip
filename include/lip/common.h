@@ -6,23 +6,31 @@
 #include <stdbool.h>
 #include <string.h>
 
+#ifdef __cplusplus
+#	define LIP_LINKAGE extern "C"
+#else
+#	define LIP_LINKAGE extern
+#endif
+
 #if LIP_DYNAMIC == 1
 #	ifdef _WIN32
 #		ifdef LIP_BUILDING
-#			define LIP_API __declspec(dllexport)
+#			define LIP_DECL __declspec(dllexport)
 #		else
-#			define LIP_API __declspec(dllimport)
+#			define LIP_DECL __declspec(dllimport)
 #		endif
 #	else
 #		ifdef LIP_BUILDING
-#			define LIP_API __attribute__((visibility("default")))
+#			define LIP_DECL __attribute__((visibility("default")))
 #		else
-#			define LIP_API
+#			define LIP_DECL
 #		endif
 #	endif
 #else
-#	define LIP_API
+#	define LIP_DECL
 #endif
+
+#define LIP_API LIP_LINKAGE LIP_DECL
 
 #if defined(__GNUC__) || defined(__clang__)
 #	define LIP_MAYBE_UNUSED __attribute__((unused))
@@ -60,7 +68,11 @@
 
 #define lip_array(T) T*
 
-#define LIP_ALIGN_OF(TYPE) offsetof(struct { char c; TYPE t;}, t)
+#ifdef __cplusplus
+#	define LIP_ALIGN_OF(TYPE) alignof(TYPE)
+#else
+#	define LIP_ALIGN_OF(TYPE) offsetof(struct { char c; TYPE t;}, t)
+#endif
 
 #define LIP_VAL(F) \
 	F(LIP_VAL_NIL) \
@@ -80,6 +92,12 @@ LIP_ENUM(lip_value_type_t, LIP_VAL)
 	F(LIP_EXEC_ERROR)
 
 LIP_ENUM(lip_exec_status_t, LIP_EXEC)
+
+#ifdef __cplusplus
+#	define LIP_FLEXIBLE_ARRAY_MEMBER(TYPE, NAME) TYPE NAME[1]
+#else
+#	define LIP_FLEXIBLE_ARRAY_MEMBER(TYPE, NAME) TYPE NAME[]
+#endif
 
 typedef struct lip_loc_s lip_loc_t;
 typedef struct lip_loc_range_s lip_loc_range_t;
@@ -116,7 +134,7 @@ struct lip_string_ref_s
 struct lip_string_s
 {
 	size_t length;
-	char ptr[];
+	LIP_FLEXIBLE_ARRAY_MEMBER(char, ptr);
 };
 
 struct lip_list_s

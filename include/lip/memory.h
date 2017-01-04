@@ -28,18 +28,20 @@ struct lip_memblock_info_s
 	ptrdiff_t offset;
 };
 
-LIP_API extern lip_allocator_t* const lip_default_allocator;
+LIP_API lip_allocator_t* const lip_default_allocator;
 
-static const size_t LIP_MAX_ALIGNMENT =
-	LIP_ALIGN_OF(struct {
-		char a;
-		short b;
-		int c;
-		long long d;
-		void* e;
-		float f;
-		double g;
-	});
+struct lip_max_align_helper
+{
+	char a;
+	short b;
+	int c;
+	long long d;
+	void* e;
+	float f;
+	double g;
+};
+
+static const size_t LIP_MAX_ALIGNMENT = LIP_ALIGN_OF(struct lip_max_align_helper);
 
 LIP_API lip_memblock_info_t
 lip_align_memblocks(unsigned int num_blocks, lip_memblock_info_t** blocks);

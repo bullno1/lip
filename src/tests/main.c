@@ -11,7 +11,8 @@
 	F(arena_allocator) \
 	F(vm) \
 	F(runtime) \
-	F(bind)
+	F(bind) \
+	F(cpp)
 
 #define DECLARE_SUITE(S) extern MunitSuite S;
 
