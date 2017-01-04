@@ -8,8 +8,7 @@ solution "lip"
 		"StaticRuntime",
 		"Symbols",
 		"NoEditAndContinue",
-		"NoNativeWChar",
-		"NoExceptions"
+		"NoNativeWChar"
 	}
 
 	defines {
@@ -35,6 +34,13 @@ solution "lip"
 
 	configuration "DebugDLL"
 		targetdir "bin/DebugDLL"
+
+	configuration "vs*"
+		buildoptions {
+			"/wd4116", -- Anonymous struct in parentheses
+			"/wd4200", -- Flexible array member
+			"/wd4204", -- Non-constant aggregate initializer
+		}
 
 	configuration {}
 
@@ -125,6 +131,10 @@ solution "lip"
 		kind "StaticLib"
 		language "C++"
 
+		flags {
+			"MinimumWarnings"
+		}
+
 		includedirs {
 			"deps/linenoise-ng/include",
 		}
@@ -137,6 +147,10 @@ solution "lip"
 	project "cargo"
 		kind "StaticLib"
 		language "C"
+
+		flags {
+			"MinimumWarnings"
+		}
 
 		files {
 			"deps/cargo/*.h",

@@ -1,6 +1,11 @@
 #ifndef LIP_MEMORY_H
 #define LIP_MEMORY_H
 
+#ifdef _MSC_VER
+#	pragma warning(push)
+#	pragma warning(disable: 4116)
+#endif
+
 #include "common.h"
 
 #define lip_new(ALLOCATOR, TYPE) (TYPE*)(lip_malloc(ALLOCATOR, sizeof(TYPE)))
@@ -75,5 +80,9 @@ lip_align_ptr(const void* ptr, size_t alignment)
 {
 	return (void*)(((uintptr_t)ptr + alignment - 1) / alignment * alignment);
 }
+
+#ifdef _MSC_VER
+#	pragma warning(pop)
+#endif
 
 #endif

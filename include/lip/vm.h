@@ -1,6 +1,11 @@
 #ifndef LIP_VM_H
 #define LIP_VM_H
 
+#ifdef _MSC_VER
+#	pragma warning(push)
+#	pragma warning(disable: 4116)
+#endif
+
 #include <stdarg.h>
 #include "extra.h"
 #include "opcode.h"
@@ -198,5 +203,9 @@ lip_vm_memory_layout(
 	lip_memblock_info_t* mem_layout[] = { os_block, env_block, cs_block };
 	return lip_align_memblocks(LIP_STATIC_ARRAY_LEN(mem_layout), mem_layout);
 }
+
+#ifdef _MSC_VER
+#	pragma warning(pop)
+#endif
 
 #endif
