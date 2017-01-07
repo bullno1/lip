@@ -404,6 +404,11 @@ prim_ops(const MunitParameter params[], void* fixture_)
 	lip_assert_boolean_result("(!= true false)", true);
 	lip_assert_boolean_result("(!= true true)", false);
 
+	lip_assert_boolean_result("(< '(1) '(2))", true);
+	lip_assert_boolean_result("(== '(1 2 3) '(1 2 3))", true);
+	lip_assert_boolean_result("(< '(1 2) '(1 2 3))", true);
+	lip_assert_boolean_result("(<= '(1 0 0) '(0 2 3))", false);
+
 	return MUNIT_OK;
 }
 

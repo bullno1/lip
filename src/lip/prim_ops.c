@@ -92,6 +92,20 @@ lip_gen_cmp(lip_value_t lhs, lip_value_t rhs)
 			break;
 		case LIP_VAL_PLACEHOLDER:
 			return lhs.data.index - rhs.data.index;
+		case LIP_VAL_LIST:
+			{
+				const lip_list_t* llist = lip_as_list(lhs);
+				const lip_list_t* rlist = lip_as_list(rhs);
+
+				size_t cmp_len = LIP_MIN(llist->length, rlist->length);
+				for(size_t i = 0; i < cmp_len; ++i)
+				{
+					int cmp = lip_gen_cmp(llist->elements[i], rlist->elements[i]);
+					if(cmp != 0) { return cmp; }
+				}
+
+				return (int)(llist->length - rlist->length);
+			}
 		default:
 			return (ptrdiff_t)((char*)lhs.data.reference - (char*)rhs.data.reference);
 	}
