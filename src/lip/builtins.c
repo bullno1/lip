@@ -36,6 +36,44 @@ static lip_function(throw)
 	return LIP_EXEC_ERROR;
 }
 
+// Type test
+
+static lip_function(is_nil)
+{
+	lip_bind_args((any, x));
+	lip_return(lip_make_boolean(vm, x.type == LIP_VAL_NIL));
+}
+
+static lip_function(is_bool)
+{
+	lip_bind_args((any, x));
+	lip_return(lip_make_boolean(vm, x.type == LIP_VAL_BOOLEAN));
+}
+
+static lip_function(is_number)
+{
+	lip_bind_args((any, x));
+	lip_return(lip_make_boolean(vm, x.type == LIP_VAL_NUMBER));
+}
+
+static lip_function(is_string)
+{
+	lip_bind_args((any, x));
+	lip_return(lip_make_boolean(vm, x.type == LIP_VAL_STRING));
+}
+
+static lip_function(is_symbol)
+{
+	lip_bind_args((any, x));
+	lip_return(lip_make_boolean(vm, x.type == LIP_VAL_SYMBOL));
+}
+
+static lip_function(is_list)
+{
+	lip_bind_args((any, x));
+	lip_return(lip_make_boolean(vm, x.type == LIP_VAL_LIST));
+}
+
 // List functions
 static lip_function(list)
 {
@@ -244,6 +282,13 @@ lip_load_builtins(lip_context_t* ctx)
 	lip_declare_function(ns, lip_string_ref("print"), print);
 	lip_declare_function(ns, lip_string_ref("throw"), throw);
 	lip_declare_function(ns, lip_string_ref("list"), list);
+
+	lip_declare_function(ns, lip_string_ref("nil?"), is_nil);
+	lip_declare_function(ns, lip_string_ref("bool?"), is_bool);
+	lip_declare_function(ns, lip_string_ref("number?"), is_number);
+	lip_declare_function(ns, lip_string_ref("string?"), is_string);
+	lip_declare_function(ns, lip_string_ref("symbol?"), is_symbol);
+	lip_declare_function(ns, lip_string_ref("list?"), is_list);
 
 #define LIP_STRINGIFY(x) LIP_STRINGIFY1(x)
 #define LIP_STRINGIFY1(x) #x

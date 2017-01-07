@@ -32,6 +32,9 @@
 #define lip_assert_str_result(code, result_value) \
 	lip_assert_result(code, LIP_EXEC_OK, lip_assert_str, result_value)
 
+#define lip_assert_symbol_result(code, result_value) \
+	lip_assert_result(code, LIP_EXEC_OK, lip_assert_symbol, result_value)
+
 #define lip_assert_nil_result(code) \
 	lip_assert_result(code, LIP_EXEC_OK, lip_assert_nil, placeholder)
 
@@ -523,6 +526,145 @@ arity(const MunitParameter params[], void* fixture_)
 	return MUNIT_OK;
 }
 
+static MunitResult
+quotation(const MunitParameter params[], void* fixture_)
+{
+	(void)params;
+
+	lip_fixture_t* fixture = fixture_;
+	lip_context_t* ctx = fixture->context;
+	lip_vm_t* vm = fixture->vm;
+	lip_load_builtins(ctx);
+
+	lip_assert_num_result("'3", 3);
+	lip_assert_num_result("`3", 3);
+	lip_assert_num_result("`,3", 3);
+
+	lip_assert_str_result("'\"haha\"", "haha");
+	lip_assert_str_result("`\"haha\"", "haha");
+
+	lip_assert_symbol_result("'haha", "haha");
+	lip_assert_symbol_result("`haha", "haha");
+
+	lip_assert_boolean_result(
+		"(let ((x 3) (y (list 3 5)) (l '(3 haha (\"hehe\" ,3)))) (list? l))",
+		true
+	);
+	lip_assert_num_result(
+		"(let ((x 3) (y (list 3 5)) (l '(3 haha (\"hehe\" ,3)))) (list/len l))",
+		3
+	);
+	lip_assert_symbol_result(
+		"(let ((x 3) (y (list 3 5)) (l '(2 haha (\"hehe\" ,3)))) (list/nth 1 l))",
+		"haha"
+	);
+	lip_assert_str_result(
+		"(let ((x 3) (y (list 3 5)) (l '(2 haha (\"hehe\" ,3)))) (list/nth 0 (list/nth 2 l)))",
+		"hehe"
+	);
+	lip_assert_symbol_result(
+		"(let ((x 3) (y (list 3 5)) (l '(2 haha (\"hehe\" ,3)))) (list/nth 0 (list/nth 1 (list/nth 2 l))))",
+		"unquote"
+	);
+	lip_assert_num_result(
+		"(let ((x 3) (y (list 3 5)) (l '(2 haha (\"hehe\" ,4.2)))) (list/nth 1 (list/nth 1 (list/nth 2 l))))",
+		4.2
+	);
+
+	lip_assert_boolean_result(
+		"(let ((x 3) (y (list 3 5)) (l `(3 haha (\"hehe\" ,3)))) (list? l))",
+		true
+	);
+	lip_assert_num_result(
+		"(let ((x 3) (y (list 3 5)) (l `(3 haha (\"hehe\" ,3)))) (list/len l))",
+		3
+	);
+	lip_assert_symbol_result(
+		"(let ((x 3) (y (list 3 5)) (l `(2 haha (\"hehe\" ,3)))) (list/nth 1 l))",
+		"haha"
+	);
+	lip_assert_str_result(
+		"(let ((x 3) (y (list 3 5)) (l `(2 haha (\"hehe\" ,3)))) (list/nth 0 (list/nth 2 l)))",
+		"hehe"
+	);
+	lip_assert_num_result(
+		"(let ((x 3) (y (list 3 5)) (l `(2 haha (\"hehe\" ,8.7)))) (list/nth 1 (list/nth 2 l)))",
+		8.7
+	);
+	lip_assert_num_result(
+		"(let ((x 3.4) (y (list 3 5)) (l `(2 haha (\"hehe\" ,x)))) (list/nth 1 (list/nth 2 l)))",
+		3.4
+	);
+	lip_assert_num_result(
+		"(let ((x 3.4) (y (list 3 5)) (l `(2 haha (\"hehe\" ,y)))) (list/nth 1 (list/nth 1 (list/nth 2 l))))",
+		5
+	);
+	lip_assert_num_result(
+		"(let ((x 3.4) (y (list 3 5)) (l `(2 haha (\"hehe\" ,@y)))) (list/nth 1 (list/nth 2 l)))",
+		3
+	);
+	lip_assert_num_result(
+		"(let ((x 3.4) (y (list 3 5)) (l `(2 haha (\"hehe\" ,@y)))) (list/nth 2 (list/nth 2 l)))",
+		5
+	);
+	lip_assert_num_result(
+		"(let ((x 3.4) (y (list 3 5)) (l `(2 haha (\"hehe\" ,@y)))) (list/len (list/nth 2 l)))",
+		3
+	);
+
+	lip_assert_syntax_error(
+		" (quote 3 4)",
+		"'quote' must have the form: (quote <sexp>)",
+		1, 2,
+		1, 12
+	);
+	lip_assert_syntax_error(
+		" (quasiquote 3 4)",
+		"'quasiquote' must have the form: (quasiquote <sexp>)",
+		1, 2,
+		1, 17
+	);
+
+	lip_assert_syntax_error(
+		" (wat ,3 4)",
+		"Cannot unquote outside of quasiquote",
+		1, 7,
+		1, 8
+	);
+	lip_assert_syntax_error(
+		" (wat ,@3 4)",
+		"Cannot unquote-splicing outside of quasiquoted list",
+		1, 7,
+		1, 9
+	);
+	lip_assert_syntax_error(
+		"`,@3",
+		"Cannot unquote-splicing outside of quasiquoted list",
+		1, 2,
+		1, 4
+	);
+	lip_assert_syntax_error(
+		"`( ,@34)",
+		"The expression passed to unquote-splicing must evaluate to a list",
+		1, 6,
+		1, 7
+	);
+	lip_assert_syntax_error(
+		"(quasiquote (unquote 1 1))",
+		"'unquote' must have the form: (unquote <sexp>)",
+		1, 13,
+		1, 25
+	);
+	lip_assert_syntax_error(
+		"(quasiquote ((unquote-splicing)))",
+		"'unquote-splicing' must have the form: (unquote-splicing <sexp>)",
+		1, 14,
+		1, 31
+	);
+
+	return MUNIT_OK;
+}
+
 static MunitTest tests[] = {
 	{
 		.name = "/basic_forms",
@@ -569,6 +711,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/arity",
 		.test = arity,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/quotation",
+		.test = quotation,
 		.setup = setup,
 		.tear_down = teardown
 	},

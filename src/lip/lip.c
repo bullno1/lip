@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <lip/array.h>
 #include <lip/memory.h>
+#include <lip/preprocessor.h>
 #include <lip/ast.h>
 #include <lip/io.h>
 #include <lip/vm.h>
@@ -570,6 +571,10 @@ lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 	lip_parser_reset(&ctx->parser, input);
 	lip_compiler_begin(&ctx->compiler, filename);
 
+	lip_pp_t pp = {
+		.allocator = ctx->arena_allocator
+	};
+
 	for(;;)
 	{
 		lip_sexp_t sexp;
@@ -577,8 +582,22 @@ lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 		{
 			case LIP_STREAM_OK:
 				{
-					lip_ast_result_t ast_result =
-						lip_translate_sexp(ctx->arena_allocator, &sexp);
+					lip_pp_result_t pp_result = lip_preprocess(&pp, &sexp);
+					if(!pp_result.success)
+					{
+						lip_set_compile_error(
+							ctx,
+							lip_string_ref(pp_result.value.error.extra),
+							filename,
+							pp_result.value.error.location
+						);
+
+						return NULL;
+					}
+
+					lip_ast_result_t ast_result = lip_translate_sexp(
+						ctx->arena_allocator, pp_result.value.result
+					);
 					if(!ast_result.success)
 					{
 						lip_set_compile_error(
@@ -678,6 +697,10 @@ lip_repl(
 		.vtable = { .read = lip_repl_read }
 	};
 
+	lip_pp_t pp = {
+		.allocator = ctx->arena_allocator
+	};
+
 	for(;;)
 	{
 		lip_arena_allocator_reset(ctx->arena_allocator);
@@ -689,33 +712,28 @@ lip_repl(
 		{
 			case LIP_STREAM_OK:
 				{
-					lip_ast_result_t ast_result =
-						lip_translate_sexp(ctx->arena_allocator, &sexp);
-					if(ast_result.success)
+					lip_pp_result_t pp_result = lip_preprocess(&pp, &sexp);
+					if(!pp_result.success)
 					{
-						lip_compiler_begin(&ctx->compiler, source_name);
-						lip_compiler_add_ast(&ctx->compiler, ast_result.value.result);
-						lip_function_t* fn = lip_compiler_end(&ctx->compiler, ctx->arena_allocator);
-						lip_closure_t* closure = lip_new(ctx->arena_allocator, lip_closure_t);
-						*closure = (lip_closure_t){
-							.function = { .lip = fn },
-							.is_native = false,
-							.env_len = 0,
-						};
-						lip_reset_vm(vm);
-						lip_value_t result;
-						lip_exec_status_t status = lip_call(
-							vm,
-							&result,
-							(lip_value_t){
-								.type = LIP_VAL_FUNCTION,
-								.data = { .reference = closure }
-							},
-							0
+						lip_set_compile_error(
+							ctx,
+							lip_string_ref(pp_result.value.error.extra),
+							source_name,
+							pp_result.value.error.location
 						);
-						repl_handler->print(repl_handler, status, result);
+						repl_handler->print(
+							repl_handler,
+							LIP_EXEC_ERROR,
+							(lip_value_t) { .type = LIP_VAL_NIL }
+						);
+						continue;
 					}
-					else
+
+					lip_ast_result_t ast_result = lip_translate_sexp(
+						ctx->arena_allocator, pp_result.value.result
+					);
+
+					if(!ast_result.success)
 					{
 						lip_set_compile_error(
 							ctx,
@@ -728,7 +746,30 @@ lip_repl(
 							LIP_EXEC_ERROR,
 							(lip_value_t) { .type = LIP_VAL_NIL }
 						);
+						continue;
 					}
+
+					lip_compiler_begin(&ctx->compiler, source_name);
+					lip_compiler_add_ast(&ctx->compiler, ast_result.value.result);
+					lip_function_t* fn = lip_compiler_end(&ctx->compiler, ctx->arena_allocator);
+					lip_closure_t* closure = lip_new(ctx->arena_allocator, lip_closure_t);
+					*closure = (lip_closure_t){
+						.function = { .lip = fn },
+						.is_native = false,
+						.env_len = 0,
+					};
+					lip_reset_vm(vm);
+					lip_value_t result;
+					lip_exec_status_t status = lip_call(
+						vm,
+						&result,
+						(lip_value_t){
+							.type = LIP_VAL_FUNCTION,
+							.data = { .reference = closure }
+						},
+						0
+					);
+					repl_handler->print(repl_handler, status, result);
 				}
 				break;
 			case LIP_STREAM_ERROR:
