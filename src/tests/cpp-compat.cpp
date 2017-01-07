@@ -15,6 +15,7 @@
 #include <lip/print.h>
 #include <lip/sexp.h>
 #include <lip/vm.h>
+#include <lip/pp.h>
 
 extern "C" void test_cpp()
 {

@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <lip/array.h>
 #include <lip/memory.h>
-#include <lip/preprocessor.h>
+#include <lip/pp.h>
 #include <lip/ast.h>
 #include <lip/io.h>
 #include <lip/vm.h>
