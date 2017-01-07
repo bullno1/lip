@@ -3,7 +3,17 @@
 #include <lip/print.h>
 #include <lip/io.h>
 #include <lip/bind.h>
+#include <setjmp.h>
+#include "vendor/sort_r.h"
 #include "prim_ops.h"
+
+struct lip_cmp_ctx
+{
+	lip_vm_t* vm;
+	lip_value_t cmp_fn;
+	lip_value_t error;
+	jmp_buf err_jmp_buf;
+};
 
 static lip_function(nop)
 {
@@ -279,6 +289,96 @@ static lip_function(foldr)
 	}
 LIP_PRIM_OP(LIP_WRAP_PRIM_OP)
 
+static lip_exec_status_t
+lip_call_cmp_fn(
+	lip_vm_t* vm,
+	lip_value_t* result,
+	lip_value_t cmp_fn,
+	lip_value_t lhs,
+	lip_value_t rhs)
+{
+	lip_exec_status_t status = lip_call(vm, result, cmp_fn, 2, lhs, rhs);
+	if(status != LIP_EXEC_OK) { return status; }
+
+	lip_bind_assert(
+		result->type == LIP_VAL_NUMBER,
+		"Comparision function did not return a number"
+	);
+
+	return status;
+}
+
+static int
+lip_cmp_fn(
+	const void* lhs,
+	const void* rhs,
+	void* ctx_
+)
+{
+	struct lip_cmp_ctx* ctx = ctx_;
+
+	lip_value_t result;
+	lip_exec_status_t status = lip_call_cmp_fn(
+		ctx->vm, &result, ctx->cmp_fn, *(lip_value_t*)lhs, *(lip_value_t*)rhs
+	);
+	if(status != LIP_EXEC_OK)
+	{
+		ctx->error = result;
+		longjmp(ctx->err_jmp_buf, status);
+	}
+
+	return (int)result.data.number;
+}
+
+static lip_function(sort)
+{
+	lip_bind_args(
+		(list, l),
+		(function, cmp,
+		 (optional, (lip_make_function(vm, LIP_PRIM_OP_WRAPPER_NAME(CMP), 0, NULL))))
+	);
+
+	const lip_list_t* list = lip_as_list(l);
+
+	lip_list_t* new_list = vm->rt->malloc(vm->rt, LIP_VAL_LIST, sizeof(lip_list_t));
+	new_list->root = new_list->elements = vm->rt->malloc(
+		vm->rt, LIP_VAL_NATIVE, sizeof(lip_value_t) * list->length
+	);
+	new_list->length = list->length;
+
+	memcpy(new_list->elements, list->elements, sizeof(lip_value_t) * list->length);
+
+	struct lip_cmp_ctx cmp_ctx = {
+		.vm = vm,
+		.cmp_fn = cmp
+	};
+
+	if(list->length > 0)
+	{
+		if(setjmp(cmp_ctx.err_jmp_buf) == 0)
+		{
+			sort_r(
+				new_list->elements,
+				list->length,
+				sizeof(lip_value_t),
+				lip_cmp_fn,
+				&cmp_ctx
+			);
+		}
+		else
+		{
+			*result = cmp_ctx.error;
+			return LIP_EXEC_ERROR;
+		}
+	}
+
+	lip_value_t ret_val = (lip_value_t) {
+		.type = LIP_VAL_LIST,
+		.data = { .reference = new_list }
+	};
+	lip_return(ret_val);
+}
+
 void
 lip_load_builtins(lip_context_t* ctx)
 {
@@ -315,5 +415,6 @@ lip_load_builtins(lip_context_t* ctx)
 	lip_declare_function(ns, lip_string_ref("map"), map);
 	lip_declare_function(ns, lip_string_ref("foldl"), foldl);
 	lip_declare_function(ns, lip_string_ref("foldr"), foldr);
+	lip_declare_function(ns, lip_string_ref("sort"), sort);
 	lip_end_ns(ctx, ns);
 }

@@ -409,6 +409,17 @@ prim_ops(const MunitParameter params[], void* fixture_)
 	lip_assert_boolean_result("(< '(1 2) '(1 2 3))", true);
 	lip_assert_boolean_result("(<= '(1 0 0) '(0 2 3))", false);
 
+	lip_assert_boolean_result("(== '(-3 1 2 2.5 8) (list/sort '(2 1 8 -3 2.5)))", true);
+	lip_assert_boolean_result("(== '(8 2.5 2 1 -3) (list/sort '(2 1 8 -3 2.5) (fn (a b) (cmp b a))))", true);
+	lip_assert_error_msg(
+		"(list/sort '(2 1 8 -3 2.5) identity)",
+		"Bad number of arguments (exactly 1 expected, got 2)"
+	);
+	lip_assert_error_msg(
+		"(list/sort '(2 1 8 -3 2.5) <)",
+		"Comparision function did not return a number"
+	);
+
 	return MUNIT_OK;
 }
 
