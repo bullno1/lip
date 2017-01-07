@@ -280,7 +280,6 @@ builtins(const MunitParameter params[], void* fixture_)
 	lip_assert_boolean_result("(bool? false)", true);
 	lip_assert_boolean_result("(number? true)", false);
 	lip_assert_boolean_result("(number? 3.0)", true);
-	lip_assert_boolean_result("(number? (/ 1 0))", true);
 	lip_assert_boolean_result("(string? 0)", false);
 	lip_assert_boolean_result("(string? \"ff\")", true);
 	lip_assert_boolean_result("(symbol? '\"f\")", false);
