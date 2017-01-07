@@ -44,7 +44,7 @@ dynamic-lib:%: << BUILD_DIR CPPNU_DIR ! live
 	${CPPNU_DIR}/generate dll
 	echo "-Wl,-rpath=\\'\$\$ORIGIN\\' -L$(dirname ${m}) -l:$(basename ${m})" > "${m}.meta"
 
-${BUILD_DIR}/%.compdb: << BUILD_DIR
+${BUILD_DIR}/%.compdb: << BUILD_DIR ! live
 	. ${BUILD_DIR}/${m}.build-cfg
 	${NUMAKE} --depend ${BUILD_DIR}/${BUILD_SUBDIR}/.cfg
 	. ${BUILD_DIR}/${BUILD_SUBDIR}/.cfg
