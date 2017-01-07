@@ -74,6 +74,12 @@ static lip_function(is_list)
 	lip_return(lip_make_boolean(vm, x.type == LIP_VAL_LIST));
 }
 
+static lip_function(is_fn)
+{
+	lip_bind_args((any, x));
+	lip_return(lip_make_boolean(vm, x.type == LIP_VAL_FUNCTION));
+}
+
 // List functions
 static lip_function(list)
 {
@@ -289,6 +295,7 @@ lip_load_builtins(lip_context_t* ctx)
 	lip_declare_function(ns, lip_string_ref("string?"), is_string);
 	lip_declare_function(ns, lip_string_ref("symbol?"), is_symbol);
 	lip_declare_function(ns, lip_string_ref("list?"), is_list);
+	lip_declare_function(ns, lip_string_ref("fn?"), is_fn);
 
 #define LIP_STRINGIFY(x) LIP_STRINGIFY1(x)
 #define LIP_STRINGIFY1(x) #x

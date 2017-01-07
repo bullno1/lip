@@ -273,6 +273,43 @@ builtins(const MunitParameter params[], void* fixture_)
 	lip_assert_nil_result("(nop 1 2 3 identity \"f\")");
 	lip_assert_error_msg("(throw \"custom error\")", "custom error");
 
+	lip_assert_boolean_result("(nil? nil)", true);
+	lip_assert_boolean_result("(nil? 3)", false);
+	lip_assert_boolean_result("(bool? nil)", false);
+	lip_assert_boolean_result("(bool? true)", true);
+	lip_assert_boolean_result("(bool? false)", true);
+	lip_assert_boolean_result("(number? true)", false);
+	lip_assert_boolean_result("(number? 3.0)", true);
+	lip_assert_boolean_result("(number? (/ 1 0))", true);
+	lip_assert_boolean_result("(string? 0)", false);
+	lip_assert_boolean_result("(string? \"ff\")", true);
+	lip_assert_boolean_result("(symbol? '\"f\")", false);
+	lip_assert_boolean_result("(symbol? 'ff)", true);
+	lip_assert_boolean_result("(list? '(1 2 3))", true);
+	lip_assert_boolean_result("(list? 'ff)", false);
+	lip_assert_boolean_result("(fn? '(1 2 3))", false);
+	lip_assert_boolean_result("(fn? fn?)", true);
+
+	lip_assert_num_result("(list/head '(1 2 3))", 1);
+	lip_assert_num_result("(list/len (list/tail '(1 2 3)))", 2);
+	lip_assert_num_result("(list/nth 0 (list/tail '(1 2 3)))", 2);
+	lip_assert_num_result("(list/nth 1 (list/tail '(1 2 3)))", 3);
+	lip_assert_num_result("(list/len (list/append '(1 2) 3))", 3);
+	lip_assert_num_result("(list/nth 0 (list/append '(1 2) 3))", 1);
+	lip_assert_num_result("(list/nth 1 (list/append '(1 2) 3))", 2);
+	lip_assert_num_result("(list/nth 2 (list/append '(1 2) 3))", 3);
+	lip_assert_num_result("(list/len (list/map (fn (x) (* 2 x)) '(1 2)))", 2);
+	lip_assert_num_result("(list/nth 0 (list/map (fn (x) (* 2 x)) '(1 2)))", 2);
+	lip_assert_num_result("(list/nth 1 (list/map (fn (x) (* 2 x)) '(1 2)))", 4);
+	lip_assert_num_result("(list/len (list/foldl (fn (x l) (list/append l x)) '(1 2 3) '()))", 3);
+	lip_assert_num_result("(list/nth 0 (list/foldl (fn (x l) (list/append l x)) '(1 2 3) '()))", 1);
+	lip_assert_num_result("(list/nth 1 (list/foldl (fn (x l) (list/append l x)) '(1 2 3) '()))", 2);
+	lip_assert_num_result("(list/nth 2 (list/foldl (fn (x l) (list/append l x)) '(1 2 3) '()))", 3);
+	lip_assert_num_result("(list/len (list/foldr (fn (x l) (list/append l x)) '(1 2 3) '()))", 3);
+	lip_assert_num_result("(list/nth 0 (list/foldr (fn (x l) (list/append l x)) '(1 2 3) '()))", 3);
+	lip_assert_num_result("(list/nth 1 (list/foldr (fn (x l) (list/append l x)) '(1 2 3) '()))", 2);
+	lip_assert_num_result("(list/nth 2 (list/foldr (fn (x l) (list/append l x)) '(1 2 3) '()))", 1);
+
 	return MUNIT_OK;
 }
 
