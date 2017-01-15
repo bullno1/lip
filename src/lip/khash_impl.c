@@ -47,3 +47,13 @@ __KHASH_IMPL(
 	lip_value_hash,
 	lip_value_equal
 )
+
+__KHASH_IMPL(
+	lip_userdata,
+	,
+	void*,
+	void*,
+	1,
+	lip_value_hash,
+	lip_value_equal
+)

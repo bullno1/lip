@@ -717,6 +717,147 @@ quotation(const MunitParameter params[], void* fixture_)
 	return MUNIT_OK;
 }
 
+static MunitResult
+userdata(const MunitParameter params[], void* fixture_)
+{
+	(void)params;
+
+	lip_fixture_t* fixture = fixture_;
+	lip_vm_t* vm = fixture->vm;
+
+	lip_vm_config_t vm_config = {
+		.os_len = 16,
+		.cs_len = 16,
+		.env_len = 16
+	};
+	lip_vm_t* vm2 = lip_create_vm(fixture->context, &vm_config);
+	lip_context_t* ctx2 = lip_create_context(fixture->runtime, NULL);
+	lip_vm_t* vm3 = lip_create_vm(ctx2, &vm_config);;
+
+	char userdata_key1, userdata_key2, userdata_vm1, userdata_vm2,
+		 userdata_ctx1, userdata_ctx2, userdata_rt1, userdata_rt2;
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm2, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm2, LIP_SCOPE_CONTEXT, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_CONTEXT, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm2, LIP_SCOPE_RUNTIME, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_RUNTIME, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_VM, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm2, LIP_SCOPE_VM, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_VM, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm2, LIP_SCOPE_CONTEXT, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_CONTEXT, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm2, LIP_SCOPE_RUNTIME, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_RUNTIME, &userdata_key2));
+
+	munit_assert_null(lip_set_userdata(vm, LIP_SCOPE_VM, &userdata_key1, &userdata_vm1));
+	munit_assert_ptr(&userdata_vm1, ==, lip_get_userdata(vm, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_ptr(
+		&userdata_vm1,
+		==,
+		lip_set_userdata(vm, LIP_SCOPE_VM, &userdata_key1, &userdata_vm2)
+	);
+	munit_assert_ptr(&userdata_vm2, ==, lip_get_userdata(vm, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_ptr(
+		&userdata_vm2,
+		==,
+		lip_set_userdata(vm, LIP_SCOPE_VM, &userdata_key1, &userdata_vm1)
+	);
+	munit_assert_ptr(&userdata_vm1, ==, lip_get_userdata(vm, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key2));
+
+	munit_assert_null(lip_set_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1, &userdata_ctx1));
+	munit_assert_ptr(
+		&userdata_ctx1,
+		==,
+		lip_set_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1, &userdata_ctx2)
+	);
+	munit_assert_ptr(&userdata_ctx2, ==, lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1));
+	munit_assert_ptr(
+		&userdata_ctx2,
+		==,
+		lip_set_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1, &userdata_ctx1)
+	);
+	munit_assert_ptr(&userdata_ctx1, ==, lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key2));
+
+	munit_assert_null(lip_set_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1, &userdata_rt1));
+	munit_assert_ptr(
+		&userdata_rt1,
+		==,
+		lip_set_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1, &userdata_rt2)
+	);
+	munit_assert_ptr(&userdata_rt2, ==, lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1));
+	munit_assert_ptr(
+		&userdata_rt2,
+		==,
+		lip_set_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1, &userdata_rt1)
+	);
+	munit_assert_ptr(&userdata_rt1, ==, lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1));
+
+	munit_assert_null(
+		lip_set_userdata(vm2, LIP_SCOPE_VM, &userdata_key2, &userdata_vm2)
+	);
+	munit_assert_ptr(
+		&userdata_vm2,
+		==,
+		lip_set_userdata(vm2, LIP_SCOPE_VM, &userdata_key2, &userdata_vm2)
+	);
+	munit_assert_null(lip_get_userdata(vm2, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_null(lip_set_userdata(vm2, LIP_SCOPE_VM, &userdata_key1, &userdata_vm2));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_VM, &userdata_key2));
+
+	munit_assert_null(
+		lip_set_userdata(vm2, LIP_SCOPE_CONTEXT, &userdata_key2, &userdata_ctx2)
+	);
+	munit_assert_ptr(
+		&userdata_ctx1,
+		==,
+		lip_get_userdata(vm2, LIP_SCOPE_CONTEXT, &userdata_key1)
+	);
+	munit_assert_ptr(
+		&userdata_ctx1,
+		==,
+		lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1)
+	);
+	munit_assert_ptr(
+		&userdata_ctx2,
+		==,
+		lip_get_userdata(vm2, LIP_SCOPE_CONTEXT, &userdata_key2)
+	);
+	munit_assert_ptr(
+		&userdata_ctx2,
+		==,
+		lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key2)
+	);
+	munit_assert_null(
+		lip_get_userdata(vm3, LIP_SCOPE_CONTEXT, &userdata_key1)
+	);
+
+	munit_assert_ptr(
+		&userdata_rt1,
+		==,
+		lip_get_userdata(vm2, LIP_SCOPE_RUNTIME, &userdata_key1)
+	);
+	munit_assert_ptr(
+		&userdata_rt1,
+		==,
+		lip_get_userdata(vm3, LIP_SCOPE_RUNTIME, &userdata_key1)
+	);
+
+	return MUNIT_OK;
+}
+
 static MunitTest tests[] = {
 	{
 		.name = "/basic_forms",
@@ -769,6 +910,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/quotation",
 		.test = quotation,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/userdata",
+		.test = userdata,
 		.setup = setup,
 		.tear_down = teardown
 	},
