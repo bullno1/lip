@@ -67,11 +67,7 @@ solution "lip"
 
 	project "tests"
 		kind "ConsoleApp"
-		language "C"
-
-		defines {
-			"LIP_TEST_SKIP_CPP"
-		}
+		language "C++"
 
 		includedirs {
 			"include",
@@ -80,22 +76,7 @@ solution "lip"
 
 		files {
 			"src/tests/*.h",
-			"src/tests/*.c"
-		}
-
-		links {
-			"lip"
-        }
-
-	project "cpp-tests"
-		kind "SharedLib"
-		language "C++"
-
-		includedirs {
-			"include"
-        }
-
-		files {
+			"src/tests/*.c",
 			"src/tests/*.cpp"
 		}
 
