@@ -395,7 +395,7 @@ unexpected_token(const MunitParameter params[], void* fixture)
 {
 	(void)params;
 
-	lip_string_ref_t text = lip_string_ref(",)");
+	lip_string_ref_t text = lip_string_ref("(3 ')");
 
 	struct lip_isstream_s sstream;
 	lip_in_t* input = lip_make_isstream(text, &sstream);
@@ -411,6 +411,40 @@ unexpected_token(const MunitParameter params[], void* fixture)
 	const lip_token_t* token = error->extra;
 	lip_assert_enum(lip_token_type_t, LIP_TOKEN_RPAREN, ==, token->type);
 	lip_assert_string_ref_equal(lip_string_ref(")"), token->lexeme);
+	lip_assert_loc_range_equal(error->location, token->location);
+	lip_assert_loc_range_equal(error->location, ((lip_loc_range_t){
+		.start = { .line = 1, .column = 5 },
+		.end = { .line = 1, .column = 5 }
+	}));
+
+	text = lip_string_ref(" )");
+	input = lip_make_isstream(text, &sstream);
+	lip_parser_reset(parser, input);
+
+	status = lip_parser_next_sexp(parser, &sexp);
+	lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, status);
+	error = lip_parser_last_error(parser);
+	lip_assert_enum(lip_parse_error_t, LIP_PARSE_UNEXPECTED_TOKEN, ==, error->code);
+	token = error->extra;
+	lip_assert_enum(lip_token_type_t, LIP_TOKEN_RPAREN, ==, token->type);
+	lip_assert_string_ref_equal(lip_string_ref(")"), token->lexeme);
+	lip_assert_loc_range_equal(error->location, token->location);
+	lip_assert_loc_range_equal(error->location, ((lip_loc_range_t){
+		.start = { .line = 1, .column = 2 },
+		.end = { .line = 1, .column = 2 }
+	}));
+
+	text = lip_string_ref(" '");
+	input = lip_make_isstream(text, &sstream);
+	lip_parser_reset(parser, input);
+
+	status = lip_parser_next_sexp(parser, &sexp);
+	lip_assert_enum(lip_stream_status_t, LIP_STREAM_ERROR, ==, status);
+	error = lip_parser_last_error(parser);
+	lip_assert_enum(lip_parse_error_t, LIP_PARSE_UNEXPECTED_TOKEN, ==, error->code);
+	token = error->extra;
+	lip_assert_enum(lip_token_type_t, LIP_TOKEN_QUOTE, ==, token->type);
+	lip_assert_string_ref_equal(lip_string_ref("'"), token->lexeme);
 	lip_assert_loc_range_equal(error->location, token->location);
 	lip_assert_loc_range_equal(error->location, ((lip_loc_range_t){
 		.start = { .line = 1, .column = 2 },

@@ -15,6 +15,7 @@ typedef struct lip_symbol_s lip_symbol_t;
 KHASH_DECLARE(lip_ns, lip_string_ref_t, lip_symbol_t)
 KHASH_DECLARE(lip_symtab, lip_string_ref_t, khash_t(lip_ns)*)
 KHASH_DECLARE(lip_ptr_set, void*, char)
+KHASH_DECLARE(lip_userdata, void*, void*)
 
 struct lip_symbol_s
 {
@@ -33,7 +34,8 @@ struct lip_runtime_s
 	lip_allocator_t* allocator;
 	khash_t(lip_ptr_set)* contexts;
 	khash_t(lip_symtab)* symtab;
-	lip_rwlock_t symtab_lock;
+	khash_t(lip_userdata)* userdata;
+	lip_rwlock_t rt_lock;
 };
 
 struct lip_runtime_link_s
@@ -41,6 +43,7 @@ struct lip_runtime_link_s
 	lip_runtime_interface_t vtable;
 	lip_allocator_t* allocator;
 	lip_context_t* ctx;
+	khash_t(lip_userdata)* userdata;
 };
 
 struct lip_context_s
@@ -56,6 +59,7 @@ struct lip_context_s
 	khash_t(lip_ptr_set)* scripts;
 	khash_t(lip_ptr_set)* vms;
 	lip_array(char) string_buff;
+	khash_t(lip_userdata)* userdata;
 };
 
 #endif

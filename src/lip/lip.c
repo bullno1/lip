@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <lip/array.h>
 #include <lip/memory.h>
+#include <lip/pp.h>
 #include <lip/ast.h>
 #include <lip/io.h>
 #include <lip/vm.h>
@@ -36,7 +37,7 @@ lip_create_runtime(lip_allocator_t* allocator)
 		.contexts = kh_init(lip_ptr_set, allocator),
 		.symtab = kh_init(lip_symtab, allocator),
 	};
-	lip_rwlock_init(&runtime->symtab_lock);
+	lip_rwlock_init(&runtime->rt_lock);
 	return runtime;
 }
 
@@ -52,6 +53,7 @@ static void
 lip_do_destroy_vm(lip_context_t* ctx, lip_vm_t* vm)
 {
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
+	if(rt->userdata) { kh_destroy(lip_userdata, rt->userdata); }
 	lip_arena_allocator_destroy(rt->allocator);
 	lip_free(ctx->allocator, vm);
 }
@@ -78,6 +80,7 @@ lip_do_destroy_context(lip_runtime_t* runtime, lip_context_t* ctx)
 	lip_parser_cleanup(&ctx->parser);
 	lip_array_destroy(ctx->error_records);
 	lip_arena_allocator_destroy(ctx->arena_allocator);
+	if(ctx->userdata) { kh_destroy(lip_userdata, ctx->userdata); }
 	lip_free(ctx->allocator, ctx);
 }
 
@@ -108,9 +111,10 @@ lip_destroy_runtime(lip_runtime_t* runtime)
 		kh_destroy(lip_ns, ns);
 	}
 
-	lip_rwlock_destroy(&runtime->symtab_lock);
+	lip_rwlock_destroy(&runtime->rt_lock);
 	kh_destroy(lip_symtab, runtime->symtab);
 	kh_destroy(lip_ptr_set, runtime->contexts);
+	if(runtime->userdata) { kh_destroy(lip_userdata, runtime->userdata); }
 	lip_free(runtime->allocator, runtime);
 }
 
@@ -342,10 +346,16 @@ lip_commit_ns_locked(lip_context_t* ctx, lip_ns_context_t* ns_ctx)
 void
 lip_end_ns(lip_context_t* ctx, lip_ns_context_t* ns)
 {
-	lip_assert(ctx, lip_rwlock_begin_write(&ctx->runtime->symtab_lock));
+	lip_assert(ctx, lip_rwlock_begin_write(&ctx->runtime->rt_lock));
 	lip_commit_ns_locked(ctx, ns);
-	lip_rwlock_end_write(&ctx->runtime->symtab_lock);
+	lip_rwlock_end_write(&ctx->runtime->rt_lock);
 
+	lip_discard_ns(ctx, ns);
+}
+
+void
+lip_discard_ns(lip_context_t* ctx, lip_ns_context_t* ns)
+{
 	kh_destroy(lip_ns, ns->content);
 	lip_arena_allocator_destroy(ns->allocator);
 	lip_free(ctx->allocator, ns);
@@ -556,9 +566,9 @@ lip_lookup_symbol(lip_context_t* ctx, lip_string_ref_t symbol_name, lip_value_t*
 		}
 	}
 
-	lip_assert(ctx, lip_rwlock_begin_read(&ctx->runtime->symtab_lock));
+	lip_assert(ctx, lip_rwlock_begin_read(&ctx->runtime->rt_lock));
 	bool ret_val = lip_lookup_symbol_locked(ctx, namespace, symbol, result);
-	lip_rwlock_end_read(&ctx->runtime->symtab_lock);
+	lip_rwlock_end_read(&ctx->runtime->rt_lock);
 
 	return ret_val;
 }
@@ -570,6 +580,10 @@ lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 	lip_parser_reset(&ctx->parser, input);
 	lip_compiler_begin(&ctx->compiler, filename);
 
+	lip_pp_t pp = {
+		.allocator = ctx->arena_allocator
+	};
+
 	for(;;)
 	{
 		lip_sexp_t sexp;
@@ -577,8 +591,22 @@ lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 		{
 			case LIP_STREAM_OK:
 				{
-					lip_ast_result_t ast_result =
-						lip_translate_sexp(ctx->arena_allocator, &sexp);
+					lip_pp_result_t pp_result = lip_preprocess(&pp, &sexp);
+					if(!pp_result.success)
+					{
+						lip_set_compile_error(
+							ctx,
+							lip_string_ref(pp_result.value.error.extra),
+							filename,
+							pp_result.value.error.location
+						);
+
+						return NULL;
+					}
+
+					lip_ast_result_t ast_result = lip_translate_sexp(
+						ctx->arena_allocator, pp_result.value.result
+					);
 					if(!ast_result.success)
 					{
 						lip_set_compile_error(
@@ -678,6 +706,10 @@ lip_repl(
 		.vtable = { .read = lip_repl_read }
 	};
 
+	lip_pp_t pp = {
+		.allocator = ctx->arena_allocator
+	};
+
 	for(;;)
 	{
 		lip_arena_allocator_reset(ctx->arena_allocator);
@@ -689,33 +721,28 @@ lip_repl(
 		{
 			case LIP_STREAM_OK:
 				{
-					lip_ast_result_t ast_result =
-						lip_translate_sexp(ctx->arena_allocator, &sexp);
-					if(ast_result.success)
+					lip_pp_result_t pp_result = lip_preprocess(&pp, &sexp);
+					if(!pp_result.success)
 					{
-						lip_compiler_begin(&ctx->compiler, source_name);
-						lip_compiler_add_ast(&ctx->compiler, ast_result.value.result);
-						lip_function_t* fn = lip_compiler_end(&ctx->compiler, ctx->arena_allocator);
-						lip_closure_t* closure = lip_new(ctx->arena_allocator, lip_closure_t);
-						*closure = (lip_closure_t){
-							.function = { .lip = fn },
-							.is_native = false,
-							.env_len = 0,
-						};
-						lip_reset_vm(vm);
-						lip_value_t result;
-						lip_exec_status_t status = lip_call(
-							vm,
-							&result,
-							(lip_value_t){
-								.type = LIP_VAL_FUNCTION,
-								.data = { .reference = closure }
-							},
-							0
+						lip_set_compile_error(
+							ctx,
+							lip_string_ref(pp_result.value.error.extra),
+							source_name,
+							pp_result.value.error.location
 						);
-						repl_handler->print(repl_handler, status, result);
+						repl_handler->print(
+							repl_handler,
+							LIP_EXEC_ERROR,
+							(lip_value_t) { .type = LIP_VAL_NIL }
+						);
+						continue;
 					}
-					else
+
+					lip_ast_result_t ast_result = lip_translate_sexp(
+						ctx->arena_allocator, pp_result.value.result
+					);
+
+					if(!ast_result.success)
 					{
 						lip_set_compile_error(
 							ctx,
@@ -728,7 +755,30 @@ lip_repl(
 							LIP_EXEC_ERROR,
 							(lip_value_t) { .type = LIP_VAL_NIL }
 						);
+						continue;
 					}
+
+					lip_compiler_begin(&ctx->compiler, source_name);
+					lip_compiler_add_ast(&ctx->compiler, ast_result.value.result);
+					lip_function_t* fn = lip_compiler_end(&ctx->compiler, ctx->arena_allocator);
+					lip_closure_t* closure = lip_new(ctx->arena_allocator, lip_closure_t);
+					*closure = (lip_closure_t){
+						.function = { .lip = fn },
+						.is_native = false,
+						.env_len = 0,
+					};
+					lip_reset_vm(vm);
+					lip_value_t result;
+					lip_exec_status_t status = lip_call(
+						vm,
+						&result,
+						(lip_value_t){
+							.type = LIP_VAL_FUNCTION,
+							.data = { .reference = closure }
+						},
+						0
+					);
+					repl_handler->print(repl_handler, status, result);
 				}
 				break;
 			case LIP_STREAM_ERROR:
@@ -750,5 +800,80 @@ lip_repl(
 			case LIP_STREAM_END:
 				return;
 		}
+	}
+}
+
+static void*
+lip_retrieve_userdata(khash_t(lip_userdata)* table, void* key)
+{
+	if(table == NULL) { return NULL; }
+
+	khiter_t itr = kh_get(lip_userdata, table, key);
+	return itr == kh_end(table) ? NULL : kh_val(table, itr);
+}
+
+static void*
+lip_store_userdata(
+	khash_t(lip_userdata)** tablep,
+	lip_allocator_t* allocator,
+	void* key,
+	void* value
+)
+{
+	if(*tablep == NULL)
+	{
+		*tablep = kh_init(lip_userdata, allocator);
+	}
+
+	int ret;
+	khiter_t itr = kh_put(lip_userdata, *tablep, key, &ret);
+
+	void* old_value = ret == 0 ? kh_val(*tablep, itr) : NULL;
+	kh_val(*tablep, itr) = value;
+	return old_value;
+}
+
+void*
+lip_get_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key)
+{
+	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
+	switch(scope)
+	{
+		case LIP_SCOPE_VM:
+			return lip_retrieve_userdata(rt->userdata, key);
+		case LIP_SCOPE_CONTEXT:
+			return lip_retrieve_userdata(rt->ctx->userdata, key);
+		case LIP_SCOPE_RUNTIME:
+			lip_assert(rt->ctx, lip_rwlock_begin_read(&rt->ctx->runtime->rt_lock));
+			void* ret = lip_retrieve_userdata(rt->ctx->runtime->userdata, key);
+			lip_rwlock_end_read(&rt->ctx->runtime->rt_lock);
+			return ret;
+		default:
+			return NULL;
+	}
+}
+
+void*
+lip_set_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key, void* value)
+{
+	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
+	switch(scope)
+	{
+		case LIP_SCOPE_VM:
+			return lip_store_userdata(&rt->userdata, rt->allocator, key, value);
+		case LIP_SCOPE_CONTEXT:
+			return lip_store_userdata(
+				&rt->ctx->userdata, rt->ctx->allocator, key, value
+			);
+		case LIP_SCOPE_RUNTIME:
+			lip_assert(rt->ctx, lip_rwlock_begin_write(&rt->ctx->runtime->rt_lock));
+			void* ret = lip_store_userdata(
+				&rt->ctx->runtime->userdata, rt->ctx->runtime->allocator,
+				key, value
+			);
+			lip_rwlock_end_write(&rt->ctx->runtime->rt_lock);
+			return ret;
+		default:
+			return NULL;
 	}
 }

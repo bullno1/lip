@@ -125,6 +125,13 @@
 		munit_assert_string_equal(expected, returned_str->ptr); \
 	} while(0)
 
+#define lip_assert_symbol(expected, actual) \
+	do { \
+		lip_assert_enum(lip_value_type_t, LIP_VAL_SYMBOL, ==, actual.type); \
+		lip_string_t* returned_str = actual.data.reference; \
+		munit_assert_string_equal(expected, returned_str->ptr); \
+	} while(0)
+
 #define lip_assert_boolean(expected, actual) \
 	do { \
 		lip_assert_enum(lip_value_type_t, LIP_VAL_BOOLEAN, ==, actual.type); \

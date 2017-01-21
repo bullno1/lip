@@ -100,10 +100,10 @@ lip_repl(
 	lip_vm_t* vm, lip_string_ref_t source_name, lip_repl_handler_t* repl_handler
 );
 
-void*
+LIP_API void*
 lip_get_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key);
 
-void*
+LIP_API void*
 lip_set_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key, void* value);
 
 LIP_API void

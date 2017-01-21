@@ -1,0 +1,5 @@
+#!/bin/sh -e
+
+export CC=clang
+export CXX='clang++ -std=c++11'
+exec $@

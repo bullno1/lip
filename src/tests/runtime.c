@@ -32,6 +32,9 @@
 #define lip_assert_str_result(code, result_value) \
 	lip_assert_result(code, LIP_EXEC_OK, lip_assert_str, result_value)
 
+#define lip_assert_symbol_result(code, result_value) \
+	lip_assert_result(code, LIP_EXEC_OK, lip_assert_symbol, result_value)
+
 #define lip_assert_nil_result(code) \
 	lip_assert_result(code, LIP_EXEC_OK, lip_assert_nil, placeholder)
 
@@ -270,6 +273,42 @@ builtins(const MunitParameter params[], void* fixture_)
 	lip_assert_nil_result("(nop 1 2 3 identity \"f\")");
 	lip_assert_error_msg("(throw \"custom error\")", "custom error");
 
+	lip_assert_boolean_result("(nil? nil)", true);
+	lip_assert_boolean_result("(nil? 3)", false);
+	lip_assert_boolean_result("(bool? nil)", false);
+	lip_assert_boolean_result("(bool? true)", true);
+	lip_assert_boolean_result("(bool? false)", true);
+	lip_assert_boolean_result("(number? true)", false);
+	lip_assert_boolean_result("(number? 3.0)", true);
+	lip_assert_boolean_result("(string? 0)", false);
+	lip_assert_boolean_result("(string? \"ff\")", true);
+	lip_assert_boolean_result("(symbol? '\"f\")", false);
+	lip_assert_boolean_result("(symbol? 'ff)", true);
+	lip_assert_boolean_result("(list? '(1 2 3))", true);
+	lip_assert_boolean_result("(list? 'ff)", false);
+	lip_assert_boolean_result("(fn? '(1 2 3))", false);
+	lip_assert_boolean_result("(fn? fn?)", true);
+
+	lip_assert_num_result("(list/head '(1 2 3))", 1);
+	lip_assert_num_result("(list/len (list/tail '(1 2 3)))", 2);
+	lip_assert_num_result("(list/nth 0 (list/tail '(1 2 3)))", 2);
+	lip_assert_num_result("(list/nth 1 (list/tail '(1 2 3)))", 3);
+	lip_assert_num_result("(list/len (list/append '(1 2) 3))", 3);
+	lip_assert_num_result("(list/nth 0 (list/append '(1 2) 3))", 1);
+	lip_assert_num_result("(list/nth 1 (list/append '(1 2) 3))", 2);
+	lip_assert_num_result("(list/nth 2 (list/append '(1 2) 3))", 3);
+	lip_assert_num_result("(list/len (list/map (fn (x) (* 2 x)) '(1 2)))", 2);
+	lip_assert_num_result("(list/nth 0 (list/map (fn (x) (* 2 x)) '(1 2)))", 2);
+	lip_assert_num_result("(list/nth 1 (list/map (fn (x) (* 2 x)) '(1 2)))", 4);
+	lip_assert_num_result("(list/len (list/foldl (fn (x l) (list/append l x)) '(1 2 3) '()))", 3);
+	lip_assert_num_result("(list/nth 0 (list/foldl (fn (x l) (list/append l x)) '(1 2 3) '()))", 1);
+	lip_assert_num_result("(list/nth 1 (list/foldl (fn (x l) (list/append l x)) '(1 2 3) '()))", 2);
+	lip_assert_num_result("(list/nth 2 (list/foldl (fn (x l) (list/append l x)) '(1 2 3) '()))", 3);
+	lip_assert_num_result("(list/len (list/foldr (fn (x l) (list/append l x)) '(1 2 3) '()))", 3);
+	lip_assert_num_result("(list/nth 0 (list/foldr (fn (x l) (list/append l x)) '(1 2 3) '()))", 3);
+	lip_assert_num_result("(list/nth 1 (list/foldr (fn (x l) (list/append l x)) '(1 2 3) '()))", 2);
+	lip_assert_num_result("(list/nth 2 (list/foldr (fn (x l) (list/append l x)) '(1 2 3) '()))", 1);
+
 	return MUNIT_OK;
 }
 
@@ -363,6 +402,22 @@ prim_ops(const MunitParameter params[], void* fixture_)
 	lip_assert_boolean_result("(!= \"a\" \"a\")", false);
 	lip_assert_boolean_result("(!= true false)", true);
 	lip_assert_boolean_result("(!= true true)", false);
+
+	lip_assert_boolean_result("(< '(1) '(2))", true);
+	lip_assert_boolean_result("(== '(1 2 3) '(1 2 3))", true);
+	lip_assert_boolean_result("(< '(1 2) '(1 2 3))", true);
+	lip_assert_boolean_result("(<= '(1 0 0) '(0 2 3))", false);
+
+	lip_assert_boolean_result("(== '(-3 1 2 2.5 8) (list/sort '(2 1 8 -3 2.5)))", true);
+	lip_assert_boolean_result("(== '(8 2.5 2 1 -3) (list/sort '(2 1 8 -3 2.5) (fn (a b) (cmp b a))))", true);
+	lip_assert_error_msg(
+		"(list/sort '(2 1 8 -3 2.5) identity)",
+		"Bad number of arguments (exactly 1 expected, got 2)"
+	);
+	lip_assert_error_msg(
+		"(list/sort '(2 1 8 -3 2.5) <)",
+		"Comparision function did not return a number"
+	);
 
 	return MUNIT_OK;
 }
@@ -523,6 +578,286 @@ arity(const MunitParameter params[], void* fixture_)
 	return MUNIT_OK;
 }
 
+static MunitResult
+quotation(const MunitParameter params[], void* fixture_)
+{
+	(void)params;
+
+	lip_fixture_t* fixture = fixture_;
+	lip_context_t* ctx = fixture->context;
+	lip_vm_t* vm = fixture->vm;
+	lip_load_builtins(ctx);
+
+	lip_assert_num_result("'3", 3);
+	lip_assert_num_result("`3", 3);
+	lip_assert_num_result("`,3", 3);
+
+	lip_assert_str_result("'\"haha\"", "haha");
+	lip_assert_str_result("`\"haha\"", "haha");
+
+	lip_assert_symbol_result("'haha", "haha");
+	lip_assert_symbol_result("`haha", "haha");
+
+	lip_assert_boolean_result(
+		"(let ((x 3) (y (list 3 5)) (l '(3 haha (\"hehe\" ,3)))) (list? l))",
+		true
+	);
+	lip_assert_num_result(
+		"(let ((x 3) (y (list 3 5)) (l '(3 haha (\"hehe\" ,3)))) (list/len l))",
+		3
+	);
+	lip_assert_symbol_result(
+		"(let ((x 3) (y (list 3 5)) (l '(2 haha (\"hehe\" ,3)))) (list/nth 1 l))",
+		"haha"
+	);
+	lip_assert_str_result(
+		"(let ((x 3) (y (list 3 5)) (l '(2 haha (\"hehe\" ,3)))) (list/nth 0 (list/nth 2 l)))",
+		"hehe"
+	);
+	lip_assert_symbol_result(
+		"(let ((x 3) (y (list 3 5)) (l '(2 haha (\"hehe\" ,3)))) (list/nth 0 (list/nth 1 (list/nth 2 l))))",
+		"unquote"
+	);
+	lip_assert_num_result(
+		"(let ((x 3) (y (list 3 5)) (l '(2 haha (\"hehe\" ,4.2)))) (list/nth 1 (list/nth 1 (list/nth 2 l))))",
+		4.2
+	);
+
+	lip_assert_boolean_result(
+		"(let ((x 3) (y (list 3 5)) (l `(3 haha (\"hehe\" ,3)))) (list? l))",
+		true
+	);
+	lip_assert_num_result(
+		"(let ((x 3) (y (list 3 5)) (l `(3 haha (\"hehe\" ,3)))) (list/len l))",
+		3
+	);
+	lip_assert_symbol_result(
+		"(let ((x 3) (y (list 3 5)) (l `(2 haha (\"hehe\" ,3)))) (list/nth 1 l))",
+		"haha"
+	);
+	lip_assert_str_result(
+		"(let ((x 3) (y (list 3 5)) (l `(2 haha (\"hehe\" ,3)))) (list/nth 0 (list/nth 2 l)))",
+		"hehe"
+	);
+	lip_assert_num_result(
+		"(let ((x 3) (y (list 3 5)) (l `(2 haha (\"hehe\" ,8.7)))) (list/nth 1 (list/nth 2 l)))",
+		8.7
+	);
+	lip_assert_num_result(
+		"(let ((x 3.4) (y (list 3 5)) (l `(2 haha (\"hehe\" ,x)))) (list/nth 1 (list/nth 2 l)))",
+		3.4
+	);
+	lip_assert_num_result(
+		"(let ((x 3.4) (y (list 3 5)) (l `(2 haha (\"hehe\" ,y)))) (list/nth 1 (list/nth 1 (list/nth 2 l))))",
+		5
+	);
+	lip_assert_num_result(
+		"(let ((x 3.4) (y (list 3 5)) (l `(2 haha (\"hehe\" ,@y)))) (list/nth 1 (list/nth 2 l)))",
+		3
+	);
+	lip_assert_num_result(
+		"(let ((x 3.4) (y (list 3 5)) (l `(2 haha (\"hehe\" ,@y)))) (list/nth 2 (list/nth 2 l)))",
+		5
+	);
+	lip_assert_num_result(
+		"(let ((x 3.4) (y (list 3 5)) (l `(2 haha (\"hehe\" ,@y)))) (list/len (list/nth 2 l)))",
+		3
+	);
+
+	lip_assert_syntax_error(
+		" (quote 3 4)",
+		"'quote' must have the form: (quote <sexp>)",
+		1, 2,
+		1, 12
+	);
+	lip_assert_syntax_error(
+		" (quasiquote 3 4)",
+		"'quasiquote' must have the form: (quasiquote <sexp>)",
+		1, 2,
+		1, 17
+	);
+
+	lip_assert_syntax_error(
+		" (wat ,3 4)",
+		"Cannot unquote outside of quasiquote",
+		1, 7,
+		1, 8
+	);
+	lip_assert_syntax_error(
+		" (wat ,@3 4)",
+		"Cannot unquote-splicing outside of quasiquoted list",
+		1, 7,
+		1, 9
+	);
+	lip_assert_syntax_error(
+		"`,@3",
+		"Cannot unquote-splicing outside of quasiquoted list",
+		1, 2,
+		1, 4
+	);
+	lip_assert_syntax_error(
+		"`( ,@34)",
+		"The expression passed to unquote-splicing must evaluate to a list",
+		1, 6,
+		1, 7
+	);
+	lip_assert_syntax_error(
+		"(quasiquote (unquote 1 1))",
+		"'unquote' must have the form: (unquote <sexp>)",
+		1, 13,
+		1, 25
+	);
+	lip_assert_syntax_error(
+		"(quasiquote ((unquote-splicing)))",
+		"'unquote-splicing' must have the form: (unquote-splicing <sexp>)",
+		1, 14,
+		1, 31
+	);
+
+	return MUNIT_OK;
+}
+
+static MunitResult
+userdata(const MunitParameter params[], void* fixture_)
+{
+	(void)params;
+
+	lip_fixture_t* fixture = fixture_;
+	lip_vm_t* vm = fixture->vm;
+
+	lip_vm_config_t vm_config = {
+		.os_len = 16,
+		.cs_len = 16,
+		.env_len = 16
+	};
+	lip_vm_t* vm2 = lip_create_vm(fixture->context, &vm_config);
+	lip_context_t* ctx2 = lip_create_context(fixture->runtime, NULL);
+	lip_vm_t* vm3 = lip_create_vm(ctx2, &vm_config);;
+
+	char userdata_key1, userdata_key2, userdata_vm1, userdata_vm2,
+		 userdata_ctx1, userdata_ctx2, userdata_rt1, userdata_rt2;
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm2, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm2, LIP_SCOPE_CONTEXT, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_CONTEXT, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm2, LIP_SCOPE_RUNTIME, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_RUNTIME, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_VM, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm2, LIP_SCOPE_VM, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_VM, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm2, LIP_SCOPE_CONTEXT, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_CONTEXT, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm2, LIP_SCOPE_RUNTIME, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_RUNTIME, &userdata_key2));
+
+	munit_assert_null(lip_set_userdata(vm, LIP_SCOPE_VM, &userdata_key1, &userdata_vm1));
+	munit_assert_ptr(&userdata_vm1, ==, lip_get_userdata(vm, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_ptr(
+		&userdata_vm1,
+		==,
+		lip_set_userdata(vm, LIP_SCOPE_VM, &userdata_key1, &userdata_vm2)
+	);
+	munit_assert_ptr(&userdata_vm2, ==, lip_get_userdata(vm, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_ptr(
+		&userdata_vm2,
+		==,
+		lip_set_userdata(vm, LIP_SCOPE_VM, &userdata_key1, &userdata_vm1)
+	);
+	munit_assert_ptr(&userdata_vm1, ==, lip_get_userdata(vm, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key2));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key2));
+
+	munit_assert_null(lip_set_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1, &userdata_ctx1));
+	munit_assert_ptr(
+		&userdata_ctx1,
+		==,
+		lip_set_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1, &userdata_ctx2)
+	);
+	munit_assert_ptr(&userdata_ctx2, ==, lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1));
+	munit_assert_ptr(
+		&userdata_ctx2,
+		==,
+		lip_set_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1, &userdata_ctx1)
+	);
+	munit_assert_ptr(&userdata_ctx1, ==, lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key2));
+
+	munit_assert_null(lip_set_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1, &userdata_rt1));
+	munit_assert_ptr(
+		&userdata_rt1,
+		==,
+		lip_set_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1, &userdata_rt2)
+	);
+	munit_assert_ptr(&userdata_rt2, ==, lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1));
+	munit_assert_ptr(
+		&userdata_rt2,
+		==,
+		lip_set_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1, &userdata_rt1)
+	);
+	munit_assert_ptr(&userdata_rt1, ==, lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &userdata_key1));
+
+	munit_assert_null(
+		lip_set_userdata(vm2, LIP_SCOPE_VM, &userdata_key2, &userdata_vm2)
+	);
+	munit_assert_ptr(
+		&userdata_vm2,
+		==,
+		lip_set_userdata(vm2, LIP_SCOPE_VM, &userdata_key2, &userdata_vm2)
+	);
+	munit_assert_null(lip_get_userdata(vm2, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_null(lip_set_userdata(vm2, LIP_SCOPE_VM, &userdata_key1, &userdata_vm2));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_VM, &userdata_key1));
+	munit_assert_null(lip_get_userdata(vm3, LIP_SCOPE_VM, &userdata_key2));
+
+	munit_assert_null(
+		lip_set_userdata(vm2, LIP_SCOPE_CONTEXT, &userdata_key2, &userdata_ctx2)
+	);
+	munit_assert_ptr(
+		&userdata_ctx1,
+		==,
+		lip_get_userdata(vm2, LIP_SCOPE_CONTEXT, &userdata_key1)
+	);
+	munit_assert_ptr(
+		&userdata_ctx1,
+		==,
+		lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key1)
+	);
+	munit_assert_ptr(
+		&userdata_ctx2,
+		==,
+		lip_get_userdata(vm2, LIP_SCOPE_CONTEXT, &userdata_key2)
+	);
+	munit_assert_ptr(
+		&userdata_ctx2,
+		==,
+		lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &userdata_key2)
+	);
+	munit_assert_null(
+		lip_get_userdata(vm3, LIP_SCOPE_CONTEXT, &userdata_key1)
+	);
+
+	munit_assert_ptr(
+		&userdata_rt1,
+		==,
+		lip_get_userdata(vm2, LIP_SCOPE_RUNTIME, &userdata_key1)
+	);
+	munit_assert_ptr(
+		&userdata_rt1,
+		==,
+		lip_get_userdata(vm3, LIP_SCOPE_RUNTIME, &userdata_key1)
+	);
+
+	return MUNIT_OK;
+}
+
 static MunitTest tests[] = {
 	{
 		.name = "/basic_forms",
@@ -569,6 +904,18 @@ static MunitTest tests[] = {
 	{
 		.name = "/arity",
 		.test = arity,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/quotation",
+		.test = quotation,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/userdata",
+		.test = userdata,
 		.setup = setup,
 		.tear_down = teardown
 	},

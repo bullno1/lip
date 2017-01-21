@@ -2,6 +2,40 @@
 #include <lip/array.h>
 
 static lip_stream_status_t
+lip_parser_peek_token(lip_parser_t* parser, lip_token_t* token)
+{
+	if(parser->buffered)
+	{
+		*token = parser->token;
+		return parser->lexer_status;
+	}
+	else
+	{
+		parser->lexer_status = lip_lexer_next_token(&parser->lexer, &parser->token);
+		*token = parser->token;
+		parser->buffered = true;
+		return parser->lexer_status;
+	}
+}
+
+static lip_stream_status_t
+lip_parser_next_token(lip_parser_t* parser, lip_token_t* token)
+{
+	if(parser->buffered)
+	{
+		parser->buffered = false;
+		*token = parser->token;
+		return parser->lexer_status;
+	}
+	else
+	{
+		parser->lexer_status = lip_lexer_next_token(&parser->lexer, &parser->token);
+		*token = parser->token;
+		return parser->lexer_status;
+	}
+}
+
+static lip_stream_status_t
 lip_parser_parse_list(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp)
 {
 	sexp->location.start = token->location.start;
@@ -11,6 +45,17 @@ lip_parser_parse_list(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp
 
 	while(true)
 	{
+		lip_token_t next_token;
+		lip_stream_status_t peek = lip_parser_peek_token(parser, &next_token);
+		if(peek == LIP_STREAM_OK && next_token.type == LIP_TOKEN_RPAREN)
+		{
+			lip_parser_next_token(parser, &next_token);
+			sexp->location.end = next_token.location.end;
+			sexp->data.list = list;
+			lip_array_push(parser->lists, list);
+			return LIP_STREAM_OK;
+		}
+
 		lip_stream_status_t status = lip_parser_next_sexp(parser, &element);
 		switch(status)
 		{
@@ -18,26 +63,8 @@ lip_parser_parse_list(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp
 				lip_array_push(list, element);
 				break;
 			case LIP_STREAM_ERROR:
-				switch(parser->last_error.error.code)
-				{
-					case LIP_PARSE_LEX_ERROR:
-					case LIP_PARSE_UNTERMINATED_LIST:
-						lip_array_destroy(list);
-						return LIP_STREAM_ERROR;
-					case LIP_PARSE_UNEXPECTED_TOKEN:
-						if(parser->error_token.type == LIP_TOKEN_RPAREN)
-						{
-							sexp->location.end = parser->error_token.location.end;
-							sexp->data.list = list;
-							lip_array_push(parser->lists, list);
-							return LIP_STREAM_OK;
-						}
-						else
-						{
-							lip_array_destroy(list);
-							return LIP_STREAM_ERROR;
-						}
-				}
+				lip_array_destroy(list);
+				return LIP_STREAM_ERROR;
 			case LIP_STREAM_END:
 				lip_array_destroy(list);
 				lip_set_last_error(
@@ -90,12 +117,11 @@ lip_parser_parse(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp)
 		case LIP_TOKEN_LPAREN:
 			return lip_parser_parse_list(parser, token, sexp);
 		case LIP_TOKEN_RPAREN:
-			parser->error_token = *token;
 			lip_set_last_error(
 				&parser->last_error,
 				LIP_PARSE_UNEXPECTED_TOKEN,
 				token->location,
-				&parser->error_token
+				&parser->token
 			);
 			return LIP_STREAM_ERROR;
 		case LIP_TOKEN_STRING:
@@ -112,7 +138,6 @@ lip_parser_parse(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp)
 				switch(status = lip_parser_next_sexp(parser, &quoted_sexp))
 				{
 					case LIP_STREAM_OK:
-					case LIP_STREAM_END:
 						{
 							lip_array(lip_sexp_t) list = lip_array_create(
 								parser->allocator, lip_sexp_t, 2
@@ -163,12 +188,18 @@ lip_parser_parse(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp)
 								.data = { .list = list }
 							};
 						}
-						break;
+						return LIP_STREAM_OK;
+					case LIP_STREAM_END:
+						lip_set_last_error(
+							&parser->last_error,
+							LIP_PARSE_UNEXPECTED_TOKEN,
+							token->location,
+							&parser->token
+						);
+						return LIP_STREAM_ERROR;
 					case LIP_STREAM_ERROR:
-						break;
+						return LIP_STREAM_ERROR;
 				}
-
-				return status;
 			}
 	}
 
@@ -203,6 +234,7 @@ lip_parser_reset(lip_parser_t* parser, lip_in_t* input)
 	}
 	lip_array_clear(parser->lists);
 	lip_lexer_reset(&parser->lexer, input);
+	parser->buffered = false;
 }
 
 lip_stream_status_t
@@ -211,7 +243,7 @@ lip_parser_next_sexp(lip_parser_t* parser, lip_sexp_t* sexp)
 	lip_token_t token;
 	lip_clear_last_error(&parser->last_error);
 
-	lip_stream_status_t status = lip_lexer_next_token(&parser->lexer, &token);
+	lip_stream_status_t status = lip_parser_next_token(parser, &token);
 	switch(status)
 	{
 		case LIP_STREAM_OK:
