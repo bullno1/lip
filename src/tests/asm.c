@@ -286,6 +286,7 @@ jump(const MunitParameter params[], void* fixture)
 
 	lip_asm_index_t label = lip_asm_new_label(lasm);
 	lip_asm_index_t label2 = lip_asm_new_label(lasm);
+	lip_asm_index_t label3 = lip_asm_new_label(lasm);
 
 	lip_instruction_t before[] = {
 		lip_asm(LIP_OP_LDI, 7),
@@ -295,6 +296,7 @@ jump(const MunitParameter params[], void* fixture)
 		lip_asm(LIP_OP_LABEL, label2),
 		lip_asm(LIP_OP_NOP, 2),
 		lip_asm(LIP_OP_LABEL, label),
+		lip_asm(LIP_OP_LABEL, label3),
 		lip_asm(LIP_OP_JMP, label2)
 	};
 
@@ -313,7 +315,7 @@ jump(const MunitParameter params[], void* fixture)
 		2,
 		3,
 		5,
-		7
+		8
 	};
 
 	lip_assert_asm(lasm, before, after, locations);
@@ -330,12 +332,14 @@ short_circuit(const MunitParameter params[], void* fixture)
 	lip_asm_begin(lasm, lip_string_ref(__func__), LIP_LOC_NOWHERE);
 
 	lip_asm_index_t label = lip_asm_new_label(lasm);
+	lip_asm_index_t label2 = lip_asm_new_label(lasm);
 
 	lip_instruction_t before[] = {
 		lip_asm(LIP_OP_JOF, label),
 		lip_asm(LIP_OP_JMP, label),
 		lip_asm(LIP_OP_NOP, 0),
 		lip_asm(LIP_OP_LABEL, label),
+		lip_asm(LIP_OP_LABEL, label2),
 		lip_asm(LIP_OP_RET, 0),
 	};
 
@@ -350,7 +354,7 @@ short_circuit(const MunitParameter params[], void* fixture)
 		0,
 		1,
 		2,
-		4
+		5
 	};
 
 	lip_assert_asm(lasm, before, after, locations);
@@ -417,6 +421,7 @@ tail_call(const MunitParameter params[], void* fixture)
 	lip_asm_begin(lasm, lip_string_ref(__func__), LIP_LOC_NOWHERE);
 
 	lip_asm_index_t label = lip_asm_new_label(lasm);
+	lip_asm_index_t label2 = lip_asm_new_label(lasm);
 
 	lip_instruction_t before[] = {
 		lip_asm(LIP_OP_CALL, 1),
@@ -425,6 +430,7 @@ tail_call(const MunitParameter params[], void* fixture)
 		lip_asm(LIP_OP_RET, 0),
 		lip_asm(LIP_OP_CALL, 3),
 		lip_asm(LIP_OP_LABEL, label),
+		lip_asm(LIP_OP_LABEL, label2),
 		lip_asm(LIP_OP_RET, 0)
 	};
 
@@ -439,7 +445,7 @@ tail_call(const MunitParameter params[], void* fixture)
 		0,
 		2,
 		4,
-		6
+		7
 	};
 
 	lip_assert_asm(lasm, before, after, locations);

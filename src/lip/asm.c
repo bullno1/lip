@@ -229,28 +229,39 @@ lip_asm_end(lip_asm_t* lasm, lip_allocator_t* allocator)
 			lip_operand_t operand;
 			lip_disasm(lasm->instructions[i].instruction, &opcode, &operand);
 
-			if(opcode == LIP_OP_JMP)
-			{
-				lip_instruction_t label = lip_asm(LIP_OP_LABEL, operand);
-				for(lip_asm_index_t j = 0; j < num_instructions; ++j)
-				{
-					if(true
-						&& lasm->instructions[j].instruction == label
-						&& j + 1 < num_instructions)
-					{
-						lip_opcode_t target_opcode;
-						lip_operand_t target_operand;
-						lip_disasm(
-							lasm->instructions[j + 1].instruction,
-							&target_opcode,
-							&target_operand
-						);
+			if(opcode != LIP_OP_JMP) { continue; }
 
-						if(target_opcode == LIP_OP_RET)
-						{
-							lasm->instructions[i].instruction = lip_asm(LIP_OP_RET, 0);
-						}
-					}
+			lip_instruction_t label = lip_asm(LIP_OP_LABEL, operand);
+			lip_asm_index_t jump_target = num_instructions;
+			for(lip_asm_index_t j = 0; j < num_instructions; ++j)
+			{
+				if(lasm->instructions[j].instruction == label)
+				{
+					jump_target = j + 1;
+					break;
+				}
+			}
+
+			for(lip_asm_index_t j = jump_target; j < num_instructions; ++j)
+			{
+				lip_opcode_t target_opcode;
+				lip_operand_t target_operand;
+				lip_disasm(
+					lasm->instructions[j].instruction,
+					&target_opcode, &target_operand
+				);
+
+				if(target_opcode == LIP_OP_RET)
+				{
+					lasm->instructions[i].instruction = lip_asm(LIP_OP_RET, 0);
+				}
+				else if((uint32_t)target_opcode == LIP_OP_LABEL)
+				{
+					continue;
+				}
+				else
+				{
+					break;
 				}
 			}
 		}
@@ -298,29 +309,8 @@ lip_asm_end(lip_asm_t* lasm, lip_allocator_t* allocator)
 
 	// Perform Tail call optimization
 	{
-		// Transform [CALL n; LABEL l; RET] into [TAIL n; LABEL l; RET]
-		lip_asm_index_t num_instructions = lip_array_len(lasm->instructions);
-		for(lip_asm_index_t i = 0; i < num_instructions; ++i)
-		{
-			if(i + 2 < num_instructions)
-			{
-				lip_opcode_t opcode1, opcode2, opcode3;
-				lip_operand_t operand1, operand2, operand3;
-				lip_disasm(lasm->instructions[i].instruction, &opcode1, &operand1);
-				lip_disasm(lasm->instructions[i + 1].instruction, &opcode2, &operand2);
-				lip_disasm(lasm->instructions[i + 2].instruction, &opcode3, &operand3);
-
-				if(true &&
-					opcode1 == LIP_OP_CALL
-					&& (uint32_t)opcode2 == LIP_OP_LABEL
-					&& opcode3 == LIP_OP_RET)
-				{
-					lasm->instructions[i].instruction = lip_asm(LIP_OP_TAIL, operand1);
-				}
-			}
-		}
-
 		// Transform [CALL n; RET] into [TAIL n]
+		lip_asm_index_t num_instructions = lip_array_len(lasm->instructions);
 		lip_asm_index_t out_index = 0;
 		for(lip_asm_index_t i = 0; i < num_instructions; ++i)
 		{
@@ -344,6 +334,37 @@ lip_asm_end(lip_asm_t* lasm, lip_allocator_t* allocator)
 			++out_index;
 		}
 		lip_array_resize(lasm->instructions, out_index);
+
+		// Transform [CALL n; (LABEL l)...; RET] into [TAIL n; (LABEL l)...; RET]
+		num_instructions = out_index;
+		for(lip_asm_index_t i = 0; i < num_instructions; ++i)
+		{
+			lip_opcode_t opcode1;
+			lip_operand_t operand1;
+			lip_disasm(lasm->instructions[i].instruction, &opcode1, &operand1);
+
+			if(opcode1 != LIP_OP_CALL) { continue; }
+
+			for(lip_asm_index_t j = i + 1; j < num_instructions; ++j)
+			{
+				lip_opcode_t opcode2;
+				lip_operand_t operand2;
+				lip_disasm(lasm->instructions[j].instruction, &opcode2, &operand2);
+
+				if(opcode2 == LIP_OP_RET)
+				{
+					lasm->instructions[i].instruction = lip_asm(LIP_OP_TAIL, operand1);
+				}
+				else if((uint32_t)opcode2 == LIP_OP_LABEL)
+				{
+					continue;
+				}
+				else
+				{
+					break;
+				}
+			}
+		}
 	}
 
 	// Translate jumps
