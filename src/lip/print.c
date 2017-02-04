@@ -74,7 +74,18 @@ lip_print_value(
 			lip_printf(output, "nil\n");
 			break;
 		case LIP_VAL_NUMBER:
-			lip_printf(output, "%f\n", value.data.number);
+			{
+				double dnum = value.data.number;
+				int64_t inum = (int64_t)dnum;
+				if((double)inum == dnum)
+				{
+					lip_printf(output, "%zd\n", inum);
+				}
+				else
+				{
+					lip_printf(output, "%f\n", dnum);
+				}
+			}
 			break;
 		case LIP_VAL_BOOLEAN:
 			lip_printf(
