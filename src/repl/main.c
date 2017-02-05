@@ -233,7 +233,9 @@ main(int argc, char* argv[])
 
 	if(show_version && !(interactive || exec_string)) { quit(EXIT_SUCCESS); }
 
-	runtime = lip_create_runtime(lip_default_allocator);
+	lip_runtime_config_t cfg;
+	lip_reset_runtime_config(&cfg);
+	runtime = lip_create_runtime(&cfg);
 	lip_context_t* ctx = lip_create_context(runtime, lip_default_allocator);
 	lip_load_builtins(ctx);
 

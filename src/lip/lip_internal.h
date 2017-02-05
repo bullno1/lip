@@ -31,7 +31,7 @@ struct lip_ns_context_s
 
 struct lip_runtime_s
 {
-	lip_allocator_t* allocator;
+	lip_runtime_config_t cfg;
 	khash_t(lip_ptr_set)* contexts;
 	khash_t(lip_symtab)* symtab;
 	khash_t(lip_userdata)* userdata;

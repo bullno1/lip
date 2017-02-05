@@ -28,14 +28,22 @@ struct lip_repl_stream_s
 	lip_repl_handler_t* repl_handler;
 };
 
-lip_runtime_t*
-lip_create_runtime(lip_allocator_t* allocator)
+void
+lip_reset_runtime_config(lip_runtime_config_t* cfg)
 {
-	lip_runtime_t* runtime = lip_new(allocator, lip_runtime_t);
+	*cfg = (lip_runtime_config_t){
+		.allocator = lip_default_allocator
+	};
+}
+
+lip_runtime_t*
+lip_create_runtime(const lip_runtime_config_t* cfg)
+{
+	lip_runtime_t* runtime = lip_new(cfg->allocator, lip_runtime_t);
 	*runtime = (lip_runtime_t){
-		.allocator = allocator,
-		.contexts = kh_init(lip_ptr_set, allocator),
-		.symtab = kh_init(lip_symtab, allocator),
+		.cfg = *cfg,
+		.contexts = kh_init(lip_ptr_set, cfg->allocator),
+		.symtab = kh_init(lip_symtab, cfg->allocator),
 	};
 	lip_rwlock_init(&runtime->rt_lock);
 	return runtime;
@@ -89,8 +97,8 @@ lip_purge_ns(lip_runtime_t* runtime, khash_t(lip_ns)* ns)
 {
 	kh_foreach(i, ns)
 	{
-		lip_free(runtime->allocator, (void*)kh_key(ns, i).ptr);
-		lip_free(runtime->allocator, kh_val(ns, i).value);
+		lip_free(runtime->cfg.allocator, (void*)kh_key(ns, i).ptr);
+		lip_free(runtime->cfg.allocator, kh_val(ns, i).value);
 	}
 	kh_clear(lip_ns, ns);
 }
@@ -105,7 +113,7 @@ lip_destroy_runtime(lip_runtime_t* runtime)
 
 	kh_foreach(itr, runtime->symtab)
 	{
-		lip_free(runtime->allocator, (void*)kh_key(runtime->symtab, itr).ptr);
+		lip_free(runtime->cfg.allocator, (void*)kh_key(runtime->symtab, itr).ptr);
 		khash_t(lip_ns)* ns = kh_val(runtime->symtab, itr);
 		lip_purge_ns(runtime, ns);
 		kh_destroy(lip_ns, ns);
@@ -115,7 +123,7 @@ lip_destroy_runtime(lip_runtime_t* runtime)
 	kh_destroy(lip_symtab, runtime->symtab);
 	kh_destroy(lip_ptr_set, runtime->contexts);
 	if(runtime->userdata) { kh_destroy(lip_userdata, runtime->userdata); }
-	lip_free(runtime->allocator, runtime);
+	lip_free(runtime->cfg.allocator, runtime);
 }
 
 static void
@@ -135,7 +143,7 @@ lip_default_panic_handler(lip_context_t* ctx, const char* msg)
 lip_context_t*
 lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator)
 {
-	if(allocator == NULL) { allocator = runtime->allocator; }
+	if(allocator == NULL) { allocator = runtime->cfg.allocator; }
 
 	lip_context_t* ctx = lip_new(allocator, lip_context_t);
 	*ctx = (lip_context_t) {
@@ -311,10 +319,10 @@ lip_commit_ns_locked(lip_context_t* ctx, lip_ns_context_t* ns_ctx)
 	}
 	else
 	{
-		void* str_buff = lip_malloc(runtime->allocator, ns_ctx->name.length);
+		void* str_buff = lip_malloc(runtime->cfg.allocator, ns_ctx->name.length);
 		memcpy(str_buff, ns_ctx->name.ptr, ns_ctx->name.length);
 		lip_string_ref_t ns_name = {.ptr = str_buff, .length = ns_ctx->name.length};
-		ns = kh_init(lip_ns, runtime->allocator);
+		ns = kh_init(lip_ns, runtime->cfg.allocator);
 
 		int ret;
 		khiter_t itr = kh_put(lip_symtab, symtab, ns_name, &ret);
@@ -326,14 +334,14 @@ lip_commit_ns_locked(lip_context_t* ctx, lip_ns_context_t* ns_ctx)
 		lip_string_ref_t symbol_name = kh_key(ns_ctx->content, i);
 		lip_symbol_t symbol_value = kh_val(ns_ctx->content, i);
 
-		void* str_buff = lip_malloc(runtime->allocator, symbol_name.length);
+		void* str_buff = lip_malloc(runtime->cfg.allocator, symbol_name.length);
 		memcpy(str_buff, symbol_name.ptr, symbol_name.length);
 		symbol_name.ptr = str_buff;
 
 		size_t closure_size =
 			sizeof(lip_closure_t) +
 			sizeof(lip_value_t) * symbol_value.value->env_len;
-		lip_closure_t* closure = lip_malloc(runtime->allocator, closure_size);
+		lip_closure_t* closure = lip_malloc(runtime->cfg.allocator, closure_size);
 		memcpy(closure, symbol_value.value, closure_size);
 		symbol_value.value = closure;
 
@@ -868,7 +876,7 @@ lip_set_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key, void* valu
 		case LIP_SCOPE_RUNTIME:
 			lip_assert(rt->ctx, lip_rwlock_begin_write(&rt->ctx->runtime->rt_lock));
 			void* ret = lip_store_userdata(
-				&rt->ctx->runtime->userdata, rt->ctx->runtime->allocator,
+				&rt->ctx->runtime->userdata, rt->ctx->runtime->cfg.allocator,
 				key, value
 			);
 			lip_rwlock_end_write(&rt->ctx->runtime->rt_lock);

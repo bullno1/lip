@@ -33,7 +33,9 @@ lip_exec_status_t cpp_identity(lip_vm_t* vm, lip_value_t* result)
 
 extern "C" void test_cpp()
 {
-	lip_runtime_t* runtime = lip_create_runtime(lip_default_allocator);
+	lip_runtime_config_t cfg;
+	lip_reset_runtime_config(&cfg);
+	lip_runtime_t* runtime = lip_create_runtime(&cfg);
 	lip_context_t* ctx = lip_create_context(runtime, NULL);
 	lip_vm_config_t vm_config;
 	vm_config.env_len = 512;

@@ -11,8 +11,8 @@
 
 LIP_ENUM(lip_userdata_scope_t, LIP_USERDATA_SCOPE)
 
-typedef struct lip_runtime_s lip_runtime_t;
 typedef struct lip_runtime_config_s lip_runtime_config_t;
+typedef struct lip_runtime_s lip_runtime_t;
 typedef struct lip_context_s lip_context_t;
 typedef struct lip_script_s lip_script_t;
 typedef struct lip_repl_handler_s lip_repl_handler_t;
@@ -20,6 +20,11 @@ typedef struct lip_context_error_s lip_context_error_t;
 typedef struct lip_error_record_s lip_error_record_t;
 typedef struct lip_ns_context_s lip_ns_context_t;
 typedef void(*lip_panic_fn_t)(lip_context_t* ctx, const char* msg);
+
+struct lip_runtime_config_s
+{
+	lip_allocator_t* allocator;
+};
 
 struct lip_repl_handler_s
 {
@@ -42,8 +47,11 @@ struct lip_context_error_s
 	lip_error_record_t* records;
 };
 
+LIP_API void
+lip_reset_runtime_config(lip_runtime_config_t* cfg);
+
 LIP_API lip_runtime_t*
-lip_create_runtime(lip_allocator_t* allocator);
+lip_create_runtime(const lip_runtime_config_t* allocator);
 
 LIP_API void
 lip_destroy_runtime(lip_runtime_t* runtime);
