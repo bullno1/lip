@@ -100,6 +100,13 @@
 		name = value; \
 	} while(0)
 
+#define lip_bind_declare_symbol(name) lip_value_t name;
+#define lip_bind_load_symbol(i, name, value) \
+	do { \
+		lip_bind_check_type(i, LIP_VAL_SYMBOL, value.type); \
+		name = value; \
+	} while(0)
+
 #define lip_bind_declare_number(name) double name;
 #define lip_bind_load_number(i, name, value) \
 	do { \

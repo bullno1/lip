@@ -186,7 +186,8 @@ lip_make_function(
 LIP_MAYBE_UNUSED static inline lip_string_t*
 lip_as_string(lip_value_t val)
 {
-	return val.type == LIP_VAL_STRING ? (lip_string_t*)val.data.reference : NULL;
+	return val.type == LIP_VAL_STRING || val.type == LIP_VAL_SYMBOL
+		? (lip_string_t*)val.data.reference : NULL;
 }
 
 LIP_MAYBE_UNUSED static inline const lip_list_t*
