@@ -23,12 +23,7 @@ setup(const MunitParameter params[], void* data)
 	lip_fixture_t* fixture = lip_new(lip_default_allocator, lip_fixture_t);
 	fixture->runtime = lip_create_runtime(&cfg);
 	fixture->context = lip_create_context(fixture->runtime, NULL);
-	lip_vm_config_t vm_config = {
-		.os_len = 256,
-		.cs_len = 256,
-		.env_len = 256
-	};
-	fixture->vm = lip_create_vm(fixture->context, &vm_config);
+	fixture->vm = lip_create_vm(fixture->context, NULL);
 	return fixture;
 }
 

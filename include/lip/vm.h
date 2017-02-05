@@ -136,11 +136,14 @@ static const size_t lip_function_t_alignment =
 	);
 
 LIP_API size_t
-lip_vm_memory_required(lip_vm_config_t* config);
+lip_vm_memory_required(const lip_vm_config_t* config);
 
 LIP_API void
 lip_vm_init(
-	lip_vm_t* vm, lip_vm_config_t* config, lip_runtime_interface_t* rt, void* mem
+	lip_vm_t* vm,
+	const lip_vm_config_t* config,
+	lip_runtime_interface_t* rt,
+	void* mem
 );
 
 LIP_MAYBE_UNUSED static inline void
@@ -182,7 +185,7 @@ lip_stack_frame_is_native(lip_stack_frame_t* frame)
 
 LIP_MAYBE_UNUSED static inline lip_memblock_info_t
 lip_vm_memory_layout(
-	lip_vm_config_t* config,
+	const lip_vm_config_t* config,
 	lip_memblock_info_t* os_block,
 	lip_memblock_info_t* env_block,
 	lip_memblock_info_t* cs_block

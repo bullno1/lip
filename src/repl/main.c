@@ -239,12 +239,7 @@ main(int argc, char* argv[])
 	lip_context_t* ctx = lip_create_context(runtime, lip_default_allocator);
 	lip_load_builtins(ctx);
 
-	lip_vm_config_t vm_config = {
-		.os_len = 256,
-		.cs_len = 256,
-		.env_len = 256
-	};
-	lip_vm_t* vm = lip_create_vm(ctx, &vm_config);
+	lip_vm_t* vm = lip_create_vm(ctx, NULL);
 
 	if(exec_string)
 	{

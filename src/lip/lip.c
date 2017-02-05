@@ -32,7 +32,12 @@ void
 lip_reset_runtime_config(lip_runtime_config_t* cfg)
 {
 	*cfg = (lip_runtime_config_t){
-		.allocator = lip_default_allocator
+		.allocator = lip_default_allocator,
+		.default_vm_config = {
+			.os_len = 256,
+			.cs_len = 256,
+			.env_len = 256
+		}
 	};
 }
 
@@ -423,8 +428,9 @@ lip_rt_format(lip_runtime_interface_t* vtable, const char* fmt, va_list args)
 }
 
 lip_vm_t*
-lip_create_vm(lip_context_t* ctx, lip_vm_config_t* config)
+lip_create_vm(lip_context_t* ctx, const lip_vm_config_t* config)
 {
+	if(config == NULL) { config = &ctx->runtime->cfg.default_vm_config; }
 	lip_memblock_info_t vm_block = {
 		.element_size = sizeof(lip_vm_t),
 		.num_elements = 1,

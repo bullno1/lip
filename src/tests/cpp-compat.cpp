@@ -37,11 +37,7 @@ extern "C" void test_cpp()
 	lip_reset_runtime_config(&cfg);
 	lip_runtime_t* runtime = lip_create_runtime(&cfg);
 	lip_context_t* ctx = lip_create_context(runtime, NULL);
-	lip_vm_config_t vm_config;
-	vm_config.env_len = 512;
-	vm_config.cs_len = 512;
-	vm_config.os_len = 512;
-	lip_vm_t* vm = lip_create_vm(ctx, &vm_config);
+	lip_vm_t* vm = lip_create_vm(ctx, NULL);
 	lip_value_t fn = lip_make_function(vm, cpp::cpp_identity, 0, NULL);
 	lip_value_t result;
 	lip_exec_status_t status = lip_call(vm, &result, fn, 1, lip_make_number(vm, 42.5));

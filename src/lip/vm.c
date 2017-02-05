@@ -5,7 +5,7 @@
 #include "vm_dispatch.h"
 
 size_t
-lip_vm_memory_required(lip_vm_config_t* config)
+lip_vm_memory_required(const lip_vm_config_t* config)
 {
 	lip_memblock_info_t os_block, env_block, cs_block;
 	lip_memblock_info_t mem_layout =
@@ -22,7 +22,10 @@ lip_reset_vm(lip_vm_t* vm)
 
 void
 lip_vm_init(
-	lip_vm_t* vm, lip_vm_config_t* config, lip_runtime_interface_t* rt, void* mem
+	lip_vm_t* vm,
+	const lip_vm_config_t* config,
+	lip_runtime_interface_t* rt,
+	void* mem
 )
 {
 	lip_memblock_info_t os_block, env_block, cs_block;

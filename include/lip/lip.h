@@ -24,6 +24,7 @@ typedef void(*lip_panic_fn_t)(lip_context_t* ctx, const char* msg);
 struct lip_runtime_config_s
 {
 	lip_allocator_t* allocator;
+	lip_vm_config_t default_vm_config;
 };
 
 struct lip_repl_handler_s
@@ -86,7 +87,7 @@ lip_declare_function(
 );
 
 LIP_API lip_vm_t*
-lip_create_vm(lip_context_t* ctx, lip_vm_config_t* config);
+lip_create_vm(lip_context_t* ctx, const lip_vm_config_t* config);
 
 LIP_API void
 lip_destroy_vm(lip_context_t* ctx, lip_vm_t* vm);
