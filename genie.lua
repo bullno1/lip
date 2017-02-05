@@ -8,8 +8,7 @@ solution "lip"
 		"StaticRuntime",
 		"Symbols",
 		"NoEditAndContinue",
-		"NoNativeWChar",
-		"NoExceptions"
+		"NoNativeWChar"
 	}
 
 	defines {
@@ -36,6 +35,13 @@ solution "lip"
 	configuration "DebugDLL"
 		targetdir "bin/DebugDLL"
 
+	configuration "vs*"
+		buildoptions {
+			"/wd4116", -- Anonymous struct in parentheses
+			"/wd4200", -- Flexible array member
+			"/wd4204", -- Non-constant aggregate initializer
+		}
+
 	configuration {}
 
 	project "repl"
@@ -61,11 +67,7 @@ solution "lip"
 
 	project "tests"
 		kind "ConsoleApp"
-		language "C"
-
-		defines {
-			"LIP_TEST_SKIP_CPP"
-		}
+		language "C++"
 
 		includedirs {
 			"include",
@@ -74,22 +76,7 @@ solution "lip"
 
 		files {
 			"src/tests/*.h",
-			"src/tests/*.c"
-		}
-
-		links {
-			"lip"
-        }
-
-	project "cpp-tests"
-		kind "SharedLib"
-		language "C++"
-
-		includedirs {
-			"include"
-        }
-
-		files {
+			"src/tests/*.c",
 			"src/tests/*.cpp"
 		}
 
@@ -125,6 +112,10 @@ solution "lip"
 		kind "StaticLib"
 		language "C++"
 
+		flags {
+			"MinimumWarnings"
+		}
+
 		includedirs {
 			"deps/linenoise-ng/include",
 		}
@@ -137,6 +128,10 @@ solution "lip"
 	project "cargo"
 		kind "StaticLib"
 		language "C"
+
+		flags {
+			"MinimumWarnings"
+		}
 
 		files {
 			"deps/cargo/*.h",
