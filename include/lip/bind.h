@@ -1,15 +1,42 @@
 #ifndef LIP_BIND_H
 #define LIP_BIND_H
 
+/**
+ * @defgroup bind Bind
+ * @brief Binding helpers
+ *
+ * @{
+ */
+
+/// Declare a bound function
 #define lip_function(name) \
 	lip_exec_status_t name(lip_vm_t* vm, lip_value_t* result)
 
 #define lip_bind_track_native_location(vm) \
 	lip_set_native_location(vm, __func__, __FILE__, __LINE__); \
 
+/**
+ * @brief  Declare `argc`, `argv` local variables to hold arguments.
+ * @remarks #lip_bind_args will call this so do not call it unless you are doing manual type checking or binding a variadic function.
+ */
 #define lip_bind_prepare(vm) \
 	uint8_t argc; const lip_value_t* argv = lip_get_args(vm, &argc); (void)argv;
 
+/**
+ * @brief Bind arguments to variables.
+ *
+ * Parameters must have one of the following forms:
+ *
+ * - `(type, name)`: Bind a required parameter of type `type` to a local variable `name`.
+ * - `(type, name, (optional, default_value))`: Bind an optional parameter with default value `default_value`.
+ *
+ * Valid types are:
+ * - `any`: Any type. A local variable with name `name` will be declared with type ::lip_value_s.
+ * - `number`: Number type. A local variable with name `name` will be declared with type `double`.
+ * - `string`: String type. A local variable with name `name` will be declared with type ::lip_value_s.
+ * - `symbol`: Symbol type. A local variable with name  `name` will be declared with type ::lip_value_s.
+ * - `list`: List type. A local variable with name `name` will be declared with type ::lip_value_s.
+ */
 #define lip_bind_args(...) \
 	lip_bind_prepare(vm); \
 	const unsigned int arity_min = 0 lip_pp_map(lip_bind_count_arity, __VA_ARGS__); \
@@ -22,6 +49,14 @@
 	} \
 	lip_pp_map(lip_bind_arg, __VA_ARGS__)
 
+/**
+ * @brief Bind an argument to a local variable.
+ *
+ * @param i Index of the argument (First argument is 0).
+ * @param spec Specification for the argument.
+ *
+ * @see lip_bind_args
+ */
 #define lip_bind_arg(i, spec) \
 	lip_bind_arg1( \
 		i, \
@@ -75,6 +110,17 @@
 		arity, argc \
 	);
 
+/**
+ * @brief Create a wrapper for a function.
+ *
+ * Currently, only types described in #lip_bind_args are supported.
+ *
+ * @param name Name of the function.
+ * @param return_type Return type of the function.
+ * @param ... Argument types of the function.
+ *
+ * @see lip_bind_args
+ */
 #define lip_bind_wrap_function(name, return_type, ...) \
 	lip_function(lip_bind_wrapper(name)) { \
 		lip_bind_args(lip_pp_map(lip_bind_wrapper_gen_binding, __VA_ARGS__)); \
@@ -88,6 +134,7 @@
 #define lip_bind_wrapper_gen_binding(i, type) lip_pp_sep(i) (type, lip_pp_concat(arg, i))
 #define lip_bind_wrapper_ref_binding(i, type) lip_pp_sep(i) lip_pp_concat(arg, i)
 
+/// Retrieve the name of a wrapper function created with #lip_bind_wrap_function.
 #define lip_bind_wrapper(name) lip_pp_concat(lip_, lip_pp_concat(name, _wrapper))
 
 #define lip_bind_declare_any(name) lip_value_t name;
@@ -140,14 +187,33 @@
 		i, lip_value_type_t_to_str(expected_type), lip_value_type_t_to_str(actual_type) \
 	)
 
+/**
+ * @brief Assert inside a binding function.
+ *
+ * @param cond Condition to assert.
+ * @param msg Error message when assertion fails.
+ */
 #define lip_bind_assert(cond, msg) \
 	do { if(!(cond)) { lip_throw(msg); } } while(0)
 
+/**
+ * @brief Assert inside a binding function.
+ *
+ * @param cond Condition to assert.
+ * @param fmt Format string.
+ * @param ... Parameters for format string.
+ */
 #define lip_bind_assert_fmt(cond, fmt, ...) \
 	do { if(!(cond)) { lip_throw_fmt(fmt, __VA_ARGS__); } } while(0)
 
+/// Return from a binding function.
 #define lip_return(val) do { *result = val; return LIP_EXEC_OK; } while(0)
 
+/**
+ * @brief Throw an error from a binding function.
+ *
+ * @param err Error message.
+ */
 #define lip_throw(err) \
 		do { \
 			*result = lip_make_string_copy(vm, lip_string_ref(err)); \
@@ -155,6 +221,12 @@
 			return LIP_EXEC_ERROR; \
 		} while(0)
 
+/**
+ * @brief Throw an error from a binding function.
+ *
+ * @param fmt Format string.
+ * @param ... Parameters for format string.
+ */
 #define lip_throw_fmt(fmt, ...) \
 		do { \
 			*result = lip_make_string(vm, fmt, __VA_ARGS__); \
@@ -240,5 +312,9 @@
 #define lip_pp_sep_10 ,
 
 #define lip_pp_msvc_vararg_expand(x) x
+
+/**
+ * @}
+ */
 
 #endif
