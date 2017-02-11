@@ -10,6 +10,12 @@ static struct lip_ofstream_s lip_stderr_ofstream;
 static struct lip_ifstream_s lip_stdin_ifstream;
 
 
+struct lip_native_fs_s
+{
+	lip_fs_t vtable;
+	lip_allocator_t* allocator;
+};
+
 static size_t
 lip_ofstream_write(const void* buff, size_t size, lip_out_t* vtable)
 {

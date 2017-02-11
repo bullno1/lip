@@ -1,10 +1,12 @@
 #ifndef LIP_MEMORY_H
 #define LIP_MEMORY_H
 
-#ifdef _MSC_VER
-#	pragma warning(push)
-#	pragma warning(disable: 4116)
-#endif
+/**
+ * @defgroup memory Memory
+ * @brief Memory managment functions
+ *
+ * @{
+ */
 
 #include "common.h"
 
@@ -19,9 +21,12 @@
 
 typedef struct lip_memblock_info_s lip_memblock_info_t;
 
+/// Allocator interface.
 struct lip_allocator_s
 {
+	/// Allocation callback, should be similar to realloc.
 	void*(*realloc)(lip_allocator_t* self, void* old, size_t size);
+	/// Free callback, should be similar to free.
 	void(*free)(lip_allocator_t* self, void* mem);
 };
 
@@ -57,18 +62,21 @@ lip_locate_memblock(void* base, const lip_memblock_info_t* block)
 	return (char*)base + block->offset;
 }
 
+/// Realloc using an allocator
 LIP_MAYBE_UNUSED static inline void*
 lip_realloc(lip_allocator_t* allocator, void* ptr, size_t size)
 {
 	return allocator->realloc(allocator, ptr, size);
 }
 
+/// Malloc using an allocator
 LIP_MAYBE_UNUSED static inline void*
 lip_malloc(lip_allocator_t* allocator, size_t size)
 {
 	return lip_realloc(allocator, 0, size);
 }
 
+/// Free using an allocator
 LIP_MAYBE_UNUSED static inline void
 lip_free(lip_allocator_t* allocator, void* ptr)
 {
@@ -81,8 +89,8 @@ lip_align_ptr(const void* ptr, size_t alignment)
 	return (void*)(((uintptr_t)ptr + alignment - 1) / alignment * alignment);
 }
 
-#ifdef _MSC_VER
-#	pragma warning(pop)
-#endif
+/**
+ * @}
+ */
 
 #endif
