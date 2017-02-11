@@ -1,5 +1,6 @@
 /.numake
 /bin
+/doc
 /include/lip/gen
 /.build
 /vs2015

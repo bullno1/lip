@@ -108,7 +108,7 @@ teardown(void* fixture_)
 {
 	lip_fixture_t* fixture = fixture_;
 	lip_destroy_vm(fixture->context, fixture->vm);
-	lip_destroy_context(fixture->runtime, fixture->context);
+	lip_destroy_context(fixture->context);
 	lip_destroy_runtime(fixture->runtime);
 	lip_free(lip_default_allocator, fixture);
 }

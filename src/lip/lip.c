@@ -72,10 +72,8 @@ lip_do_destroy_vm(lip_context_t* ctx, lip_vm_t* vm)
 }
 
 static void
-lip_do_destroy_context(lip_runtime_t* runtime, lip_context_t* ctx)
+lip_do_destroy_context(lip_context_t* ctx)
 {
-	(void)runtime;
-
 	kh_foreach(itr, ctx->vms)
 	{
 		lip_do_destroy_vm(ctx, kh_key(ctx->vms, itr));
@@ -113,7 +111,7 @@ lip_destroy_runtime(lip_runtime_t* runtime)
 {
 	kh_foreach(itr, runtime->contexts)
 	{
-		lip_do_destroy_context(runtime, kh_key(runtime->contexts, itr));
+		lip_do_destroy_context(kh_key(runtime->contexts, itr));
 	}
 
 	kh_foreach(itr, runtime->symtab)
@@ -179,13 +177,13 @@ lip_set_panic_handler(lip_context_t* ctx, lip_panic_fn_t panic_handler)
 }
 
 void
-lip_destroy_context(lip_runtime_t* runtime, lip_context_t* ctx)
+lip_destroy_context(lip_context_t* ctx)
 {
-	khiter_t itr = kh_get(lip_ptr_set, runtime->contexts, ctx);
-	if(itr != kh_end(runtime->contexts))
+	khiter_t itr = kh_get(lip_ptr_set, ctx->runtime->contexts, ctx);
+	if(itr != kh_end(ctx->runtime->contexts))
 	{
-		kh_del(lip_ptr_set, runtime->contexts, itr);
-		lip_do_destroy_context(runtime, ctx);
+		kh_del(lip_ptr_set, ctx->runtime->contexts, itr);
+		lip_do_destroy_context(ctx);
 	}
 }
 

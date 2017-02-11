@@ -62,7 +62,10 @@ LINK_FLAGS ?= -g ${COMMON_FLAGS} ${UBSAN_LINK_FLAGS} ${ASAN_LINK_FLAGS}
 
 -import cpp.nu
 
-all: tests bin/lip ! live
+all: tests bin/lip doc ! live
+
+doc: ! live
+	doxygen
 
 tests: repl-test unit-test ! live
 
