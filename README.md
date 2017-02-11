@@ -31,22 +31,13 @@ Run `vs2015.bat` and a solution will be created in the `vs2015` folder.
 [GENie](https://github.com/bkaradzic/genie) is a project generator for XCode, Visual Studio and Makefile.
 Run it on `genie.lua` to create a project for your tool.
 
-### Using your own tools
-
-It is also possible to build using other build tools although it's untested.
-
-To build liblip.a (the library), add all files under `src/lip` into your build tool/IDE.
-They should be compiled as a static C library, not a C++ one.
-
-To build the interpreter, add all files under `src/repl` into your build tool/IDE, set header include path to `src` and link the executable with liblip.a built earlier.
-
 ## What works currently
 
-- The interpreter can execute simple scripts (see [examples](examples)).
-  To run a script, pipe it into the interpreter (e.g: `bin/lip < examples/fib.lip`).
-  Run `bin/lip --help` for some options (not all are implemented).
-- The current speed is around that of interpreted Lua and sometimes slightly faster.
-- A simple interface to bind C functions to the runtime (see [src/repl/main.c](src/repl/main.c)).
+- The interpreter can execute simple scripts (see [benchmark](benchmarkj)).
+  To run a script: `bin/lip benchmark/fib.lip`.
+  Run `bin/lip --help` for some options.
+- The current speed is slightly slower than that of interpreted Lua.
+- A simple interface to bind C functions to the runtime: [include/lip/bind.h](include/lip/bind.h) (see [src/lip/builtins.c](src/lip/builtins.c), for example).
 
 ## What is planned?
 
@@ -54,7 +45,6 @@ To build the interpreter, add all files under `src/repl` into your build tool/ID
   This means no polymorphic exception nonsense.
   Exception should only be used for panic cases.
 - A module/package system similar to that of Common Lisp or Clojure.
-- A type system.
 - A minimal standard library.
 
 ## Why another language?
