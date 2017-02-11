@@ -36,6 +36,7 @@ struct lip_runtime_s
 	khash_t(lip_symtab)* symtab;
 	khash_t(lip_userdata)* userdata;
 	lip_rwlock_t rt_lock;
+	bool own_fs;
 };
 
 struct lip_runtime_link_s

@@ -12,12 +12,39 @@
 #include <stdio.h>
 #include "common.h"
 
+/**
+ * @brief Filesystem interface.
+ *
+ * Callbacks might be invoked from different threads at the same time.
+ */
 struct lip_fs_s
 {
+	/**
+	 * @brief Callback to open a file for reading.
+	 *
+	 * Should have similar behaviour to `fopen(path, "rb")`.
+	 *
+	 * @param self Filesystem.
+	 * @param path Path to file.
+	 * @return an input stream or `NULL` if file cannot be openned.
+	 *
+	 * @see lip_fs_s::last_error
+	 */
 	lip_in_t*(*begin_read)(lip_fs_t* self, lip_string_ref_t path);
+
+	/**
+	 * @brief Callback to close a file previously openned for reading.
+	 *
+	 * Should have similar behaviour to `fclose(file)`.
+	 */
 	void(*end_read)(lip_fs_t* self, lip_in_t* input);
-	lip_out_t*(*begin_write)(lip_fs_t* self, lip_string_ref_t path);
-	void(*end_write)(lip_fs_t* self, lip_out_t* output);
+
+	/**
+	 * @brief Callback to get the last error of the filesystem.
+	 *
+	 * Should have similar behaviour to `strerror(errno)`.
+	 */
+	lip_string_ref_t(*last_error)(lip_fs_t* self);
 };
 
 /// Input stream interface.
@@ -87,11 +114,16 @@ lip_stdout(void);
 LIP_API lip_out_t*
 lip_stderr(void);
 
+/**
+ * @brief Create an instance of a native filesystem (fopen, fread, fclose...).
+ * @param allocator Allocator that the filesystem will use.
+ */
 LIP_API lip_fs_t*
-lip_native_fs_create(lip_allocator_t* allocator);
+lip_create_native_fs(lip_allocator_t* allocator);
 
+/// Destroy the filesystem implementation previously created with ::lip_native_fs_create.
 LIP_API void
-lip_native_fs_destroy(lip_fs_t* fs);
+lip_destroy_native_fs(lip_fs_t* fs);
 
 /// Read from a ::lip_in_s, similar behaviour to fread.
 LIP_MAYBE_UNUSED static inline size_t

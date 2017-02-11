@@ -99,9 +99,14 @@ struct lip_runtime_config_s
 	 * @see allocator
 	 */
 	lip_allocator_t* allocator;
+	/**
+	 * @brief A filesystem interface.
+	 *
+	 * This can be `NULL` and the runtime will use the native filesystem.
+	 *
+	 * @see lip_create_native_fs
+	 */
 	lip_fs_t* fs;
-	char path_separator;
-	const lip_string_ref_t* module_search_patterns;
 	/// Default configuration for virtual machines in this runtime.
 	lip_vm_config_t default_vm_config;
 };
@@ -352,12 +357,14 @@ lip_lookup_symbol(lip_context_t* ctx, lip_string_ref_t symbol, lip_value_t* resu
  *
  * @param ctx A context.
  * @param filename Filename.
- * @param input Input stream.
+ * @param input Input stream or `NULL` to read from the filesystem.
  *
  * @return The script instance or `NULL` if an error happened.
  *
  * @remarks A script can be unloaded using ::lip_unload_script or ::lip_destroy_context on the corresponding context.
+ *
  * @see lip_get_error
+ * @see lip_runtime_config_s::fs
  */
 LIP_API lip_script_t*
 lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input);

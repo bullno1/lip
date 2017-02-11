@@ -45,11 +45,18 @@ lip_runtime_t*
 lip_create_runtime(const lip_runtime_config_t* cfg)
 {
 	lip_runtime_t* runtime = lip_new(cfg->allocator, lip_runtime_t);
+
+	bool own_fs = cfg->fs == NULL;
+	lip_fs_t* fs = own_fs ? lip_create_native_fs(cfg->allocator) : cfg->fs;
+
 	*runtime = (lip_runtime_t){
 		.cfg = *cfg,
+		.own_fs = own_fs,
 		.contexts = kh_init(lip_ptr_set, cfg->allocator),
 		.symtab = kh_init(lip_symtab, cfg->allocator),
 	};
+	runtime->cfg.fs = fs;
+
 	lip_rwlock_init(&runtime->rt_lock);
 	return runtime;
 }
@@ -126,6 +133,7 @@ lip_destroy_runtime(lip_runtime_t* runtime)
 	kh_destroy(lip_symtab, runtime->symtab);
 	kh_destroy(lip_ptr_set, runtime->contexts);
 	if(runtime->userdata) { kh_destroy(lip_userdata, runtime->userdata); }
+	if(runtime->own_fs) { lip_free(runtime->cfg.allocator, runtime->cfg.fs); }
 	lip_free(runtime->cfg.allocator, runtime);
 }
 
@@ -509,8 +517,9 @@ lip_format_parse_error(const lip_error_t* error)
 }
 
 static void
-lip_set_compile_error(
+lip_set_context_error(
 	lip_context_t* ctx,
+	const char* error_type,
 	lip_string_ref_t message,
 	lip_string_ref_t filename,
 	lip_loc_range_t location
@@ -521,9 +530,20 @@ lip_set_compile_error(
 	record->filename = filename;
 	record->location = location;
 	record->message = message;
-	ctx->error.message = lip_string_ref("Syntax error");
+	ctx->error.message = lip_string_ref(error_type);
 	ctx->error.num_records = 1;
 	ctx->error.records = ctx->error_records;
+}
+
+static void
+lip_set_compile_error(
+	lip_context_t* ctx,
+	lip_string_ref_t message,
+	lip_string_ref_t filename,
+	lip_loc_range_t location
+)
+{
+	lip_set_context_error(ctx, "Syntax error", message, filename, location);
 }
 
 static bool
@@ -585,8 +605,8 @@ lip_lookup_symbol(lip_context_t* ctx, lip_string_ref_t symbol_name, lip_value_t*
 	return ret_val;
 }
 
-lip_script_t*
-lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
+static lip_script_t*
+lip_do_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 {
 	lip_arena_allocator_reset(ctx->arena_allocator);
 	lip_parser_reset(&ctx->parser, input);
@@ -667,6 +687,36 @@ lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 	}
 
 	return NULL;
+}
+
+lip_script_t*
+lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
+{
+	bool own_input = input == NULL;
+	if(own_input)
+	{
+		lip_fs_t* fs = ctx->runtime->cfg.fs;
+
+		input = fs->begin_read(fs, filename);
+		if(input == NULL)
+		{
+			lip_set_context_error(
+				ctx, "IO error", fs->last_error(fs), filename, LIP_LOC_NOWHERE
+			);
+		}
+
+		if(input == NULL) { return NULL; }
+	}
+
+	lip_script_t* script = lip_do_load_script(ctx, filename, input);
+
+	if(own_input)
+	{
+		lip_fs_t* fs = ctx->runtime->cfg.fs;
+		fs->end_read(fs, input);
+	}
+
+	return script;
 }
 
 void

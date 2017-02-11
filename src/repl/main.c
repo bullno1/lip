@@ -3,9 +3,6 @@
 #endif
 
 #include <stdlib.h>
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
 #include <lip/lip.h>
 #include <lip/config.h>
 #include <lip/memory.h>
@@ -258,22 +255,7 @@ main(int argc, char* argv[])
 
 	if(script_filename)
 	{
-		FILE* file = fopen(script_filename, "rb");
-		if(!file)
-		{
-			lip_printf(
-				lip_stderr(), "lip: cannot open %s: %s\n",
-				script_filename, strerror(errno)
-			);
-			quit(EXIT_FAILURE);
-		}
-
-		struct lip_ifstream_s ifstream;
-		lip_in_t* input = lip_make_ifstream(file, &ifstream);
-
-		bool status = run_script(ctx, vm, lip_string_ref(script_filename), input);
-		fclose(file);
-
+		bool status = run_script(ctx, vm, lip_string_ref(script_filename), NULL);
 		if(!status)	{ quit(EXIT_FAILURE); }
 	}
 

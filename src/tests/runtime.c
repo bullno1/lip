@@ -850,6 +850,27 @@ userdata(const MunitParameter params[], void* fixture_)
 	return MUNIT_OK;
 }
 
+static MunitResult
+fs(const MunitParameter params[], void* fixture_)
+{
+	(void)params;
+
+	lip_fixture_t* fixture = fixture_;
+	lip_context_t* ctx = fixture->context;
+	lip_vm_t* vm = fixture->vm;
+
+	lip_script_t* script = lip_load_script(ctx, lip_string_ref("src/tests/test_fs.lip"), NULL);
+	munit_assert_not_null(script);
+	lip_value_t result;
+	lip_assert_enum(lip_exec_status_t, LIP_EXEC_OK, ==, lip_exec_script(vm, script, &result));
+	lip_assert_num(2.0, result);
+
+	script = lip_load_script(ctx, lip_string_ref("not_there.lip"), NULL);
+	munit_assert_null(script);
+
+	return MUNIT_OK;
+}
+
 static MunitTest tests[] = {
 	{
 		.name = "/basic_forms",
@@ -908,6 +929,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/userdata",
 		.test = userdata,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/fs",
+		.test = fs,
 		.setup = setup,
 		.tear_down = teardown
 	},

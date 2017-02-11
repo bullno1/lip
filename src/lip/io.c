@@ -1,6 +1,8 @@
 #include <lip/io.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
+#include <errno.h>
 #include <lip/memory.h>
 #include <lip/array.h>
 #include "vendor/format/format.h"
@@ -56,6 +58,59 @@ lip_osstream_write(const void* buff, size_t size, lip_out_t* vtable)
 	lip_array_resize(*buffer, len + size);
 	memcpy(*buffer + len, buff, size);
 	return size;
+}
+
+static lip_in_t*
+lip_native_fs_begin_read(lip_fs_t* vtable, lip_string_ref_t path)
+{
+	FILE* file = fopen(path.ptr, "rb");
+	if(file == NULL) { return NULL; }
+
+	struct lip_native_fs_s* fs =
+		LIP_CONTAINER_OF(vtable, struct lip_native_fs_s, vtable);
+	struct lip_ifstream_s* ifstream = lip_new(fs->allocator, struct lip_ifstream_s);
+	return lip_make_ifstream(file, ifstream);
+}
+
+static void
+lip_native_fs_close(lip_fs_t* vtable, lip_in_t* file)
+{
+	struct lip_native_fs_s* fs =
+		LIP_CONTAINER_OF(vtable, struct lip_native_fs_s, vtable);
+	struct lip_ifstream_s* ifstream =
+		LIP_CONTAINER_OF(file, struct lip_ifstream_s, vtable);
+	fclose(ifstream->file);
+	lip_free(fs->allocator, ifstream);
+}
+
+static lip_string_ref_t
+lip_native_fs_last_error(lip_fs_t* vtable)
+{
+	(void)vtable;
+	return lip_string_ref(strerror(errno));
+}
+
+lip_fs_t*
+lip_create_native_fs(lip_allocator_t* allocator)
+{
+	struct lip_native_fs_s* fs = lip_new(allocator, struct lip_native_fs_s);
+	*fs = (struct lip_native_fs_s){
+		.allocator = allocator,
+		.vtable = {
+			.begin_read = lip_native_fs_begin_read,
+			.end_read = lip_native_fs_close,
+			.last_error = lip_native_fs_last_error
+		}
+	};
+	return &fs->vtable;
+}
+
+LIP_API void
+lip_destroy_native_fs(lip_fs_t* vtable)
+{
+	struct lip_native_fs_s* fs =
+		LIP_CONTAINER_OF(vtable, struct lip_native_fs_s, vtable);
+	lip_free(fs->allocator, fs);
 }
 
 lip_in_t*
