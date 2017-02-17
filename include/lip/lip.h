@@ -2,7 +2,7 @@
 #define LIP_LIP_H
 
 /**
- * @defgroup runtime
+ * @defgroup runtime Runtime
  * @brief Runtime functions
  *
  * @{
@@ -236,7 +236,7 @@ lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator);
 /**
  * @brief Destroy a context.
  *
- * All associated ::lip_vm_t, ::lip_script_t instances will be destroyed.
+ * All associated ::lip_vm_s, ::lip_script_t instances will be destroyed.
  *
  * @param ctx The context to destroy.
  */
@@ -418,6 +418,7 @@ lip_get_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key);
  * @param vm A vm.
  * @param scope Where to attach userdata.
  * @param key An unique pointer for the userdata.
+ * @param value Pointer to userdata.
  *
  * @return The value previously stored with ::lip_set_userdata using the same `key` and `scope` or `NULL`.
  */
@@ -448,7 +449,7 @@ lip_set_vm_hook(lip_vm_t* vm, lip_vm_hook_t* hook);
  *
  * @param vm The vm to make the call.
  * @param result Result.
- * @param result The function to be called.
+ * @param fn The function to be called.
  * @param num_args Number of arguments.
  * @param ... `num_args` number of ::lip_value_s as arguments.
  *

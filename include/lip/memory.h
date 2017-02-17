@@ -38,6 +38,7 @@ struct lip_memblock_info_s
 	ptrdiff_t offset;
 };
 
+/// An allocator that uses `realloc` and `free`
 LIP_API lip_allocator_t* const lip_default_allocator;
 
 struct lip_max_align_helper

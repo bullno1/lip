@@ -2,7 +2,7 @@
 #define LIP_ARRAY_H
 
 /**
- * @defgroup array
+ * @defgroup array Array
  * @brief Flexible array.
  *
  * @{

@@ -2,7 +2,7 @@
 #define LIP_COMMON_H
 
 /**
- * @defgroup common
+ * @defgroup common Common
  * @brief Common structures and functions
  *
  * @{

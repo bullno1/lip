@@ -121,7 +121,7 @@ lip_stderr(void);
 LIP_API lip_fs_t*
 lip_create_native_fs(lip_allocator_t* allocator);
 
-/// Destroy the filesystem implementation previously created with ::lip_native_fs_create.
+/// Destroy the filesystem implementation previously created with ::lip_create_native_fs.
 LIP_API void
 lip_destroy_native_fs(lip_fs_t* fs);
 
