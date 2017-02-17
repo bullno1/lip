@@ -2,14 +2,20 @@
 #define _XOPEN_SOURCE
 #endif
 
+#ifndef _WIN32
+#define LIP_HAS_LINENOISE
+#endif
+
 #include <stdlib.h>
 #include <lip/lip.h>
 #include <lip/config.h>
 #include <lip/memory.h>
 #include <lip/io.h>
 #include <lip/print.h>
-#include <linenoise.h>
-#include <encodings/utf8.h>
+#ifdef LIP_HAS_LINENOISE
+#	include <linenoise.h>
+#	include <encodings/utf8.h>
+#endif
 #include <cargo.h>
 
 #ifdef _WIN32
@@ -46,7 +52,13 @@ repl_read(lip_repl_handler_t* vtable, void* buff, size_t size)
 		char* line;
 		for(;;)
 		{
+#ifdef LIP_HAS_LINENOISE
 			line = linenoise("lip> ");
+#else
+			printf("lip> ");
+			char buff[1024];
+			line = fgets(buff, sizeof(buff) - 1, stdin);
+#endif
 
 			if(line == 0)
 			{
@@ -62,7 +74,9 @@ repl_read(lip_repl_handler_t* vtable, void* buff, size_t size)
 			}
 		}
 
+#ifdef LIP_HAS_LINENOISE
 		linenoiseHistoryAdd(line);
+#endif
 
 		size_t line_length = strlen(line);
 		if(line_length + 1 > repl->buff_len)
@@ -75,7 +89,9 @@ repl_read(lip_repl_handler_t* vtable, void* buff, size_t size)
 		repl->line_buff[line_length] = '\n';
 		repl->read_pos = 0;
 		repl->buff_len = line_length + 1;
+#ifdef LIP_HAS_LINENOISE
 		free(line);
+#endif
 	}
 
 	size_t num_bytes_to_read = LIP_MIN(repl->buff_len - repl->read_pos, size);
@@ -264,12 +280,14 @@ main(int argc, char* argv[])
 
 	if(isatty(fileno(stdin)) || interactive)
 	{
+#ifdef LIP_HAS_LINENOISE
 		linenoiseSetMultiLine(1);
 		linenoiseSetEncodingFunctions(
 			linenoiseUtf8PrevCharLen,
 			linenoiseUtf8NextCharLen,
 			linenoiseUtf8ReadCode
 		);
+#endif
 
 		struct repl_context_s repl_context = {
 			.read_pos = 1,

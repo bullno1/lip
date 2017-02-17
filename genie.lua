@@ -55,14 +55,12 @@ solution "lip"
 
 		includedirs {
 			"include",
-			"deps/linenoise",
 			"deps/cargo"
 		}
 
 		links {
 			"lip",
-			"cargo",
-			"linenoise"
+			"cargo"
 		}
 
 	project "tests"
@@ -106,27 +104,6 @@ solution "lip"
 		files {
 			"include/lip/*.h",
 			"src/lip/**"
-		}
-
-	project "linenoise"
-		kind "StaticLib"
-		language "C"
-
-		flags {
-			"MinimumWarnings"
-		}
-
-		includedirs {
-			"deps/linenoise",
-		}
-
-		files {
-			"deps/linenoise/*.h",
-			"deps/linenoise/*.c"
-		}
-
-		excludes {
-			"deps/linenoise/example.c"
 		}
 
 	project "cargo"
