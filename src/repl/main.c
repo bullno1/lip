@@ -9,6 +9,7 @@
 #include <lip/io.h>
 #include <lip/print.h>
 #include <linenoise.h>
+#include <encodings/utf8.h>
 #include <cargo.h>
 
 #ifdef _WIN32
@@ -263,13 +264,19 @@ main(int argc, char* argv[])
 
 	if(isatty(fileno(stdin)) || interactive)
 	{
+		linenoiseSetMultiLine(1);
+		linenoiseSetEncodingFunctions(
+			linenoiseUtf8PrevCharLen,
+			linenoiseUtf8NextCharLen,
+			linenoiseUtf8ReadCode
+		);
+
 		struct repl_context_s repl_context = {
 			.read_pos = 1,
 			.ctx = ctx,
 			.vm = vm,
 			.vtable = { .read = repl_read, .print = repl_print }
 		};
-		linenoiseInstallWindowChangeHandler();
 		lip_repl(vm, lip_string_ref("<stdin>"), &repl_context.vtable);
 		lip_free(lip_default_allocator, repl_context.line_buff);
 		quit(EXIT_SUCCESS);

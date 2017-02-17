@@ -106,17 +106,17 @@ bin/tests: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS CLEAR_ENV LINK_FLAG
 	${NUMAKE} exe:$@ \
 		sources="`find src/tests -name '*.cpp' -or -name '*.c'`" \
 		c_flags="${C_FLAGS} -g ${LIBLIP_EXTRA_FLAGS} -Isrc" \
-		cpp_flags="${CPP_FLAGS} -g ${LIBLIP_EXTRA_FLAGS} -Isrc" \
 		link_flags="${LINK_FLAGS} -lm" \
+		linker="${CC}" \
 		libs="${LIBLIP}"
 
 bin/lip: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS CLEAR_ENV
 	${CLEAR_ENV}
 	${NUMAKE} exe:$@ \
 		sources="`find src/repl -name '*.cpp' -or -name '*.c'`" \
-		c_flags="${C_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise-ng/include -Ideps/cargo" \
-		cpp_flags="${CPP_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise-ng/include -Ideps/cargo" \
-		libs="bin/liblinenoise-ng.a bin/libcargo.a ${LIBLIP}"
+		c_flags="${C_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise -Ideps/cargo" \
+		linker="${CC}" \
+		libs="bin/liblinenoise.a bin/libcargo.a ${LIBLIP}"
 
 bin/liblip.so: << CC C_FLAGS CLEAR_ENV LIP_CONFIG_H
 	${CLEAR_ENV}
@@ -149,12 +149,11 @@ include/lip/gen/%.h: src/lip/%.h.in << c_flags C_FLAGS link_flags LINK_FLAGS lin
 	mkdir -p $(dirname $@)
 	envsubst < ${deps} > $@
 
-bin/liblinenoise-ng.a: << C_FLAGS CPP_FLAGS CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS  LTO_FLAGS
+bin/liblinenoise.a: << C_FLAGS CPP_FLAGS CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS  LTO_FLAGS
 	${CLEAR_ENV}
 	${NUMAKE} static-lib:$@ \
-		c_flags="-Ideps/linenoise-ng/include ${ASAN_COMPILE_FLAGS} ${UBSAN_COMPILE_FLAGS} ${LTO_FLAGS}" \
-		cpp_flags="-Ideps/linenoise-ng/include ${ASAN_COMPILE_FLAGS} ${UBSAN_COMPILE_FLAGS} ${LTO_FLAGS}" \
-		sources="`find deps/linenoise-ng/src -name '*.cpp' -or -name '*.c'`"
+		c_flags="-Ideps/linenoise ${ASAN_COMPILE_FLAGS} ${UBSAN_COMPILE_FLAGS} ${LTO_FLAGS}" \
+		sources="`find deps/linenoise -name '*.cpp' -or -name '*.c'`"
 
 bin/libcargo.a: << CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS LTO_FLAGS
 	${CLEAR_ENV}
