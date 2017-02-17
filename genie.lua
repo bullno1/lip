@@ -16,7 +16,7 @@ solution "lip"
 	}
 
 	configuration "Release*"
-	    flags { "OptimizeSpeed" }
+		flags { "OptimizeSpeed" }
 
 	configuration "*DLL"
 		defines {
@@ -55,14 +55,14 @@ solution "lip"
 
 		includedirs {
 			"include",
-			"deps/linenoise-ng/include",
+			"deps/linenoise",
 			"deps/cargo"
 		}
 
 		links {
 			"lip",
-            "cargo",
-            "linenoise-ng"
+			"cargo",
+			"linenoise"
 		}
 
 	project "tests"
@@ -71,8 +71,8 @@ solution "lip"
 
 		includedirs {
 			"include",
-            "src"
-        }
+			"src"
+		}
 
 		files {
 			"src/tests/*.h",
@@ -82,7 +82,7 @@ solution "lip"
 
 		links {
 			"lip"
-        }
+		}
 
 	project "lip"
 		configuration { "*Lib" }
@@ -108,21 +108,25 @@ solution "lip"
 			"src/lip/**"
 		}
 
-	project "linenoise-ng"
+	project "linenoise"
 		kind "StaticLib"
-		language "C++"
+		language "C"
 
 		flags {
 			"MinimumWarnings"
 		}
 
 		includedirs {
-			"deps/linenoise-ng/include",
+			"deps/linenoise",
 		}
 
 		files {
-			"deps/linenoise-ng/include/*.h",
-			"deps/linenoise-ng/src/*.cpp"
+			"deps/linenoise/*.h",
+			"deps/linenoise/*.c"
+		}
+
+		excludes {
+			"deps/linenoise/example.c"
 		}
 
 	project "cargo"
