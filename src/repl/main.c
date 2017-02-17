@@ -269,7 +269,6 @@ main(int argc, char* argv[])
 			.vm = vm,
 			.vtable = { .read = repl_read, .print = repl_print }
 		};
-		linenoiseInstallWindowChangeHandler();
 		lip_repl(vm, lip_string_ref("<stdin>"), &repl_context.vtable);
 		lip_free(lip_default_allocator, repl_context.line_buff);
 		quit(EXIT_SUCCESS);
