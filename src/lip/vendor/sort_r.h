@@ -24,7 +24,9 @@ void sort_r(void *base, size_t nel, size_t width,
 #  define _SORT_R_INLINE inline
 #elif (defined _GNU_SOURCE || defined __gnu_hurd__ || defined __GNU__ || \
        defined __linux__ || defined __MINGW32__ || defined __GLIBC__)
-#  define _SORT_R_LINUX
+#  if !defined(__MUSL__)
+#    define _SORT_R_LINUX
+#  endif
 #  define _SORT_R_INLINE inline
 #elif (defined _WIN32 || defined _WIN64 || defined __WINDOWS__)
 #  define _SORT_R_WINDOWS

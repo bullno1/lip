@@ -1,0 +1,5 @@
+#!/bin/sh -e
+
+export CC='musl-clang -Wno-error=unused-command-line-argument -static -D__MUSL__'
+export CXX='clang++ -std=c++11'
+exec $@

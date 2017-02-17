@@ -1,0 +1,4 @@
+#!/bin/sh -e
+
+export CC='musl-gcc -static -D__MUSL__'
+exec $@
