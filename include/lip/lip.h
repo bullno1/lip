@@ -369,6 +369,30 @@ lip_lookup_symbol(lip_context_t* ctx, lip_string_ref_t symbol, lip_value_t* resu
 LIP_API lip_script_t*
 lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input);
 
+/**
+ * @brief Dump a script's compiled bytecode.
+ *
+ * The dumped bytecode can be loaded using ::lip_load_script.
+ *
+ * @param ctx The context used to load the script.
+ * @param script The script to dump.
+ * @param filename Output filename.
+ * @param output Output stream or `NULL` to write to the filesystem.
+ *
+ * @return Whether the script was dumped successfully.
+ *
+ * @remarks Error can be retrieved using ::lip_get_error
+ * @see lip_get_error
+ * @see lip_runtime_config_s::fs
+ */
+LIP_API bool
+lip_dump_script(
+	lip_context_t* ctx,
+	lip_script_t* script,
+	lip_string_ref_t filename,
+	lip_out_t* output
+);
+
 /// Unload a script previously loaded with ::lip_load_script.
 LIP_API void
 lip_unload_script(lip_context_t* ctx, lip_script_t* script);

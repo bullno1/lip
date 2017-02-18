@@ -40,6 +40,26 @@ struct lip_fs_s
 	void(*end_read)(lip_fs_t* self, lip_in_t* input);
 
 	/**
+	 * @brief Callback to open a file for writing.
+	 *
+	 * Should have similar behaviour to `fopen(path, "wb")`.
+	 *
+	 * @param self Filesystem.
+	 * @param path Path to file.
+	 * @return an output stream or `NULL` if file cannot be openned.
+	 *
+	 * @see lip_fs_s::last_error
+	 */
+	lip_out_t*(*begin_write)(lip_fs_t* self, lip_string_ref_t path);
+
+	/**
+	 * @brief Callback to close a file previously openned for writing.
+	 *
+	 * Should have similar behaviour to `fclose(file)`.
+	 */
+	void(*end_write)(lip_fs_t* self, lip_out_t* output);
+
+	/**
 	 * @brief Callback to get the last error of the filesystem.
 	 *
 	 * Should have similar behaviour to `strerror(errno)`.

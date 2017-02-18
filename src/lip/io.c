@@ -23,7 +23,7 @@ lip_ofstream_write(const void* buff, size_t size, lip_out_t* vtable)
 {
 	struct lip_ofstream_s* ofstream =
 		LIP_CONTAINER_OF(vtable, struct lip_ofstream_s, vtable);
-	return fwrite(buff, size, 1, ofstream->file);
+	return fwrite(buff, 1, size, ofstream->file);
 }
 
 static size_t
@@ -31,7 +31,7 @@ lip_ifstream_read(void* buff, size_t size, lip_in_t* vtable)
 {
 	struct lip_ifstream_s* ifstream =
 		LIP_CONTAINER_OF(vtable, struct lip_ifstream_s, vtable);
-	return fread(buff, size, 1, ifstream->file);
+	return fread(buff, 1, size, ifstream->file);
 }
 
 static size_t
@@ -72,8 +72,20 @@ lip_native_fs_begin_read(lip_fs_t* vtable, lip_string_ref_t path)
 	return lip_make_ifstream(file, ifstream);
 }
 
+static lip_out_t*
+lip_native_fs_begin_write(lip_fs_t* vtable, lip_string_ref_t path)
+{
+	FILE* file = fopen(path.ptr, "wb");
+	if(file == NULL) { return NULL; }
+
+	struct lip_native_fs_s* fs =
+		LIP_CONTAINER_OF(vtable, struct lip_native_fs_s, vtable);
+	struct lip_ofstream_s* ofstream = lip_new(fs->allocator, struct lip_ofstream_s);
+	return lip_make_ofstream(file, ofstream);
+}
+
 static void
-lip_native_fs_close(lip_fs_t* vtable, lip_in_t* file)
+lip_native_fs_end_read(lip_fs_t* vtable, lip_in_t* file)
 {
 	struct lip_native_fs_s* fs =
 		LIP_CONTAINER_OF(vtable, struct lip_native_fs_s, vtable);
@@ -81,6 +93,17 @@ lip_native_fs_close(lip_fs_t* vtable, lip_in_t* file)
 		LIP_CONTAINER_OF(file, struct lip_ifstream_s, vtable);
 	fclose(ifstream->file);
 	lip_free(fs->allocator, ifstream);
+}
+
+static void
+lip_native_fs_end_write(lip_fs_t* vtable, lip_out_t* file)
+{
+	struct lip_native_fs_s* fs =
+		LIP_CONTAINER_OF(vtable, struct lip_native_fs_s, vtable);
+	struct lip_ofstream_s* ofstream =
+		LIP_CONTAINER_OF(file, struct lip_ofstream_s, vtable);
+	fclose(ofstream->file);
+	lip_free(fs->allocator, ofstream);
 }
 
 static lip_string_ref_t
@@ -98,7 +121,9 @@ lip_create_native_fs(lip_allocator_t* allocator)
 		.allocator = allocator,
 		.vtable = {
 			.begin_read = lip_native_fs_begin_read,
-			.end_read = lip_native_fs_close,
+			.end_read = lip_native_fs_end_read,
+			.begin_write = lip_native_fs_begin_write,
+			.end_write = lip_native_fs_end_write,
 			.last_error = lip_native_fs_last_error
 		}
 	};
