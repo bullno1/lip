@@ -190,26 +190,22 @@ main(int argc, char* argv[])
 	}
 
 	int show_version = false;
+	int inspect = false;
 	int interactive = false;
+	int print_depth = 10;
 	char* exec_string = NULL;
 	char* script_filename = NULL;
 	char* bytecode_output_file = NULL;
-
-	cargo_add_group(
-		cargo, 0,
-		"run", "Run options", ""
-	);
-
-	cargo_add_group(
-		cargo, 0,
-		"compile", "Compile options", ""
-	);
 
 	cargo_add_option(
 		cargo, 0,
 		"--version -v", "Show version information", "b",
 		&show_version
 	);
+
+	cargo_add_mutex_group(cargo, 0, "mode", "Operation mode", NULL);
+
+	cargo_add_group(cargo, 0, "run", "Run mode (default)", NULL);
 	cargo_add_option(
 		cargo, 0,
 		"<run> --interactive -i", "Enter interactive mode after executing script", "b",
@@ -221,15 +217,30 @@ main(int argc, char* argv[])
 		&exec_string
 	);
 	cargo_set_metavar(cargo, "--execute", "STRING");
+
+	cargo_add_group(cargo, 0, "compile", "Compile mode", NULL);
 	cargo_add_option(
 		cargo, 0,
-		"<compile> --compile -c", "Path to compilation output", "s",
+		"<!mode, compile> --compile -c", "Write bytecode to OUTPUT", "s",
 		&bytecode_output_file
 	);
-	cargo_set_metavar(cargo, "<compile> --compile", "FILE");
+	cargo_set_metavar(cargo, "--compile", "OUTPUT");
+
+	cargo_add_group(cargo, 0, "inspect", "Inspect mode", NULL);
+	cargo_add_option(
+		cargo, 0,
+		"<!mode, inspect> --inspect", "Print informations about script", "b",
+		&inspect
+	);
+	cargo_add_option(
+		cargo, 0,
+		"<inspect> --depth -d", "Print depth", "i",
+		&print_depth
+	);
+
 	cargo_add_option(
 		cargo, CARGO_OPT_NOT_REQUIRED | CARGO_OPT_STOP,
-		"script", "Script file to compile/execute", "s",
+		"script", "Script file to compile/execute/inspect", "s",
 		&script_filename
 	);
 	cargo_set_metavar(cargo, "script", "script");
@@ -270,17 +281,23 @@ main(int argc, char* argv[])
 	runtime = lip_create_runtime(&cfg);
 	lip_context_t* ctx = lip_create_context(runtime, lip_default_allocator);
 
+	int num_modes = 0;
+	if(bytecode_output_file != NULL) { ++num_modes; }
+	if(inspect) { ++num_modes; }
+	if(interactive || exec_string) { ++num_modes; }
+
+	if(num_modes > 1)
+	{
+		lip_printf(
+			lip_stderr(),
+			"Cannot operate in multiple modes at the same time.\n"
+		);
+		quit(EXIT_FAILURE);
+	}
+
+	// Compile
 	if(bytecode_output_file != NULL)
 	{
-		if(exec_string || interactive)
-		{
-			lip_printf(
-				lip_stderr(),
-				"Cannot compile and run script at the same time.\n"
-			);
-			quit(EXIT_FAILURE);
-		}
-
 		lip_in_t* input = NULL;
 		lip_string_ref_t source_name;
 		if(script_filename == NULL)
@@ -305,6 +322,33 @@ main(int argc, char* argv[])
 		);
 		if(!result) { print_error(ctx); }
 		quit(result ? EXIT_SUCCESS : EXIT_FAILURE);
+	}
+
+	// Inspect
+	if(inspect)
+	{
+		lip_in_t* input = NULL;
+		lip_string_ref_t source_name;
+		if(script_filename == NULL)
+		{
+			input = lip_stdin();
+			source_name = lip_string_ref("<stdin>");
+		}
+		else
+		{
+			source_name = lip_string_ref(script_filename);
+		}
+
+		lip_script_t* script = lip_load_script(ctx, source_name, input);
+		if(!script)
+		{
+			print_error(ctx);
+			quit(EXIT_FAILURE);
+		}
+
+		lip_print_closure(print_depth, 0, lip_stdout(), (lip_closure_t*)script);
+
+		quit(EXIT_SUCCESS);
 	}
 
 	lip_load_builtins(ctx);
