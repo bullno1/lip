@@ -703,9 +703,8 @@ lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 			lip_set_context_error(
 				ctx, "IO error", fs->last_error(fs), filename, LIP_LOC_NOWHERE
 			);
+			return NULL;
 		}
-
-		if(input == NULL) { return NULL; }
 	}
 
 	lip_script_t* script = lip_do_load_script(ctx, filename, input);
