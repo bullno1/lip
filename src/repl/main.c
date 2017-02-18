@@ -193,6 +193,18 @@ main(int argc, char* argv[])
 	int interactive = false;
 	char* exec_string = NULL;
 	char* script_filename = NULL;
+	char* bytecode_output_file = NULL;
+
+	cargo_add_group(
+		cargo, 0,
+		"run", "Run options", ""
+	);
+
+	cargo_add_group(
+		cargo, 0,
+		"compile", "Compile options", ""
+	);
+
 	cargo_add_option(
 		cargo, 0,
 		"--version -v", "Show version information", "b",
@@ -200,18 +212,24 @@ main(int argc, char* argv[])
 	);
 	cargo_add_option(
 		cargo, 0,
-		"--interactive -i", "Enter interactive mode after executing script", "b",
+		"<run> --interactive -i", "Enter interactive mode after executing script", "b",
 		&interactive
 	);
 	cargo_add_option(
 		cargo, 0,
-		"--execute -e", "Execute STRING", "s",
+		"<run> --execute -e", "Execute STRING", "s",
 		&exec_string
 	);
 	cargo_set_metavar(cargo, "--execute", "STRING");
 	cargo_add_option(
+		cargo, 0,
+		"<compile> --compile -c", "Path to compilation output", "s",
+		&bytecode_output_file
+	);
+	cargo_set_metavar(cargo, "<compile> --compile", "FILE");
+	cargo_add_option(
 		cargo, CARGO_OPT_NOT_REQUIRED | CARGO_OPT_STOP,
-		"script", "Script to execute", "s",
+		"script", "Script file to compile/execute", "s",
 		&script_filename
 	);
 	cargo_set_metavar(cargo, "script", "script");
@@ -251,6 +269,44 @@ main(int argc, char* argv[])
 	lip_reset_runtime_config(&cfg);
 	runtime = lip_create_runtime(&cfg);
 	lip_context_t* ctx = lip_create_context(runtime, lip_default_allocator);
+
+	if(bytecode_output_file != NULL)
+	{
+		if(exec_string || interactive)
+		{
+			lip_printf(
+				lip_stderr(),
+				"Cannot compile and run script at the same time.\n"
+			);
+			quit(EXIT_FAILURE);
+		}
+
+		lip_in_t* input = NULL;
+		lip_string_ref_t source_name;
+		if(script_filename == NULL)
+		{
+			input = lip_stdin();
+			source_name = lip_string_ref("<stdin>");
+		}
+		else
+		{
+			source_name = lip_string_ref(script_filename);
+		}
+
+		lip_script_t* script = lip_load_script(ctx, source_name, input);
+		if(!script)
+		{
+			print_error(ctx);
+			quit(EXIT_FAILURE);
+		}
+
+		bool result = lip_dump_script(
+			ctx, script, lip_string_ref(bytecode_output_file), NULL
+		);
+		if(!result) { print_error(ctx); }
+		quit(result ? EXIT_SUCCESS : EXIT_FAILURE);
+	}
+
 	lip_load_builtins(ctx);
 
 	lip_vm_t* vm = lip_create_vm(ctx, NULL);
@@ -308,6 +364,7 @@ main(int argc, char* argv[])
 quit:
 	free(exec_string);
 	free(script_filename);
+	free(bytecode_output_file);
 	if(runtime) { lip_destroy_runtime(runtime); }
 
 	return exit_code;

@@ -615,6 +615,24 @@ lip_lookup_symbol(lip_context_t* ctx, lip_string_ref_t symbol_name, lip_value_t*
 	return ret_val;
 }
 
+static void
+lip_unlink(lip_function_t* function)
+{
+	lip_function_layout_t layout;
+	lip_function_layout(function, &layout);
+
+	for(uint16_t i = 0; i < function->num_imports; ++i)
+	{
+		layout.imports[i].value.type = LIP_VAL_PLACEHOLDER;
+		layout.imports[i].value.data.reference = NULL;
+	}
+
+	for(uint16_t i = 0; i < function->num_functions; ++i)
+	{
+		lip_unlink(lip_function_resource(function, layout.function_offsets[i]));
+	}
+}
+
 static lip_script_t*
 lip_load_bytecode(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 {
@@ -666,6 +684,8 @@ lip_load_bytecode(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input
 
 	memcpy(function, &header, sizeof(header));
 	lip_checked_read((char*)function + sizeof(header), header.size - sizeof(header), input);
+	// TODO: remove after we have proper import resolution
+	lip_unlink(function);
 
 	lip_closure_t* script = lip_new(ctx->allocator, lip_closure_t);
 	if(script == NULL)
