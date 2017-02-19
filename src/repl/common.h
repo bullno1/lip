@@ -13,6 +13,8 @@ struct repl_common_s
 	lip_runtime_t* runtime;
 	lip_context_t* context;
 	char* script_filename;
+	int argc;
+	char** argv;
 };
 
 bool

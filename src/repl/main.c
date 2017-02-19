@@ -11,8 +11,8 @@
 
 #define quit(code) exit_code = code; goto quit;
 
-int
-main(int argc, char* argv[])
+static int
+lip_entry(int argc, char* argv[])
 {
 	int exit_code = EXIT_FAILURE;
 	cargo_t cargo;
@@ -22,12 +22,14 @@ main(int argc, char* argv[])
 	}
 
 	int show_version = false;
-	struct repl_common_s common;
+	struct repl_common_s common = {
+		.argc = argc,
+		.argv = argv
+	};
 	struct repl_run_opts_s run_opts;
 	struct repl_compile_opts_s compile_opts;
 	struct repl_inspect_opts_s inspect_opts;
 
-	memset(&common, 0, sizeof(common));
 	lip_reset_runtime_config(&common.cfg);
 
 	cargo_add_option(
@@ -116,4 +118,27 @@ quit:
 	if(common.runtime) { lip_destroy_runtime(common.runtime); }
 
 	return exit_code;
+}
+
+int
+main(int argc, char* argv[])
+{
+	if(argc == 0) { return lip_entry(argc, argv); }
+
+	mz_zip_archive archive;
+	memset(&archive, 0, sizeof(archive));
+
+	mz_uint32 archive_flags = 0
+		| MZ_ZIP_FLAG_CASE_SENSITIVE
+		| MZ_ZIP_FLAG_COMPRESSED_DATA;
+	if(mz_zip_reader_init_file(&archive, argv[0], archive_flags))
+	{
+		int exit_code = repl_compiled_script_entry(&archive, argc, argv);
+		mz_zip_reader_end(&archive);
+		return exit_code;
+	}
+	else
+	{
+		return lip_entry(argc, argv);
+	}
 }

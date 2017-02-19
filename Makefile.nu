@@ -48,7 +48,7 @@ UBSAN_LINK_FLAGS = $(eval echo \${UBSAN_LINK_FLAGS_$WITH_UBSAN})
 
 WITH_ASAN ?= 0
 ASAN_COMPILE_FLAGS_0 =
-ASAN_COMPILE_FLAGS_1 = -fsanitize=address
+ASAN_COMPILE_FLAGS_1 = -fsanitize=address -DMINIZ_USE_UNALIGNED_LOADS_AND_STORES=0
 ASAN_COMPILE_FLAGS = $(eval echo \${ASAN_COMPILE_FLAGS_$WITH_ASAN})
 ASAN_LINK_FLAGS_0 =
 ASAN_LINK_FLAGS_1 = -fsanitize=address
@@ -113,9 +113,9 @@ bin/lip: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS CLEAR_ENV
 	${CLEAR_ENV}
 	${NUMAKE} exe:$@ \
 		sources="`find src/repl -name '*.cpp' -or -name '*.c'`" \
-		c_flags="${C_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise -Ideps/cargo" \
+		c_flags="${C_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise -Ideps/cargo -Ideps/miniz" \
 		linker="${CC}" \
-		libs="bin/liblinenoise.a bin/libcargo.a ${LIBLIP}"
+		libs="bin/liblinenoise.a bin/libcargo.a bin/libminiz.a ${LIBLIP}"
 
 bin/liblip.so: << CC C_FLAGS CLEAR_ENV LIP_CONFIG_H
 	${CLEAR_ENV}
@@ -159,6 +159,12 @@ bin/libcargo.a: << CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS LTO_FLAGS
 	${NUMAKE} static-lib:$@ \
 		c_flags="${LTO_FLAGS} ${ASAN_COMPILE_FLAGS} ${UBSAN_COMPILE_FLAGS}" \
 		sources="deps/cargo/cargo.c"
+
+bin/libminiz.a: << C_FLAGS CPP_FLAGS CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS  LTO_FLAGS
+	${CLEAR_ENV}
+	${NUMAKE} static-lib:$@ \
+		c_flags="${LTO_FLAGS} ${ASAN_COMPILE_FLAGS} ${UBSAN_COMPILE_FLAGS}" \
+		sources="deps/miniz/miniz.c"
 
 # Only for vm_dispatch.c, remove -pedantic because we will be using a
 # non-standard extension (computed goto) if it is available
