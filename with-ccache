@@ -1,0 +1,5 @@
+#!/bin/sh -e
+
+export CC="ccache ${CC:-cc}"
+export CXX="ccache ${CXX:-c++}"
+exec $*
