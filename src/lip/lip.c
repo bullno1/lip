@@ -313,6 +313,31 @@ lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg)
 	return &ctx->error;
 }
 
+void
+lip_print_error(lip_out_t* out, lip_context_t* ctx)
+{
+	const lip_context_error_t* err = lip_get_error(ctx);
+	lip_printf(
+		out,
+		"Error: %.*s.\n",
+		(int)err->message.length, err->message.ptr
+	);
+	for(unsigned int i = 0; i < err->num_records; ++i)
+	{
+		lip_error_record_t* record = &err->records[i];
+		lip_printf(
+			out,
+			"  %.*s:%u:%u - %u:%u: %.*s.\n",
+			(int)record->filename.length, record->filename.ptr,
+			record->location.start.line,
+			record->location.start.column,
+			record->location.end.line,
+			record->location.end.column,
+			(int)record->message.length, record->message.ptr
+		);
+	}
+}
+
 lip_ns_context_t*
 lip_begin_ns(lip_context_t* ctx, lip_string_ref_t name)
 {

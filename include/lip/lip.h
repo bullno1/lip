@@ -268,6 +268,12 @@ LIP_API const lip_context_error_t*
 lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg);
 
 /**
+ * @brief Print the last error in a nicely formatted output.
+ */
+LIP_API void
+lip_print_error(lip_out_t* out, lip_context_t* ctx);
+
+/**
  * @brief Create a namespace context to start defining symbols.
  *
  * This function can be likened to the `BEGIN` statement in a SQL.
