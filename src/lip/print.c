@@ -171,8 +171,8 @@ lip_print_function(
 		lip_string_t* import_name =
 			lip_function_resource(function, import.name);
 		lip_printf(
-			output, "%*s%.*s: ",
-			indent * 2 + 1, "", (int)import_name->length, import_name->ptr
+			output, "%*s%u: %.*s = ",
+			indent * 2 + 2, "", i, (int)import_name->length, import_name->ptr
 		);
 		lip_print_value(depth - 1, indent + 1, output, import.value);
 	}
