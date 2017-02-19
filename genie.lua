@@ -55,12 +55,14 @@ solution "lip"
 
 		includedirs {
 			"include",
-			"deps/cargo"
+			"deps/cargo",
+			"deps/miniz"
 		}
 
 		links {
 			"lip",
-			"cargo"
+			"cargo",
+			"miniz"
 		}
 
 	project "tests"
@@ -117,4 +119,16 @@ solution "lip"
 		files {
 			"deps/cargo/*.h",
 			"deps/cargo/*.c"
+		}
+
+	project "miniz"
+		kind "StaticLib"
+		language "C"
+
+		flags {
+			"MinimumWarnings"
+		}
+
+		files {
+			"deps/miniz/miniz.c",
 		}
