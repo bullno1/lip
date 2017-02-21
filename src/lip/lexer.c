@@ -2,13 +2,13 @@
 #include <ctype.h>
 #include <lip/array.h>
 #include <lip/io.h>
+#include "arena_allocator.h"
 
 void
 lip_lexer_init(lip_lexer_t* lexer, lip_allocator_t* allocator)
 {
 	lexer->allocator = allocator;
-	lexer->capture_buffs = lip_array_create(allocator, lip_array(char), 0);
-	lexer->capture_buff = NULL;
+	lexer->arena_allocator = lip_arena_allocator_create(allocator, 2048, true);
 	lip_lexer_reset(lexer, NULL);
 }
 
@@ -16,11 +16,7 @@ void
 lip_lexer_cleanup(lip_lexer_t* lexer)
 {
 	lip_lexer_reset(lexer, NULL);
-	lip_array_destroy(lexer->capture_buffs);
-	if(lexer->capture_buff)
-	{
-		lip_array_destroy(lexer->capture_buff);
-	}
+	lip_arena_allocator_destroy(lexer->arena_allocator);
 }
 
 void
@@ -34,15 +30,8 @@ lip_lexer_reset(lip_lexer_t* lexer, lip_in_t* input)
 	lexer->eos = false;
 	lexer->input = input;
 	lip_clear_last_error(&lexer->last_error);
-	lip_array_foreach(lip_array(char), buff, lexer->capture_buffs)
-	{
-		lip_array_destroy(*buff);
-	}
-	lip_array_clear(lexer->capture_buffs);
-	if(lexer->capture_buff)
-	{
-		lip_array_clear(lexer->capture_buff);
-	}
+	lip_arena_allocator_reset(lexer->arena_allocator);
+	lexer->capture_buff = NULL;
 }
 
 static void
@@ -50,7 +39,7 @@ lip_lexer_begin_capture(lip_lexer_t* lexer)
 {
 	if(!lexer->capture_buff)
 	{
-		lexer->capture_buff = lip_array_create(lexer->allocator, char, 0);
+		lexer->capture_buff = lip_array_create(lexer->arena_allocator, char, 64);
 	}
 	lexer->capturing = true;
 }
@@ -72,7 +61,6 @@ lip_lexer_end_capture(lip_lexer_t* lexer)
 	unsigned int len = lip_array_len(lexer->capture_buff);
 	lip_array_push(lexer->capture_buff, 0); // null-terminate
 	lip_string_ref_t ref = { len, lexer->capture_buff };
-	lip_array_push(lexer->capture_buffs, lexer->capture_buff);
 	lexer->capture_buff = NULL;
 	lexer->capturing = false;
 
