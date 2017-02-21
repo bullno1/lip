@@ -1,5 +1,6 @@
 #include <lip/parser.h>
 #include <lip/array.h>
+#include "arena_allocator.h"
 
 static lip_stream_status_t
 lip_parser_peek_token(lip_parser_t* parser, lip_token_t* token)
@@ -40,7 +41,8 @@ lip_parser_parse_list(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp
 {
 	sexp->location.start = token->location.start;
 	sexp->type = LIP_SEXP_LIST;
-	lip_array(lip_sexp_t) list = lip_array_create(parser->allocator, lip_sexp_t, 1);
+	lip_array(lip_sexp_t) list =
+		lip_array_create(parser->arena_allocator, lip_sexp_t, 16);
 	lip_sexp_t element;
 
 	while(true)
@@ -52,7 +54,6 @@ lip_parser_parse_list(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp
 			lip_parser_next_token(parser, &next_token);
 			sexp->location.end = next_token.location.end;
 			sexp->data.list = list;
-			lip_array_push(parser->lists, list);
 			return LIP_STREAM_OK;
 		}
 
@@ -140,9 +141,8 @@ lip_parser_parse(lip_parser_t* parser, lip_token_t* token, lip_sexp_t* sexp)
 					case LIP_STREAM_OK:
 						{
 							lip_array(lip_sexp_t) list = lip_array_create(
-								parser->allocator, lip_sexp_t, 2
+								parser->arena_allocator, lip_sexp_t, 16
 							);
-							lip_array_push(parser->lists, list);
 
 							const char* symbol;
 							switch(token->type)
@@ -211,8 +211,9 @@ void
 lip_parser_init(lip_parser_t* parser, lip_allocator_t* allocator)
 {
 	parser->allocator = allocator;
+	parser->arena_allocator =
+		lip_arena_allocator_create(allocator, sizeof(lip_sexp_t) * 64, true);
 	lip_lexer_init(&parser->lexer, allocator);
-	parser->lists = lip_array_create(allocator, lip_array(lip_sexp_t), 1);
 	lip_parser_reset(parser, NULL);
 }
 
@@ -220,7 +221,7 @@ void
 lip_parser_cleanup(lip_parser_t* parser)
 {
 	lip_parser_reset(parser, NULL);
-	lip_array_destroy(parser->lists);
+	lip_arena_allocator_destroy(parser->arena_allocator);
 	lip_lexer_cleanup(&parser->lexer);
 }
 
@@ -228,11 +229,7 @@ void
 lip_parser_reset(lip_parser_t* parser, lip_in_t* input)
 {
 	lip_clear_last_error(&parser->last_error);
-	lip_array_foreach(lip_array(lip_sexp_t), list, parser->lists)
-	{
-		lip_array_destroy(*list);
-	}
-	lip_array_clear(parser->lists);
+	lip_arena_allocator_reset(parser->arena_allocator);
 	lip_lexer_reset(&parser->lexer, input);
 	parser->buffered = false;
 }

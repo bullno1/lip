@@ -17,12 +17,12 @@ typedef struct lip_parser_s lip_parser_t;
 struct lip_parser_s
 {
 	lip_allocator_t* allocator;
+	lip_allocator_t* arena_allocator;
 	lip_last_error_t last_error;
 	lip_token_t token;
 	lip_stream_status_t lexer_status;
 	lip_lexer_t lexer;
 	bool buffered;
-	lip_array(lip_array(lip_sexp_t)) lists;
 };
 
 LIP_API void
