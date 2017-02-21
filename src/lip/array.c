@@ -34,8 +34,7 @@ lip_array__create(
 	array->capacity = capacity;
 	array->alignment = alignment;
 
-	char* head_end = (char*)array + sizeof(lip_array_t);
-	char* body = lip_align_ptr(head_end, alignment);
+	char* body = lip_align_ptr((char*)array + sizeof(lip_array_t), alignment);
 	char offset = body - (char*)array;
 	*(body - 1) = offset;
 	return body;
@@ -52,15 +51,18 @@ static
 void* lip_array__realloc(void* array, size_t new_capacity)
 {
 	lip_array_t* head = lip_array_head(array);
-	void* new_array = lip_array__create(
-		head->allocator,
-		head->elem_size,
-		head->alignment,
-		new_capacity
-	);
-	memcpy(new_array, array, head->length * head->elem_size);
-	lip_free(head->allocator, head);
-	return new_array;
+	char old_offset = (char*)array - (char*)head;
+
+	size_t mem_required =
+		sizeof(lip_array_t) + head->elem_size * new_capacity + head->alignment - 1;
+	head = lip_realloc(head->allocator, head, mem_required);
+	head->capacity = new_capacity;
+
+	char* new_body = lip_align_ptr((char*)head + sizeof(lip_array_t), head->alignment);
+	memmove(new_body, (char*)head + old_offset, head->elem_size * head->length);
+	*(new_body - 1) = new_body - (char*)head;
+
+	return new_body;
 }
 
 void*
