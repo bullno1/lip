@@ -77,7 +77,8 @@ no_leak(const MunitParameter params[], void* fixture_)
 	fixture_t* fixture = fixture_;
 	lip_allocator_t* allocator = lip_arena_allocator_create(
 		&fixture->base_allocator.vtable,
-		128
+		128,
+		false
 	);
 
 	lip_array(void*) pointers = lip_array_create(
@@ -137,6 +138,35 @@ no_leak(const MunitParameter params[], void* fixture_)
 }
 
 static MunitResult
+reallocate(const MunitParameter params[], void* fixture_)
+{
+	(void)params;
+	fixture_t* fixture = fixture_;
+	lip_allocator_t* allocator = lip_arena_allocator_create(
+		&fixture->base_allocator.vtable,
+		128,
+		true
+	);
+	lip_array(int) array = lip_array_create(allocator, int, 2);
+	for(int i = 0; i < 10000; ++i)
+	{
+		munit_assert_size(i, ==, lip_array_len(array));
+		lip_array_push(array, i);
+	}
+
+	munit_assert_size(10000, ==, lip_array_len(array));
+
+	for(int i = 0; i < 10000; ++i)
+	{
+		munit_assert_int(array[i], ==, i);
+	}
+
+	lip_arena_allocator_destroy(allocator);
+
+	return MUNIT_OK;
+}
+
+static MunitResult
 min_chunk_size(const MunitParameter params[], void* fixture_)
 {
 	(void)params;
@@ -145,7 +175,8 @@ min_chunk_size(const MunitParameter params[], void* fixture_)
 	fixture_t* fixture = fixture_;
 	lip_allocator_t* allocator = lip_arena_allocator_create(
 		&fixture->base_allocator.vtable,
-		4
+		4,
+		false
 	);
 
 	munit_assert_ptr_not_null(lip_malloc(allocator, 2));
@@ -160,6 +191,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/no_leak",
 		.test = no_leak,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/reallocate",
+		.test = reallocate,
 		.setup = setup,
 		.tear_down = teardown
 	},

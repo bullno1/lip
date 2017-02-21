@@ -4,6 +4,7 @@
 typedef struct lip_arena_allocator_s lip_arena_allocator_t;
 typedef struct lip_large_alloc_s lip_large_alloc_t;
 typedef struct lip_arena_chunk_s lip_arena_chunk_t;
+typedef struct lip_realloc_header_s lip_realloc_header_t;
 
 struct lip_arena_allocator_s
 {
@@ -12,8 +13,8 @@ struct lip_arena_allocator_s
 	lip_arena_chunk_t* current_chunks;
 	lip_arena_chunk_t* chunks;
 	lip_large_alloc_t* large_allocs;
-
 	size_t chunk_size;
+	bool relocatable;
 };
 
 struct lip_large_alloc_s
@@ -30,6 +31,15 @@ struct lip_arena_chunk_s
 	char* end;
 	char start[];
 };
+
+struct lip_realloc_header_s
+{
+	size_t size;
+	lip_large_alloc_t* large_alloc;
+};
+
+static const size_t lip_reallocatable_overhead =
+	sizeof(lip_realloc_header_t) + LIP_ALIGN_OF(struct lip_max_align_helper) - (sizeof(lip_realloc_header_t) % LIP_ALIGN_OF(struct lip_max_align_helper));
 
 static void*
 lip_alloc_from_chunk(lip_arena_chunk_t* chunk, size_t size)
@@ -110,22 +120,82 @@ lip_arena_allocator_large_alloc(lip_arena_allocator_t* allocator, size_t size)
 }
 
 static void*
-lip_arena_allocator_realloc(lip_allocator_t* vtable, void* old, size_t size)
+lip_arena_allocator_reallocate(lip_allocator_t* vtable, void* old, size_t size)
 {
-	// This allocator cannot do reallocation
-	if(old) { return NULL; }
-
 	lip_arena_allocator_t* allocator =
 		LIP_CONTAINER_OF(vtable, lip_arena_allocator_t, vtable);
 
-	if(size > allocator->chunk_size)
+	if(!allocator->relocatable) { return NULL; }
+
+	size_t realloc_size = size + lip_reallocatable_overhead;
+
+	lip_realloc_header_t* header = (void*)((char*)old - lip_reallocatable_overhead);
+	if(header->large_alloc)
 	{
-		return lip_arena_allocator_large_alloc(allocator, size);
+		header = lip_realloc(
+			allocator->backing_allocator, header, realloc_size
+		);
+		if(!header) { return NULL; }
+		header->size = size;
+		header->large_alloc->ptr = header;
+		return (char*)header + lip_reallocatable_overhead;
 	}
 	else
 	{
-		return lip_arena_allocator_small_alloc(allocator, size);
+		lip_realloc_header_t* new_header =
+			lip_arena_allocator_large_alloc(allocator, realloc_size);
+		if(!new_header) { return NULL; }
+		*new_header = (lip_realloc_header_t) {
+			.size = size,
+			.large_alloc = allocator->large_allocs
+		};
+		void* new_mem = (char*)new_header + lip_reallocatable_overhead;
+		memcpy(new_mem, old, header->size);
+		return new_mem;
 	}
+}
+
+static void*
+lip_arena_allocator_allocate(lip_allocator_t* vtable, size_t size)
+{
+	lip_arena_allocator_t* allocator =
+		LIP_CONTAINER_OF(vtable, lip_arena_allocator_t, vtable);
+
+	size_t alloc_size = size;
+	if(allocator->relocatable) { alloc_size += lip_reallocatable_overhead; }
+
+	void * mem;
+	bool is_large_alloc = alloc_size > allocator->chunk_size;
+	if(is_large_alloc)
+	{
+		mem = lip_arena_allocator_large_alloc(allocator, alloc_size);
+	}
+	else
+	{
+		mem = lip_arena_allocator_small_alloc(allocator, alloc_size);
+	}
+
+	if(allocator->relocatable)
+	{
+		lip_realloc_header_t* header = mem;
+		*header = (lip_realloc_header_t){
+			.size = size,
+			.large_alloc = is_large_alloc ? allocator->large_allocs : NULL,
+		};
+		return (char*)header + lip_reallocatable_overhead;
+	}
+	else
+	{
+		return mem;
+	}
+}
+
+static void*
+lip_arena_allocator_realloc(lip_allocator_t* vtable, void* old, size_t size)
+{
+	return old
+		? lip_arena_allocator_reallocate(vtable, old, size)
+		: lip_arena_allocator_allocate(vtable, size);
 }
 
 static void
@@ -136,10 +206,13 @@ lip_arena_allocator_free(lip_allocator_t* vtable, void* ptr)
 }
 
 lip_allocator_t*
-lip_arena_allocator_create(lip_allocator_t* allocator, size_t chunk_size)
+lip_arena_allocator_create(
+	lip_allocator_t* allocator, size_t chunk_size, bool relocatable
+)
 {
 	lip_arena_allocator_t* arena_allocator = lip_new(allocator, lip_arena_allocator_t);
 	*arena_allocator = (lip_arena_allocator_t){
+		.relocatable = relocatable,
 		.backing_allocator = allocator,
 		.current_chunks = NULL,
 		.chunks = NULL,

@@ -4,7 +4,9 @@
 #include <lip/common.h>
 
 lip_allocator_t*
-lip_arena_allocator_create(lip_allocator_t* allocator, size_t chunk_size);
+lip_arena_allocator_create(
+	lip_allocator_t* allocator, size_t chunk_size, bool relocatable
+);
 
 void
 lip_arena_allocator_destroy(lip_allocator_t* arena_allocator);

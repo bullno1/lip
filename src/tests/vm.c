@@ -143,7 +143,7 @@ fibonacci(const MunitParameter params[], void* fixture)
 	lip_print_closure(10, 0, lip_stderr(), closure);
 
 	lip_allocator_t* arena_allocator =
-		lip_arena_allocator_create(lip_default_allocator, 2048);
+		lip_arena_allocator_create(lip_default_allocator, 2048, false);
 	lip_vm_config_t vm_config = {
 		.os_len = 256,
 		.cs_len = 256,
@@ -196,7 +196,7 @@ call_native(const MunitParameter params[], void* fixture)
 	(void)fixture;
 
 	lip_allocator_t* arena_allocator =
-		lip_arena_allocator_create(lip_default_allocator, 2048);
+		lip_arena_allocator_create(lip_default_allocator, 2048, false);
 
 	lip_vm_config_t vm_config = {
 		.os_len = 256,
@@ -253,7 +253,7 @@ error(const MunitParameter params[], void* fixture)
 		.cs_len = 256,
 		.env_len = 256
 	};
-	lip_allocator_t* arena_allocator = lip_arena_allocator_create(lip_default_allocator, 2048);
+	lip_allocator_t* arena_allocator = lip_arena_allocator_create(lip_default_allocator, 2048, false);
 	struct dummy_runtime_interface_s rt = {
 		.allocator = arena_allocator,
 		.vtable = { .malloc = rt_malloc }
