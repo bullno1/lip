@@ -524,7 +524,7 @@ void
 lip_compiler_init(lip_compiler_t* compiler, lip_allocator_t* allocator)
 {
 	compiler->allocator = allocator;
-	compiler->arena_allocator = lip_arena_allocator_create(allocator, 1024);
+	compiler->arena_allocator = lip_arena_allocator_create(allocator, 1024, false);
 	compiler->source_name = lip_string_ref("");
 	compiler->current_scope = NULL;
 	compiler->free_scopes = NULL;

@@ -170,7 +170,7 @@ lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator)
 	*ctx = (lip_context_t) {
 		.allocator = allocator,
 		.runtime = runtime,
-		.arena_allocator = lip_arena_allocator_create(allocator, 2048),
+		.arena_allocator = lip_arena_allocator_create(allocator, 2048, true),
 		.error_records = lip_array_create(allocator, lip_error_record_t, 1),
 		.scripts = kh_init(lip_ptr_set, allocator),
 		.vms = kh_init(lip_ptr_set, allocator),
@@ -343,7 +343,7 @@ lip_begin_ns(lip_context_t* ctx, lip_string_ref_t name)
 {
 	lip_ns_context_t* ns_context = lip_new(ctx->allocator, lip_ns_context_t);
 	*ns_context = (lip_ns_context_t){
-		.allocator = lip_arena_allocator_create(ctx->allocator, 20480),
+		.allocator = lip_arena_allocator_create(ctx->allocator, 2048, true),
 		.content = kh_init(lip_ns, ctx->allocator),
 		.name = name
 	};
@@ -499,7 +499,7 @@ lip_create_vm(lip_context_t* ctx, const lip_vm_config_t* config)
 	void* vm_mem = lip_locate_memblock(mem, &vm_mem_block);
 	lip_runtime_link_t* rt = lip_locate_memblock(mem, &rt_link_block);
 	*rt = (lip_runtime_link_t) {
-		.allocator = lip_arena_allocator_create(ctx->allocator, 1024),
+		.allocator = lip_arena_allocator_create(ctx->allocator, 2048, true),
 		.ctx = ctx,
 		.vtable = {
 			.resolve_import = lip_rt_resolve_import,
