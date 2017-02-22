@@ -43,13 +43,11 @@ LIP_API lip_allocator_t* const lip_default_allocator;
 
 struct lip_max_align_helper
 {
-	char a;
-	short b;
-	int c;
 	long long d;
 	void* e;
 	float f;
 	double g;
+	void(*h)();
 };
 
 static const size_t LIP_MAX_ALIGNMENT = LIP_ALIGN_OF(struct lip_max_align_helper);
