@@ -1124,7 +1124,7 @@ lip_repl(
 }
 
 static void*
-lip_retrieve_userdata(khash_t(lip_userdata)* table, void* key)
+lip_retrieve_userdata(khash_t(lip_userdata)* table, const void* key)
 {
 	if(table == NULL) { return NULL; }
 
@@ -1136,7 +1136,7 @@ static void*
 lip_store_userdata(
 	khash_t(lip_userdata)** tablep,
 	lip_allocator_t* allocator,
-	void* key,
+	const void* key,
 	void* value
 )
 {
@@ -1154,7 +1154,7 @@ lip_store_userdata(
 }
 
 void*
-lip_get_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key)
+lip_get_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, const void* key)
 {
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
 	switch(scope)
@@ -1174,7 +1174,9 @@ lip_get_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key)
 }
 
 void*
-lip_set_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key, void* value)
+lip_set_userdata(
+	lip_vm_t* vm, lip_userdata_scope_t scope, const void* key, void* value
+)
 {
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
 	switch(scope)

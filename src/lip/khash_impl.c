@@ -51,7 +51,7 @@ __KHASH_IMPL(
 __KHASH_IMPL(
 	lip_userdata,
 	,
-	void*,
+	const void*,
 	void*,
 	1,
 	lip_value_hash,

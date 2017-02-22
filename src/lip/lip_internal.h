@@ -15,7 +15,7 @@ typedef struct lip_symbol_s lip_symbol_t;
 KHASH_DECLARE(lip_ns, lip_string_ref_t, lip_symbol_t)
 KHASH_DECLARE(lip_symtab, lip_string_ref_t, khash_t(lip_ns)*)
 KHASH_DECLARE(lip_ptr_set, void*, char)
-KHASH_DECLARE(lip_userdata, void*, void*)
+KHASH_DECLARE(lip_userdata, const void*, void*)
 
 struct lip_symbol_s
 {

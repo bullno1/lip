@@ -440,7 +440,7 @@ lip_repl(
  * @return The value previously stored with ::lip_set_userdata using the same `key` and `scope` or `NULL`.
  */
 LIP_API void*
-lip_get_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key);
+lip_get_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, const void* key);
 
 /**
  * @brief Set userdata.
@@ -453,7 +453,9 @@ lip_get_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key);
  * @return The value previously stored with ::lip_set_userdata using the same `key` and `scope` or `NULL`.
  */
 LIP_API void*
-lip_set_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, void* key, void* value);
+lip_set_userdata(
+	lip_vm_t* vm, lip_userdata_scope_t scope, const void* key, void* value
+);
 
 /// Load builtin functions.
 LIP_API void
