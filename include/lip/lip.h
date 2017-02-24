@@ -99,6 +99,7 @@ struct lip_runtime_config_s
 	 * @see allocator
 	 */
 	lip_allocator_t* allocator;
+
 	/**
 	 * @brief A filesystem interface.
 	 *
@@ -274,13 +275,19 @@ lip_destroy_context(lip_context_t* ctx);
 LIP_API lip_panic_fn_t
 lip_set_panic_handler(lip_context_t* ctx, lip_panic_fn_t panic_handler);
 
-/// Get the last error in this context.
+/**
+ * @brief Get the last error in this context.
+ *
+ * @see lip_print_error
+ */
 LIP_API const lip_context_error_t*
 lip_get_error(lip_context_t* ctx);
 
 /**
  * @brief Expand the last execution error in a vm to a full trace.
+ *
  * @see lip_call
+ * @see lip_print_error
  */
 LIP_API const lip_context_error_t*
 lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg);
