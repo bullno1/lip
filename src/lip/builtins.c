@@ -1,3 +1,4 @@
+#include "lip_internal.h"
 #include <lip/lip.h>
 #include <lip/vm.h>
 #include <lip/print.h>
@@ -88,6 +89,26 @@ static lip_function(is_fn)
 {
 	lip_bind_args((any, x));
 	lip_return(lip_make_boolean(vm, x.type == LIP_VAL_FUNCTION));
+}
+
+static lip_function(declare)
+{
+	lip_bind_args((symbol, name), (function, fn));
+
+	khash_t(lip_ns)* ns = lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &lip_module_ctx_key);
+	lip_bind_assert(ns != NULL, "Cannot use `declare` out of module context");
+
+	lip_closure_t* closure = fn.data.reference;
+	lip_bind_assert(closure->env_len == 0, "Cannot `declare` function with captured var");
+
+	lip_string_t* name_str = lip_as_string(name);
+	lip_string_ref_t name_ref = { .length = name_str->length, .ptr = name_str->ptr };
+	int ret;
+	khiter_t itr = kh_put(lip_ns, ns, name_ref, &ret);
+	lip_bind_assert_fmt(ret != 0, "Redeclared '%.*s", (int)name_str->length, name_str->ptr);
+	kh_val(ns, itr).value = fn.data.reference;
+
+	lip_return(lip_make_nil(vm));
 }
 
 // List functions
@@ -388,6 +409,7 @@ lip_load_builtins(lip_context_t* ctx)
 	lip_declare_function(ns, lip_string_ref("print"), print);
 	lip_declare_function(ns, lip_string_ref("throw"), throw);
 	lip_declare_function(ns, lip_string_ref("list"), list);
+	lip_declare_function(ns, lip_string_ref("declare"), declare);
 
 	lip_declare_function(ns, lip_string_ref("nil?"), is_nil);
 	lip_declare_function(ns, lip_string_ref("bool?"), is_bool);

@@ -107,6 +107,21 @@ struct lip_runtime_config_s
 	 * @see lip_create_native_fs
 	 */
 	lip_fs_t* fs;
+
+	/**
+	 * @brief Number of module search patterns.
+	 *
+	 * @see lip_runtime_config_s::module_search_patterns;
+	 */
+	unsigned int num_module_search_patterns;
+
+	/**
+	 * @brief Array of module search patterns.
+	 *
+	 * @see ::lip_load_module
+	 */
+	const lip_string_ref_t* module_search_patterns;
+
 	/// Default configuration for virtual machines in this runtime.
 	lip_vm_config_t default_vm_config;
 };
@@ -195,6 +210,9 @@ struct lip_context_error_s
  *   - lip_vm_config_t::os_len: 256
  *   - lip_vm_config_t::cs_len: 256
  *   - lip_vm_config_t::env_len: 256
+ * - Initialize lip_runtime_config_s::module_search_patterns with the following:
+ *   `?.lip`, `?.lipc`, `?/index.lip`, `?/index.lipc`, `!.lip`, `!.lipc`,
+ *   '!/index.lip`, `!/index.lipc`
  */
 LIP_API void
 lip_reset_runtime_config(lip_runtime_config_t* cfg);
@@ -417,6 +435,43 @@ lip_unload_script(lip_context_t* ctx, lip_script_t* script);
  */
 LIP_API lip_exec_status_t
 lip_exec_script(lip_vm_t* vm, lip_script_t* script, lip_value_t* result);
+
+/**
+ * @brief Load a module and all its dependencies.
+ *
+ * When lip needs to load a module, it consults the array of module search
+ * paterns (lip_runtime_config_s::module_search_patterns). Each element is a
+ * string which will be expanded into a path.
+ *
+ * A module search pattern is a regular path with one of these special
+ * characters:
+ *
+ * - `?` will be expanded in a manner similar to a "Java classpath".
+ *   For example: while trying to load module `foo.bar` the pattern `deps/?/index.lip`
+ *   will expand to `deps/foo/bar/index.lip`. That is, each `.` character
+ *   in the module name will be replaced with a path separator character.
+ * - `!` will expand to the module name itself. For example: while searching for
+ *   `foo.bar` the pattern `bin/!.lipc` will expand to `bin/foo.bar.lipc`.
+ *
+ * The first file that exists will be executed. It must contains a series of
+ * `declare` calls at the top level. Before the file is executed, lip will
+ * ensure that all modules that it references (and transitively, all modules
+ * that the dependencies reference) will be successfully loaded. After execution,
+ * all external references will be resolved and any undefined external reference
+ * will reult in an error.
+ *
+ * If any error occurs during module loading, the process will be aborted and no
+ * change will be made to the runtime system.
+ *
+ * @param ctx The context to initiate module loading.
+ * @param name Name of the module.
+ * @return Whether the module was successfully loaded.
+ *
+ * @remarks ::lip_get_error can be used to retrieve the error if this function
+ * returns `false`.
+ */
+LIP_API bool
+lip_load_module(lip_context_t* ctx, lip_string_ref_t name);
 
 /**
  * @brief Start a Read-Eval-Print loop.

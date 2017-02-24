@@ -1,14 +1,11 @@
 #ifndef LIP_COMPILER_H
 #define LIP_COMPILER_H
 
-#include "common.h"
+#include "extra.h"
 #include "ast.h"
-#include "vendor/khash.h"
 
 typedef struct lip_compiler_s lip_compiler_t;
 typedef struct lip_scope_s lip_scope_t;
-
-KHASH_DECLARE(lip_string_ref_set, lip_string_ref_t, char)
 
 struct lip_compiler_s
 {

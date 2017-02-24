@@ -7,6 +7,7 @@
 #include <lip/io.h>
 #include <lip/vm.h>
 #include <lip/print.h>
+#include "utils.h"
 
 #define lip_assert(ctx, cond) \
 	do { \
@@ -19,8 +20,21 @@
 	} while(0)
 #define lip_stringify(x) lip_stringify2(x)
 #define lip_stringify2(x) #x
+#define LIP_STRING_REF_LITERAL(str) \
+	{ .length = LIP_STATIC_ARRAY_LEN(str), .ptr = str}
 
 static const char LIP_BINARY_MAGIC[] = {'L', 'I', 'P', 0};
+static lip_string_ref_t LIP_DEFAULT_MODULE_SEARCH_PATTERNS[] = {
+	LIP_STRING_REF_LITERAL("?.lip"),
+	LIP_STRING_REF_LITERAL("?.lipc"),
+	LIP_STRING_REF_LITERAL("!.lip"),
+	LIP_STRING_REF_LITERAL("!.lipc"),
+	LIP_STRING_REF_LITERAL("?/init.lip"),
+	LIP_STRING_REF_LITERAL("?/init.lipc"),
+	LIP_STRING_REF_LITERAL("!/init.lip"),
+	LIP_STRING_REF_LITERAL("!/init.lipc")
+};
+const char lip_module_ctx_key = 0;
 
 typedef struct lip_repl_stream_s lip_repl_stream_t;
 
@@ -47,7 +61,9 @@ lip_reset_runtime_config(lip_runtime_config_t* cfg)
 			.os_len = 256,
 			.cs_len = 256,
 			.env_len = 256
-		}
+		},
+		.module_search_patterns = LIP_DEFAULT_MODULE_SEARCH_PATTERNS,
+		.num_module_search_patterns = LIP_STATIC_ARRAY_LEN(LIP_DEFAULT_MODULE_SEARCH_PATTERNS)
 	};
 }
 
@@ -102,12 +118,15 @@ lip_do_destroy_context(lip_context_t* ctx)
 	}
 
 	lip_array_destroy(ctx->string_buff);
+	kh_destroy(lip_symtab, ctx->loading_symtab);
+	kh_destroy(lip_string_ref_set, ctx->loading_modules);
 	kh_destroy(lip_ptr_set, ctx->vms);
 	kh_destroy(lip_ptr_set, ctx->scripts);
 	lip_compiler_cleanup(&ctx->compiler);
 	lip_parser_cleanup(&ctx->parser);
 	lip_array_destroy(ctx->error_records);
-	lip_arena_allocator_destroy(ctx->arena_allocator);
+	lip_arena_allocator_destroy(ctx->temp_pool);
+	lip_arena_allocator_destroy(ctx->module_pool);
 	if(ctx->userdata) { kh_destroy(lip_userdata, ctx->userdata); }
 	lip_free(ctx->allocator, ctx);
 }
@@ -118,7 +137,12 @@ lip_purge_ns(lip_runtime_t* runtime, khash_t(lip_ns)* ns)
 	kh_foreach(i, ns)
 	{
 		lip_free(runtime->cfg.allocator, (void*)kh_key(ns, i).ptr);
-		lip_free(runtime->cfg.allocator, kh_val(ns, i).value);
+		lip_closure_t* closure = kh_val(ns, i).value;
+		if(!closure->is_native)
+		{
+			lip_free(runtime->cfg.allocator, closure->function.lip);
+		}
+		lip_free(runtime->cfg.allocator, closure);
 	}
 	kh_clear(lip_ns, ns);
 }
@@ -154,6 +178,138 @@ lip_panic(lip_context_t* ctx, const char* msg)
 }
 
 static void
+lip_ctx_begin_rt_read(lip_context_t* ctx)
+{
+	if(ctx->rt_write_lock_depth > 0)
+	{
+		++ctx->rt_write_lock_depth;
+	}
+	else if(++ctx->rt_read_lock_depth == 1)
+	{
+		lip_assert(ctx, lip_rwlock_begin_read(&ctx->runtime->rt_lock));
+	}
+}
+
+static void
+lip_ctx_end_rt_read(lip_context_t* ctx)
+{
+	if(ctx->rt_write_lock_depth > 0)
+	{
+		--ctx->rt_write_lock_depth;
+	}
+	else if(--ctx->rt_read_lock_depth == 0)
+	{
+		lip_rwlock_end_read(&ctx->runtime->rt_lock);
+	}
+}
+
+static void
+lip_ctx_begin_rt_write(lip_context_t* ctx)
+{
+	lip_assert(ctx, ctx->rt_read_lock_depth == 0);
+	if(++ctx->rt_write_lock_depth == 1)
+	{
+		lip_assert(ctx, lip_rwlock_begin_write(&ctx->runtime->rt_lock));
+	}
+}
+
+static void
+lip_ctx_end_rt_write(lip_context_t* ctx)
+{
+	lip_assert(ctx, ctx->rt_read_lock_depth == 0);
+	if(--ctx->rt_write_lock_depth == 0)
+	{
+		lip_rwlock_end_write(&ctx->runtime->rt_lock);
+	}
+}
+
+static void
+lip_ctx_begin_load(lip_context_t* ctx)
+{
+	lip_ctx_begin_rt_write(ctx);
+	if(++ctx->region_depth == 1)
+	{
+		lip_arena_allocator_reset(ctx->module_pool);
+		kh_clear(lip_symtab, ctx->loading_symtab);
+		kh_clear(lip_string_ref_set, ctx->loading_modules);
+	}
+}
+
+static lip_closure_t*
+lip_copy_closure(lip_allocator_t* allocator, lip_closure_t* closure)
+{
+	size_t closure_size =
+		sizeof(lip_closure_t) +
+		sizeof(lip_value_t) * closure->env_len;
+	lip_closure_t* closure_copy = lip_malloc(allocator, closure_size);
+	memcpy(closure_copy, closure, closure_size);
+
+	if(!closure->is_native)
+	{
+		lip_function_t* function = closure->function.lip;
+		lip_function_t* function_copy = lip_malloc(allocator, function->size);
+		memcpy(function_copy, function, function->size);
+		closure_copy->function.lip = function_copy;
+	}
+
+	return closure_copy;
+}
+
+static void
+lip_commit_ns_locked(lip_context_t* ctx, lip_string_ref_t name, khash_t(lip_ns)* ns)
+{
+	lip_runtime_t* runtime = ctx->runtime;
+	khash_t(lip_symtab)* symtab = runtime->symtab;
+	khiter_t itr = kh_get(lip_symtab, symtab, name);
+
+	khash_t(lip_ns)* target_ns;
+	if(itr != kh_end(symtab))
+	{
+		target_ns = kh_val(symtab, itr);
+		lip_purge_ns(runtime, target_ns);
+	}
+	else
+	{
+		lip_string_ref_t ns_name = lip_copy_string_ref(runtime->cfg.allocator, name);
+		target_ns = kh_init(lip_ns, runtime->cfg.allocator);
+
+		int ret;
+		khiter_t itr = kh_put(lip_symtab, symtab, ns_name, &ret);
+		kh_val(symtab, itr) = target_ns;
+	}
+
+	kh_foreach(i, ns)
+	{
+		lip_string_ref_t key = kh_key(ns, i);
+		lip_symbol_t value = kh_val(ns, i);
+
+		lip_string_ref_t symbol_name = lip_copy_string_ref(runtime->cfg.allocator, key);
+		value.value = lip_copy_closure(runtime->cfg.allocator, value.value);
+
+		int ret;
+		khiter_t itr = kh_put(lip_ns, target_ns, symbol_name, &ret);
+		kh_val(target_ns, itr) = value;
+	}
+}
+
+static void
+lip_ctx_end_load(lip_context_t* ctx)
+{
+	lip_assert(ctx, ctx->region_depth > 0);
+	if(--ctx->region_depth == 0)
+	{
+		kh_foreach(itr, ctx->loading_symtab)
+		{
+			lip_string_ref_t name = kh_key(ctx->loading_symtab, itr);
+			khash_t(lip_ns)* ns = kh_val(ctx->loading_symtab, itr);
+			lip_commit_ns_locked(ctx, name, ns);
+		}
+	}
+
+	lip_ctx_end_rt_write(ctx);
+}
+
+static void
 lip_default_panic_handler(lip_context_t* ctx, const char* msg)
 {
 	(void)ctx;
@@ -170,10 +326,13 @@ lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator)
 	*ctx = (lip_context_t) {
 		.allocator = allocator,
 		.runtime = runtime,
-		.arena_allocator = lip_arena_allocator_create(allocator, 2048, true),
+		.temp_pool = lip_arena_allocator_create(allocator, 2048, false),
+		.module_pool = lip_arena_allocator_create(allocator, 2048, true),
 		.error_records = lip_array_create(allocator, lip_error_record_t, 1),
 		.scripts = kh_init(lip_ptr_set, allocator),
 		.vms = kh_init(lip_ptr_set, allocator),
+		.loading_symtab = kh_init(lip_symtab, allocator),
+		.loading_modules = kh_init(lip_string_ref_set, allocator),
 		.string_buff = lip_array_create(allocator, char, 512),
 		.panic_handler = lip_default_panic_handler
 	};
@@ -325,16 +484,30 @@ lip_print_error(lip_out_t* out, lip_context_t* ctx)
 	for(unsigned int i = 0; i < err->num_records; ++i)
 	{
 		lip_error_record_t* record = &err->records[i];
-		lip_printf(
-			out,
-			"  %.*s:%u:%u - %u:%u: %.*s.\n",
-			(int)record->filename.length, record->filename.ptr,
-			record->location.start.line,
-			record->location.start.column,
-			record->location.end.line,
-			record->location.end.column,
-			(int)record->message.length, record->message.ptr
-		);
+		if(memcmp(
+			&record->location, &LIP_LOC_NOWHERE, sizeof(LIP_LOC_NOWHERE)
+		))
+		{
+			lip_printf(
+				out,
+				"  %.*s:%u:%u - %u:%u: %.*s.\n",
+				(int)record->filename.length, record->filename.ptr,
+				record->location.start.line,
+				record->location.start.column,
+				record->location.end.line,
+				record->location.end.column,
+				(int)record->message.length, record->message.ptr
+			);
+		}
+		else
+		{
+			lip_printf(
+				out,
+				"  %.*s: %.*s.\n",
+				(int)record->filename.length, record->filename.ptr,
+				(int)record->message.length, record->message.ptr
+			);
+		}
 	}
 }
 
@@ -350,59 +523,12 @@ lip_begin_ns(lip_context_t* ctx, lip_string_ref_t name)
 	return ns_context;
 }
 
-static void
-lip_commit_ns_locked(lip_context_t* ctx, lip_ns_context_t* ns_ctx)
-{
-	lip_runtime_t* runtime = ctx->runtime;
-	khash_t(lip_symtab)* symtab = runtime->symtab;
-	khiter_t itr = kh_get(lip_symtab, symtab, ns_ctx->name);
-
-	khash_t(lip_ns)* ns;
-	if(itr != kh_end(symtab))
-	{
-		ns = kh_val(symtab, itr);
-		lip_purge_ns(runtime, ns);
-	}
-	else
-	{
-		void* str_buff = lip_malloc(runtime->cfg.allocator, ns_ctx->name.length);
-		memcpy(str_buff, ns_ctx->name.ptr, ns_ctx->name.length);
-		lip_string_ref_t ns_name = {.ptr = str_buff, .length = ns_ctx->name.length};
-		ns = kh_init(lip_ns, runtime->cfg.allocator);
-
-		int ret;
-		khiter_t itr = kh_put(lip_symtab, symtab, ns_name, &ret);
-		kh_val(symtab, itr) = ns;
-	}
-
-	kh_foreach(i, ns_ctx->content)
-	{
-		lip_string_ref_t symbol_name = kh_key(ns_ctx->content, i);
-		lip_symbol_t symbol_value = kh_val(ns_ctx->content, i);
-
-		void* str_buff = lip_malloc(runtime->cfg.allocator, symbol_name.length);
-		memcpy(str_buff, symbol_name.ptr, symbol_name.length);
-		symbol_name.ptr = str_buff;
-
-		size_t closure_size =
-			sizeof(lip_closure_t) +
-			sizeof(lip_value_t) * symbol_value.value->env_len;
-		lip_closure_t* closure = lip_malloc(runtime->cfg.allocator, closure_size);
-		memcpy(closure, symbol_value.value, closure_size);
-		symbol_value.value = closure;
-
-		int ret;
-		khiter_t itr = kh_put(lip_ns, ns, symbol_name, &ret);
-		kh_val(ns, itr) = symbol_value;
-	}
-}
-
 void
 lip_end_ns(lip_context_t* ctx, lip_ns_context_t* ns)
 {
-	lip_assert(ctx, lip_rwlock_begin_write(&ctx->runtime->rt_lock));
-	lip_commit_ns_locked(ctx, ns);
-	lip_rwlock_end_write(&ctx->runtime->rt_lock);
+	lip_ctx_begin_load(ctx);
+	lip_commit_ns_locked(ctx, ns->name, ns->content);
+	lip_ctx_end_load(ctx);
 
 	lip_discard_ns(ctx, ns);
 }
@@ -604,58 +730,115 @@ lip_lookup_symbol_locked(
 	return true;
 }
 
-bool
-lip_lookup_symbol(lip_context_t* ctx, lip_string_ref_t symbol_name, lip_value_t* result)
+static void
+lip_split_fqn(
+	lip_string_ref_t fqn,
+	lip_string_ref_t* module_name,
+	lip_string_ref_t* symbol_name
+)
 {
-	lip_string_ref_t namespace;
-	lip_string_ref_t symbol;
-
-	if(symbol_name.length == 1 && symbol_name.ptr[0] == '/')
+	if(fqn.length == 1 && fqn.ptr[0] == '/')
 	{
-		namespace = lip_string_ref("");
-		symbol = symbol_name;
+		*module_name = lip_string_ref("");
+		*symbol_name = fqn;
 	}
 	else
 	{
-		char* pos = memchr(symbol_name.ptr, '/', symbol_name.length);
+		char* pos = memchr(fqn.ptr, '/', fqn.length);
 
 		if(pos)
 		{
-			namespace.ptr = symbol_name.ptr;
-			namespace.length = pos - symbol_name.ptr;
-			symbol.ptr = pos + 1;
-			symbol.length = symbol_name.length - namespace.length - 1;
+			module_name->ptr = fqn.ptr;
+			module_name->length = pos - fqn.ptr;
+			symbol_name->ptr = pos + 1;
+			symbol_name->length = fqn.length - module_name->length - 1;
 		}
 		else
 		{
-			namespace = lip_string_ref("");
-			symbol = symbol_name;
+			*module_name = lip_string_ref("");
+			*symbol_name = fqn;
 		}
 	}
+}
 
-	lip_assert(ctx, lip_rwlock_begin_read(&ctx->runtime->rt_lock));
-	bool ret_val = lip_lookup_symbol_locked(ctx, namespace, symbol, result);
-	lip_rwlock_end_read(&ctx->runtime->rt_lock);
+bool
+lip_lookup_symbol(lip_context_t* ctx, lip_string_ref_t symbol_name, lip_value_t* result)
+{
+	lip_string_ref_t module, symbol;
+
+	lip_split_fqn(symbol_name, &module, &symbol);
+
+	lip_ctx_begin_rt_read(ctx);
+	bool ret_val = lip_lookup_symbol_locked(ctx, module, symbol, result);
+	lip_ctx_end_rt_read(ctx);
 
 	return ret_val;
 }
 
-static void
-lip_unlink(lip_function_t* function)
+static bool
+lip_link_function(lip_context_t* ctx, lip_function_t* fn)
 {
 	lip_function_layout_t layout;
-	lip_function_layout(function, &layout);
+	lip_function_layout(fn, &layout);
 
-	for(uint16_t i = 0; i < function->num_imports; ++i)
+	for(uint16_t i = 0; i < fn->num_imports; ++i)
 	{
-		layout.imports[i].value.type = LIP_VAL_PLACEHOLDER;
-		layout.imports[i].value.data.reference = NULL;
+		lip_string_t* name = lip_function_resource(fn, layout.imports[i].name);
+		lip_string_ref_t module_name, function_name;
+		lip_string_ref_t symbol_name_ref = { .length = name->length, .ptr = name->ptr };
+		lip_split_fqn(symbol_name_ref, &module_name, &function_name);
+
+		// builtin or local symbols will be checked later
+		if(module_name.length == 0) { continue; }
+
+		khiter_t itr = kh_get(lip_symtab, ctx->loading_symtab, module_name);
+		if(itr != kh_end(ctx->loading_symtab))
+		{
+			khash_t(lip_ns)* ns = kh_val(ctx->loading_symtab, itr);
+			if(kh_get(lip_ns, ns, function_name) != kh_end(ns))
+			{
+				continue;
+			}
+			else
+			{
+				return false;
+			}
+		}
+
+		itr = kh_get(lip_symtab, ctx->runtime->symtab, module_name);
+		if(itr != kh_end(ctx->runtime->symtab))
+		{
+			khash_t(lip_ns)* ns = kh_val(ctx->runtime->symtab, itr);
+			if(kh_get(lip_ns, ns, function_name) != kh_end(ns))
+			{
+				continue;
+			}
+			else
+			{
+				return false;
+			}
+		}
+
+		if(!lip_load_module(ctx, module_name)) { return false; }
+
+		itr = kh_get(lip_symtab, ctx->loading_symtab, module_name);
+		lip_assert(ctx, itr != kh_end(ctx->loading_symtab));
+		khash_t(lip_ns)* ns = kh_val(ctx->loading_symtab, itr);
+		if(kh_get(lip_ns, ns, function_name) == kh_end(ns))
+		{
+			return false;
+		}
 	}
 
-	for(uint16_t i = 0; i < function->num_functions; ++i)
+	for(uint16_t i = 0; i < fn->num_functions; ++i)
 	{
-		lip_unlink(lip_function_resource(function, layout.function_offsets[i]));
+		bool link_status = lip_link_function(
+			ctx, lip_function_resource(fn, layout.function_offsets[i])
+		);
+		if(!link_status) { return false; }
 	}
+
+	return true;
 }
 
 static lip_script_t*
@@ -709,8 +892,11 @@ lip_load_bytecode(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input
 
 	memcpy(function, &header, sizeof(header));
 	lip_checked_read((char*)function + sizeof(header), header.size - sizeof(header), input);
-	// TODO: remove after we have proper import resolution
-	lip_unlink(function);
+	if(!lip_link_function(ctx, function))
+	{
+		lip_free(ctx->allocator, function);
+		return NULL;
+	}
 
 	lip_closure_t* script = lip_new(ctx->allocator, lip_closure_t);
 	if(script == NULL)
@@ -737,12 +923,12 @@ lip_load_bytecode(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input
 static lip_script_t*
 lip_load_source(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 {
-	lip_arena_allocator_reset(ctx->arena_allocator);
+	lip_arena_allocator_reset(ctx->temp_pool);
 	lip_parser_reset(&ctx->parser, input);
 	lip_compiler_begin(&ctx->compiler, filename);
 
 	lip_pp_t pp = {
-		.allocator = ctx->arena_allocator
+		.allocator = ctx->temp_pool
 	};
 
 	for(;;)
@@ -766,7 +952,7 @@ lip_load_source(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 					}
 
 					lip_ast_result_t ast_result = lip_translate_sexp(
-						ctx->arena_allocator, pp_result.value.result
+						ctx->temp_pool, pp_result.value.result
 					);
 					if(!ast_result.success)
 					{
@@ -786,6 +972,12 @@ lip_load_source(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 			case LIP_STREAM_END:
 				{
 					lip_function_t* fn = lip_compiler_end(&ctx->compiler, ctx->allocator);
+					if(!lip_link_function(ctx, fn))
+					{
+						lip_free(ctx->allocator, fn);
+						return NULL;
+					}
+
 					lip_closure_t* closure = lip_new(ctx->allocator, lip_closure_t);
 					*closure = (lip_closure_t){
 						.function = { .lip = fn },
@@ -886,7 +1078,9 @@ lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 		}
 	}
 
+	lip_ctx_begin_load(ctx);
 	lip_script_t* script = lip_do_load_script(ctx, filename, input);
+	lip_ctx_end_load(ctx);
 
 	if(own_input)
 	{
@@ -1005,6 +1199,155 @@ lip_exec_status_t
 	);
 }
 
+static lip_vm_t*
+lip_get_internal_vm(lip_context_t* ctx)
+{
+	if(ctx->internal_vm == NULL)
+	{
+		ctx->internal_vm = lip_create_vm(ctx, NULL);
+	}
+
+	return ctx->internal_vm;
+}
+
+bool
+lip_load_module(lip_context_t* ctx, lip_string_ref_t name)
+{
+	int ret;
+	kh_put(lip_string_ref_set, ctx->loading_modules, name, &ret);
+	if(ret == 0) { return false; }
+
+	bool result = false;
+	lip_ctx_begin_load(ctx);
+#define returnVal(X) do { result = X; goto end; } while(0)
+
+	unsigned int num_patterns = ctx->runtime->cfg.num_module_search_patterns;
+	const lip_string_ref_t* patterns = ctx->runtime->cfg.module_search_patterns;
+	lip_fs_t* fs = ctx->runtime->cfg.fs;
+	lip_in_t* file = NULL;
+	lip_script_t* script = NULL;
+	lip_string_ref_t filename;
+
+	lip_array_clear(ctx->error_records);
+
+	for(unsigned int i = 0; i < num_patterns; ++i)
+	{
+		lip_array(char) filename_buf = lip_array_create(ctx->module_pool, char, 512);
+		lip_string_ref_t pattern = patterns[i];
+
+		for(unsigned int j = 0; j < pattern.length; ++j)
+		{
+			char pattern_ch = pattern.ptr[j];
+			switch(pattern_ch)
+			{
+				case '?':
+					for(unsigned int k = 0; k < name.length; ++k)
+					{
+						char name_ch = name.ptr[k];
+						if(name_ch == '.') { name_ch = '/'; }
+						lip_array_push(filename_buf, name_ch);
+					}
+					break;
+				case '!':
+					{
+						size_t array_len = lip_array_len(filename_buf);
+						lip_array_resize(filename_buf, array_len + name.length);
+						memcpy(filename_buf + array_len, name.ptr, name.length);
+					}
+					break;
+				default:
+					lip_array_push(filename_buf, pattern_ch);
+					break;
+			}
+		}
+
+		size_t str_len = lip_array_len(filename_buf);
+		lip_array_push(filename_buf, 0);
+		filename = (lip_string_ref_t){ .length = str_len, .ptr = filename_buf };
+
+		file = fs->begin_read(fs, filename);
+		if(file == NULL)
+		{
+			lip_string_ref_t error = fs->last_error(fs);
+			lip_string_ref_t error_copy = lip_copy_string_ref(ctx->module_pool, error);
+			lip_error_record_t record = {
+				.filename = filename,
+				.location = LIP_LOC_NOWHERE,
+				.message = error_copy
+			};
+			lip_array_push(ctx->error_records, record);
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	if(file == NULL)
+	{
+		lip_array(char) error_msg_buf = lip_array_create(ctx->module_pool, char, 64);
+		struct lip_osstream_s msg;
+		lip_printf(
+			lip_make_osstream(&error_msg_buf, &msg),
+			"Could not load module %.*s", (int)name.length, name.ptr
+		);
+		lip_array_push(error_msg_buf, '\0');
+		ctx->error = (lip_context_error_t){
+			.message = {
+				.length = lip_array_len(error_msg_buf),
+				.ptr = error_msg_buf
+			},
+			.num_records = lip_array_len(ctx->error_records),
+			.records = ctx->error_records
+		};
+		returnVal(false);
+	}
+
+	script = lip_load_script(ctx, filename, file);
+	if(script == NULL) { returnVal(false); }
+
+	if(!lip_link_function(ctx, ((lip_closure_t*)script)->function.lip))
+	{
+		returnVal(false);
+	}
+
+	lip_vm_t* vm = lip_get_internal_vm(ctx);
+	khash_t(lip_ns)* module = kh_init(lip_ns, ctx->module_pool);
+	lip_string_ref_t name_copy = lip_copy_string_ref(ctx->module_pool, name);
+	khiter_t itr = kh_put(lip_symtab, ctx->loading_symtab, name_copy, &ret);
+	kh_val(ctx->loading_symtab, itr) = module;
+	void* previous_ctx = lip_set_userdata(vm, LIP_SCOPE_CONTEXT, &lip_module_ctx_key, module);
+	lip_value_t exec_result;
+	lip_exec_status_t status =
+		lip_exec_script(lip_get_internal_vm(ctx), script, &exec_result);
+	lip_set_userdata(vm, LIP_SCOPE_CONTEXT, &lip_module_ctx_key, previous_ctx);
+
+	if(status == LIP_EXEC_OK)
+	{
+		// Copy out all declared name-function pairs because the script is going
+		// to be freed
+		kh_foreach(itr, module)
+		{
+			lip_string_ref_t* key = &kh_key(module, itr);
+			lip_symbol_t* value = &kh_val(module, itr);
+
+			value->value = lip_copy_closure(ctx->module_pool, value->value);
+			*key = lip_copy_string_ref(ctx->module_pool, *key);
+		}
+		returnVal(true);
+	}
+	else
+	{
+		returnVal(false);
+	}
+
+end:
+	if(file) { fs->end_read(fs, file); }
+	if(script) { lip_unload_script(ctx, script); }
+
+	lip_ctx_end_load(ctx);
+	return result;
+}
 
 static size_t
 lip_repl_read(void* buff, size_t size, lip_in_t* vtable)
@@ -1027,12 +1370,12 @@ lip_repl(
 	};
 
 	lip_pp_t pp = {
-		.allocator = ctx->arena_allocator
+		.allocator = ctx->temp_pool
 	};
 
 	for(;;)
 	{
-		lip_arena_allocator_reset(ctx->arena_allocator);
+		lip_arena_allocator_reset(ctx->temp_pool);
 		lip_parser_reset(&ctx->parser, &input.vtable);
 		ctx->error.num_records = 0;
 
@@ -1059,7 +1402,7 @@ lip_repl(
 					}
 
 					lip_ast_result_t ast_result = lip_translate_sexp(
-						ctx->arena_allocator, pp_result.value.result
+						ctx->temp_pool, pp_result.value.result
 					);
 
 					if(!ast_result.success)
@@ -1080,8 +1423,18 @@ lip_repl(
 
 					lip_compiler_begin(&ctx->compiler, source_name);
 					lip_compiler_add_ast(&ctx->compiler, ast_result.value.result);
-					lip_function_t* fn = lip_compiler_end(&ctx->compiler, ctx->arena_allocator);
-					lip_closure_t* closure = lip_new(ctx->arena_allocator, lip_closure_t);
+					lip_function_t* fn = lip_compiler_end(&ctx->compiler, ctx->temp_pool);
+					if(!lip_link_function(ctx, fn))
+					{
+						repl_handler->print(
+							repl_handler,
+							LIP_EXEC_ERROR,
+							(lip_value_t) { .type = LIP_VAL_NIL }
+						);
+						continue;
+					}
+
+					lip_closure_t* closure = lip_new(ctx->temp_pool, lip_closure_t);
 					*closure = (lip_closure_t){
 						.function = { .lip = fn },
 						.is_native = false,
@@ -1164,9 +1517,9 @@ lip_get_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, const void* key)
 		case LIP_SCOPE_CONTEXT:
 			return lip_retrieve_userdata(rt->ctx->userdata, key);
 		case LIP_SCOPE_RUNTIME:
-			lip_assert(rt->ctx, lip_rwlock_begin_read(&rt->ctx->runtime->rt_lock));
+			lip_ctx_begin_rt_read(rt->ctx);
 			void* ret = lip_retrieve_userdata(rt->ctx->runtime->userdata, key);
-			lip_rwlock_end_read(&rt->ctx->runtime->rt_lock);
+			lip_ctx_end_rt_read(rt->ctx);
 			return ret;
 		default:
 			return NULL;
@@ -1188,12 +1541,12 @@ lip_set_userdata(
 				&rt->ctx->userdata, rt->ctx->allocator, key, value
 			);
 		case LIP_SCOPE_RUNTIME:
-			lip_assert(rt->ctx, lip_rwlock_begin_write(&rt->ctx->runtime->rt_lock));
+			lip_ctx_begin_rt_write(rt->ctx);
 			void* ret = lip_store_userdata(
 				&rt->ctx->runtime->userdata, rt->ctx->runtime->cfg.allocator,
 				key, value
 			);
-			lip_rwlock_end_write(&rt->ctx->runtime->rt_lock);
+			lip_ctx_end_rt_write(rt->ctx);
 			return ret;
 		default:
 			return NULL;

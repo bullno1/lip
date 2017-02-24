@@ -1,0 +1,1 @@
+(declare 'test-fun (fn (x) (test.mod2/test-fun x)))

@@ -42,37 +42,33 @@ BEGIN_OP(LDCV)
 END_OP(LDCV)
 
 BEGIN_OP(IMP)
-	lip_value_t val = fn.imports[operand].value;
-	if(LIP_LIKELY(val.type != LIP_VAL_PLACEHOLDER))
-	{
-		*(--sp) = val;
-	}
-	else
-	{
-		lip_value_t result;
-		lip_string_t* symbol_name = lip_function_resource(
-			fp->closure->function.lip, fn.imports[operand].name
+	lip_value_t result;
+	lip_string_t* symbol_name = lip_function_resource(
+		fp->closure->function.lip, fn.imports[operand].name
+	);
+
+	SAVE_CONTEXT();
+	bool resolved = vm->rt->resolve_import(vm->rt, symbol_name, &result);
+	if(LIP_UNLIKELY(!resolved)) {
+		THROW_FMT(
+			"Undefined symbol: %.*s", (int)symbol_name->length, symbol_name->ptr
 		);
-
-		SAVE_CONTEXT();
-		bool resolved = vm->rt->resolve_import(vm->rt, symbol_name, &result);
-		if(LIP_UNLIKELY(!resolved)) {
-			THROW_FMT(
-				"Undefined symbol: %.*s", (int)symbol_name->length, symbol_name->ptr
-			);
-		}
-		LOAD_CONTEXT();
-
-		if(result.type == LIP_VAL_FUNCTION)
-		{
-			lip_closure_t* closure = result.data.reference;
-			closure->debug_name = symbol_name;
-		}
-
-		fn.imports[operand].value = result;
-		*(--sp) = result;
 	}
+	LOAD_CONTEXT();
+
+	if(result.type == LIP_VAL_FUNCTION)
+	{
+		lip_closure_t* closure = result.data.reference;
+		closure->debug_name = symbol_name;
+	}
+
+	*(--sp) = result;
 END_OP(IMP)
+
+BEGIN_OP(IMPS)
+	lip_value_t val = fn.imports[operand].value;
+	*(--sp) = val;
+END_OP(IMPS)
 
 BEGIN_OP(LDI)
 	lip_value_t* value = --sp;

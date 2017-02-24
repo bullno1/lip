@@ -2,6 +2,9 @@
 #define LIP_EXTRA_H
 
 #include "common.h"
+#include "vendor/khash.h"
+
+KHASH_DECLARE(lip_string_ref_set, lip_string_ref_t, char)
 
 #define LIP_STREAM(F) \
 	F(LIP_STREAM_OK) \

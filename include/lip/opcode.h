@@ -18,6 +18,7 @@
 	F(LIP_OP_LDLV) \
 	F(LIP_OP_LDCV) \
 	F(LIP_OP_IMP) \
+	F(LIP_OP_IMPS) \
 	F(LIP_OP_SET) \
 	F(LIP_OP_JMP) \
 	F(LIP_OP_JOF) \

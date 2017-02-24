@@ -51,7 +51,8 @@ struct lip_context_s
 {
 	lip_runtime_t* runtime;
 	lip_allocator_t* allocator;
-	lip_allocator_t* arena_allocator;
+	lip_allocator_t* temp_pool;
+	lip_allocator_t* module_pool;
 	lip_panic_fn_t panic_handler;
 	lip_array(lip_error_record_t) error_records;
 	lip_context_error_t error;
@@ -60,7 +61,15 @@ struct lip_context_s
 	khash_t(lip_ptr_set)* scripts;
 	khash_t(lip_ptr_set)* vms;
 	lip_array(char) string_buff;
+	lip_vm_t* internal_vm;
 	khash_t(lip_userdata)* userdata;
+	khash_t(lip_symtab)* loading_symtab;
+	khash_t(lip_string_ref_set)* loading_modules;
+	unsigned int region_depth;
+	unsigned int rt_read_lock_depth;
+	unsigned int rt_write_lock_depth;
 };
+
+extern const char lip_module_ctx_key;
 
 #endif

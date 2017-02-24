@@ -4,6 +4,7 @@
 #include <lip/print.h>
 #include <lip/vm.h>
 #include <lip/opcode.h>
+#include <lip/bind.h>
 #include "munit.h"
 #include "test_helpers.h"
 
@@ -61,8 +62,16 @@
 		lip_assert_loc_range_equal(expected_location, error->records[0].location); \
 	} while(0)
 
+#define LIP_STRING_REF_LITERAL(str) \
+	{ .length = LIP_STATIC_ARRAY_LEN(str), .ptr = str}
+
 typedef struct lip_fixture_s lip_fixture_t;
 typedef struct test_hook_s test_hook_t;
+
+static const lip_string_ref_t module_search_patterns[] = {
+	LIP_STRING_REF_LITERAL("src/tests/?.lip"),
+	LIP_STRING_REF_LITERAL("src/tests/!.lip")
+};
 
 struct test_hook_s
 {
@@ -96,6 +105,8 @@ setup(const MunitParameter params[], void* data)
 
 	lip_runtime_config_t cfg;
 	lip_reset_runtime_config(&cfg);
+	cfg.module_search_patterns = module_search_patterns;
+	cfg.num_module_search_patterns = LIP_STATIC_ARRAY_LEN(module_search_patterns);
 	lip_fixture_t* fixture = lip_new(lip_default_allocator, lip_fixture_t);
 	fixture->runtime = lip_create_runtime(&cfg);
 	fixture->context = lip_create_context(fixture->runtime, NULL);
@@ -896,6 +907,63 @@ bytecode(const MunitParameter params[], void* fixture_)
 	return MUNIT_OK;
 }
 
+static const char test_key = 0;
+
+typedef struct lip_test_context_s
+{
+	int count;
+} lip_test_context_t;
+
+static lip_function(count_load)
+{
+	lip_test_context_t* test_ctx = lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &test_key);
+	++test_ctx->count;
+	lip_return(lip_make_nil(vm));
+}
+
+static MunitResult
+module(const MunitParameter params[], void* fixture_)
+{
+	(void)params;
+
+	lip_fixture_t* fixture = fixture_;
+	lip_context_t* ctx2 = fixture->context;
+	lip_vm_t* vm = fixture->vm;
+	lip_load_builtins(ctx2);
+
+	lip_ns_context_t* ns = lip_begin_ns(ctx2, lip_string_ref("test"));
+	lip_declare_function(ns, lip_string_ref("count-load"), count_load);
+	lip_end_ns(ctx2, ns);
+
+	lip_test_context_t test_context = {
+		.count = 0
+	};
+	lip_set_userdata(vm, LIP_SCOPE_RUNTIME, &test_key, &test_context);
+
+	{
+		lip_context_t* ctx = lip_create_context(fixture->runtime, NULL);
+		lip_assert_num_result("(test.mod/test-fun 1)", 2);
+		lip_assert_num_result("(test.mod/test-fun 2)", 3);
+		lip_destroy_context(ctx);
+	}
+
+	{
+		lip_context_t* ctx = lip_create_context(fixture->runtime, NULL);
+		lip_assert_num_result("(test.mod3/test-fun2 3)", 2);
+		lip_destroy_context(ctx);
+	}
+
+	{
+		lip_context_t* ctx = lip_create_context(fixture->runtime, NULL);
+		lip_assert_num_result("(test.mod/test-fun 3)", 4);
+		lip_assert_num_result("(test.mod3/test-fun2 4)", 3);
+		lip_destroy_context(ctx);
+	}
+	munit_assert_int(1, ==, test_context.count);
+
+	return MUNIT_OK;
+}
+
 static MunitTest tests[] = {
 	{
 		.name = "/basic_forms",
@@ -966,6 +1034,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/bytecode",
 		.test = bytecode,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/module",
+		.test = module,
 		.setup = setup,
 		.tear_down = teardown
 	},
