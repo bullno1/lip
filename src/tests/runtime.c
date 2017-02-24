@@ -12,23 +12,31 @@
 #define STRINGIFY(X) STRINGIFY2(X)
 #define STRINGIFY2(X) #X
 
-#define lip_assert_result(code, expected_status, assert_fn, expected_result) \
+#define lip_assert_result(code, expected_status, assert_fn, ...) \
 	do { \
 		test_hook_t hook = { .printed = false, .vtable = { .step = step } }; \
 		lip_set_vm_hook(vm, &hook.vtable); \
 		struct lip_isstream_s sstream; \
 		lip_in_t* input = lip_make_isstream(lip_string_ref(code), &sstream); \
-		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input); \
+		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input, lip_pp_nth(2, (__VA_ARGS__), false)); \
+		if(script == NULL) { lip_print_error(lip_stderr(), ctx); } \
 		munit_assert_not_null(script); \
-		lip_print_closure(100, 0, lip_null, (lip_closure_t*)script); \
+		lip_print_script(100, 0, lip_null, script); \
 		lip_value_t result; \
 		lip_reset_vm(vm); \
-		lip_assert_enum(lip_exec_status_t, expected_status, ==, lip_exec_script(vm, script, &result)); \
-		assert_fn(expected_result, result); \
+		lip_exec_status_t status = lip_exec_script(vm, script, &result); \
+		if(status != LIP_EXEC_OK) \
+		{ \
+			const lip_context_error_t* err = lip_get_error(ctx); \
+			if(err->num_records == 0) { lip_traceback(ctx, vm, result); } \
+			lip_print_error(lip_stderr(), ctx); \
+		} \
+		lip_assert_enum(lip_exec_status_t, expected_status, ==, status); \
+		assert_fn(lip_pp_nth(1, (__VA_ARGS__), 0), result); \
 	} while(0)
 
-#define lip_assert_num_result(code, result_value) \
-	lip_assert_result(code, LIP_EXEC_OK, lip_assert_num, result_value)
+#define lip_assert_num_result(code, ...) \
+	lip_assert_result(code, LIP_EXEC_OK, lip_assert_num, __VA_ARGS__)
 
 #define lip_assert_str_result(code, result_value) \
 	lip_assert_result(code, LIP_EXEC_OK, lip_assert_str, result_value)
@@ -49,7 +57,7 @@
 	do { \
 		struct lip_isstream_s sstream; \
 		lip_in_t* input = lip_make_isstream(lip_string_ref(code), &sstream); \
-		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input); \
+		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input, false); \
 		munit_assert_null(script); \
 		const lip_context_error_t* error = lip_get_error(ctx); \
 		lip_assert_string_ref_equal(lip_string_ref("Syntax error"), error->message); \
@@ -870,13 +878,14 @@ fs(const MunitParameter params[], void* fixture_)
 	lip_context_t* ctx = fixture->context;
 	lip_vm_t* vm = fixture->vm;
 
-	lip_script_t* script = lip_load_script(ctx, lip_string_ref("src/tests/test_fs.lip"), NULL);
+	lip_script_t* script = lip_load_script(ctx, lip_string_ref("src/tests/test_fs.lip"), NULL, false);
 	munit_assert_not_null(script);
 	lip_value_t result;
+	lip_load_builtins(ctx);
 	lip_assert_enum(lip_exec_status_t, LIP_EXEC_OK, ==, lip_exec_script(vm, script, &result));
 	lip_assert_num(2.0, result);
 
-	script = lip_load_script(ctx, lip_string_ref("not_there.lip"), NULL);
+	script = lip_load_script(ctx, lip_string_ref("not_there.lip"), NULL, false);
 	munit_assert_null(script);
 
 	return MUNIT_OK;
@@ -892,14 +901,15 @@ bytecode(const MunitParameter params[], void* fixture_)
 	lip_context_t* ctx = fixture->context;
 	lip_vm_t* vm = fixture->vm;
 
-	lip_script_t* script = lip_load_script(ctx, lip_string_ref("src/tests/test_fs.lip"), NULL);
+	lip_script_t* script = lip_load_script(ctx, lip_string_ref("src/tests/test_fs.lip"), NULL, false);
 	munit_assert_not_null(script);
 	munit_assert_true(
 		lip_dump_script(ctx, script, lip_string_ref("bin/test_fs.lipc"), NULL)
 	);
 
-	lip_script_t* bin_script = lip_load_script(ctx, lip_string_ref("bin/test_fs.lipc"), NULL);
+	lip_script_t* bin_script = lip_load_script(ctx, lip_string_ref("bin/test_fs.lipc"), NULL, false);
 	munit_assert_not_null(bin_script);
+	lip_load_builtins(ctx);
 	lip_value_t result;
 	lip_assert_enum(lip_exec_status_t, LIP_EXEC_OK, ==, lip_exec_script(vm, bin_script, &result));
 	lip_assert_num(2.0, result);
@@ -942,21 +952,21 @@ module(const MunitParameter params[], void* fixture_)
 
 	{
 		lip_context_t* ctx = lip_create_context(fixture->runtime, NULL);
-		lip_assert_num_result("(test.mod/test-fun 1)", 2);
-		lip_assert_num_result("(test.mod/test-fun 2)", 3);
+		lip_assert_num_result("(test.mod/test-fun 1)", 2, true);
+		lip_assert_num_result("(test.mod/test-fun 2)", 3, true);
 		lip_destroy_context(ctx);
 	}
 
 	{
 		lip_context_t* ctx = lip_create_context(fixture->runtime, NULL);
-		lip_assert_num_result("(test.mod3/test-fun2 3)", 2);
+		lip_assert_num_result("(test.mod3/test-fun2 3)", 2, true);
 		lip_destroy_context(ctx);
 	}
 
 	{
 		lip_context_t* ctx = lip_create_context(fixture->runtime, NULL);
-		lip_assert_num_result("(test.mod/test-fun 3)", 4);
-		lip_assert_num_result("(test.mod3/test-fun2 4)", 3);
+		lip_assert_num_result("(test.mod/test-fun 3)", 4, true);
+		lip_assert_num_result("(test.mod3/test-fun2 4)", 3, true);
 		lip_destroy_context(ctx);
 	}
 	munit_assert_int(1, ==, test_context.count);

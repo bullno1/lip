@@ -7,6 +7,7 @@
 #include <lip/io.h>
 #include <lip/vm.h>
 #include <lip/print.h>
+#include <lip/asm.h>
 #include "utils.h"
 
 #define lip_assert(ctx, cond) \
@@ -90,9 +91,10 @@ lip_create_runtime(const lip_runtime_config_t* cfg)
 static void
 lip_do_unload_script(lip_context_t* ctx, lip_script_t* script)
 {
-	lip_closure_t* closure = (lip_closure_t*)script;
+	lip_closure_t* closure = script->closure;
 	lip_free(ctx->allocator, closure->function.lip);
 	lip_free(ctx->allocator, closure);
+	lip_free(ctx->allocator, script);
 }
 
 static void
@@ -120,6 +122,8 @@ lip_do_destroy_context(lip_context_t* ctx)
 	lip_array_destroy(ctx->string_buff);
 	kh_destroy(lip_symtab, ctx->loading_symtab);
 	kh_destroy(lip_string_ref_set, ctx->loading_modules);
+	kh_destroy(lip_ptr_set, ctx->new_exported_functions);
+	kh_destroy(lip_ptr_set, ctx->new_script_functions);
 	kh_destroy(lip_ptr_set, ctx->vms);
 	kh_destroy(lip_ptr_set, ctx->scripts);
 	lip_compiler_cleanup(&ctx->compiler);
@@ -227,11 +231,13 @@ static void
 lip_ctx_begin_load(lip_context_t* ctx)
 {
 	lip_ctx_begin_rt_write(ctx);
-	if(++ctx->region_depth == 1)
+	if(++ctx->load_depth == 1)
 	{
 		lip_arena_allocator_reset(ctx->module_pool);
 		kh_clear(lip_symtab, ctx->loading_symtab);
 		kh_clear(lip_string_ref_set, ctx->loading_modules);
+		kh_clear(lip_ptr_set, ctx->new_exported_functions);
+		kh_clear(lip_ptr_set, ctx->new_script_functions);
 	}
 }
 
@@ -258,6 +264,7 @@ lip_copy_closure(lip_allocator_t* allocator, lip_closure_t* closure)
 static void
 lip_commit_ns_locked(lip_context_t* ctx, lip_string_ref_t name, khash_t(lip_ns)* ns)
 {
+	lip_assert(ctx, ctx->rt_write_lock_depth > 0);
 	lip_runtime_t* runtime = ctx->runtime;
 	khash_t(lip_symtab)* symtab = runtime->symtab;
 	khiter_t itr = kh_get(lip_symtab, symtab, name);
@@ -287,22 +294,108 @@ lip_commit_ns_locked(lip_context_t* ctx, lip_string_ref_t name, khash_t(lip_ns)*
 		value.value = lip_copy_closure(runtime->cfg.allocator, value.value);
 
 		int ret;
+		if(!value.value->is_native)
+		{
+			kh_put(lip_ptr_set,
+				ctx->new_exported_functions, value.value->function.lip, &ret
+			);
+		}
+
 		khiter_t itr = kh_put(lip_ns, target_ns, symbol_name, &ret);
 		kh_val(target_ns, itr) = value;
 	}
 }
 
 static void
+lip_split_fqn(
+	lip_string_ref_t fqn,
+	lip_string_ref_t* module_name,
+	lip_string_ref_t* symbol_name
+)
+{
+	if(fqn.length == 1 && fqn.ptr[0] == '/')
+	{
+		*module_name = lip_string_ref("");
+		*symbol_name = fqn;
+	}
+	else
+	{
+		char* pos = memchr(fqn.ptr, '/', fqn.length);
+
+		if(pos)
+		{
+			module_name->ptr = fqn.ptr;
+			module_name->length = pos - fqn.ptr;
+			symbol_name->ptr = pos + 1;
+			symbol_name->length = fqn.length - module_name->length - 1;
+		}
+		else
+		{
+			*module_name = lip_string_ref("");
+			*symbol_name = fqn;
+		}
+	}
+}
+
+static void
+lip_static_link_function(lip_context_t* ctx, lip_function_t* fn)
+{
+	lip_assert(ctx, ctx->rt_read_lock_depth + ctx->rt_write_lock_depth > 0);
+	lip_function_layout_t layout;
+	lip_function_layout(fn, &layout);
+
+	for(uint16_t i = 0; i < fn->num_imports; ++i)
+	{
+		lip_string_t* name = lip_function_resource(fn, layout.imports[i].name);
+		lip_string_ref_t symbol_name_ref = { .length = name->length, .ptr = name->ptr };
+
+		lip_assert(ctx, lip_lookup_symbol(ctx, symbol_name_ref, &layout.imports[i].value));
+	}
+
+	for(uint16_t i = 0; i < fn->num_instructions; ++i)
+	{
+		lip_instruction_t* instr = &layout.instructions[i];
+		lip_opcode_t opcode;
+		lip_operand_t operand;
+		lip_disasm(*instr, &opcode, &operand);
+
+		if(opcode == LIP_OP_IMP)
+		{
+			*instr = lip_asm(LIP_OP_IMPS, operand);
+		}
+	}
+
+	for(uint16_t i = 0; i < fn->num_functions; ++i)
+	{
+		lip_static_link_function(
+			ctx, lip_function_resource(fn, layout.function_offsets[i])
+		);
+	}
+}
+
+static void
 lip_ctx_end_load(lip_context_t* ctx)
 {
-	lip_assert(ctx, ctx->region_depth > 0);
-	if(--ctx->region_depth == 0)
+	lip_assert(ctx, ctx->load_depth > 0);
+	if(--ctx->load_depth == 0)
 	{
 		kh_foreach(itr, ctx->loading_symtab)
 		{
-			lip_string_ref_t name = kh_key(ctx->loading_symtab, itr);
-			khash_t(lip_ns)* ns = kh_val(ctx->loading_symtab, itr);
-			lip_commit_ns_locked(ctx, name, ns);
+			lip_commit_ns_locked(
+				ctx,
+				kh_key(ctx->loading_symtab, itr),
+				kh_val(ctx->loading_symtab, itr)
+			);
+		}
+
+		kh_foreach(itr, ctx->new_exported_functions)
+		{
+			lip_static_link_function(ctx, kh_key(ctx->new_exported_functions, itr));
+		}
+
+		kh_foreach(itr, ctx->new_script_functions)
+		{
+			lip_static_link_function(ctx, kh_key(ctx->new_script_functions, itr));
 		}
 	}
 
@@ -333,6 +426,8 @@ lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator)
 		.vms = kh_init(lip_ptr_set, allocator),
 		.loading_symtab = kh_init(lip_symtab, allocator),
 		.loading_modules = kh_init(lip_string_ref_set, allocator),
+		.new_exported_functions = kh_init(lip_ptr_set, allocator),
+		.new_script_functions = kh_init(lip_ptr_set, allocator),
 		.string_buff = lip_array_create(allocator, char, 512),
 		.panic_handler = lip_default_panic_handler
 	};
@@ -567,6 +662,7 @@ lip_rt_resolve_import(
 )
 {
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vtable, lip_runtime_link_t, vtable);
+	lip_assert(rt->ctx, rt->ctx->load_depth > 0);
 	lip_string_ref_t symbol_name_ref = {
 		.ptr = symbol_name->ptr,
 		.length = symbol_name->length
@@ -730,37 +826,6 @@ lip_lookup_symbol_locked(
 	return true;
 }
 
-static void
-lip_split_fqn(
-	lip_string_ref_t fqn,
-	lip_string_ref_t* module_name,
-	lip_string_ref_t* symbol_name
-)
-{
-	if(fqn.length == 1 && fqn.ptr[0] == '/')
-	{
-		*module_name = lip_string_ref("");
-		*symbol_name = fqn;
-	}
-	else
-	{
-		char* pos = memchr(fqn.ptr, '/', fqn.length);
-
-		if(pos)
-		{
-			module_name->ptr = fqn.ptr;
-			module_name->length = pos - fqn.ptr;
-			symbol_name->ptr = pos + 1;
-			symbol_name->length = fqn.length - module_name->length - 1;
-		}
-		else
-		{
-			*module_name = lip_string_ref("");
-			*symbol_name = fqn;
-		}
-	}
-}
-
 bool
 lip_lookup_symbol(lip_context_t* ctx, lip_string_ref_t symbol_name, lip_value_t* result)
 {
@@ -787,9 +852,6 @@ lip_link_function(lip_context_t* ctx, lip_function_t* fn)
 		lip_string_ref_t module_name, function_name;
 		lip_string_ref_t symbol_name_ref = { .length = name->length, .ptr = name->ptr };
 		lip_split_fqn(symbol_name_ref, &module_name, &function_name);
-
-		// builtin or local symbols will be checked later
-		if(module_name.length == 0) { continue; }
 
 		khiter_t itr = kh_get(lip_symtab, ctx->loading_symtab, module_name);
 		if(itr != kh_end(ctx->loading_symtab))
@@ -841,7 +903,7 @@ lip_link_function(lip_context_t* ctx, lip_function_t* fn)
 	return true;
 }
 
-static lip_script_t*
+static lip_function_t*
 lip_load_bytecode(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 {
 #define lip_checked_read(buff, size, input) \
@@ -891,36 +953,22 @@ lip_load_bytecode(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input
 	}
 
 	memcpy(function, &header, sizeof(header));
-	lip_checked_read((char*)function + sizeof(header), header.size - sizeof(header), input);
-	if(!lip_link_function(ctx, function))
+	size_t body_size = header.size - sizeof(header);
+	if(lip_read((char*)function + sizeof(header), body_size, input) != body_size)
 	{
 		lip_free(ctx->allocator, function);
-		return NULL;
-	}
-
-	lip_closure_t* script = lip_new(ctx->allocator, lip_closure_t);
-	if(script == NULL)
-	{
 		lip_set_context_error(
-			ctx, "Loading error",
-			lip_string_ref("Out of memory"), filename, LIP_LOC_NOWHERE
+			ctx, "IO error",
+			ctx->runtime->cfg.fs->last_error(ctx->runtime->cfg.fs),
+			filename, LIP_LOC_NOWHERE
 		);
-		lip_free(ctx->allocator, function);
 		return NULL;
 	}
 
-	script->function.lip = function;
-	script->is_native = false;
-	script->env_len = 0;
-	script->debug_name = NULL;
-
-	int tmp;
-	kh_put(lip_ptr_set, ctx->scripts, script, &tmp);
-
-	return (lip_script_t*)script;
+	return function;
 }
 
-static lip_script_t*
+static lip_function_t*
 lip_load_source(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 {
 	lip_arena_allocator_reset(ctx->temp_pool);
@@ -970,27 +1018,7 @@ lip_load_source(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 				}
 				break;
 			case LIP_STREAM_END:
-				{
-					lip_function_t* fn = lip_compiler_end(&ctx->compiler, ctx->allocator);
-					if(!lip_link_function(ctx, fn))
-					{
-						lip_free(ctx->allocator, fn);
-						return NULL;
-					}
-
-					lip_closure_t* closure = lip_new(ctx->allocator, lip_closure_t);
-					*closure = (lip_closure_t){
-						.function = { .lip = fn },
-						.is_native = false,
-						.env_len = 0,
-					};
-
-					int tmp;
-					kh_put(lip_ptr_set, ctx->scripts, closure, &tmp);
-
-					return (void*)closure;
-				}
-				break;
+				return lip_compiler_end(&ctx->compiler, ctx->allocator);
 			case LIP_STREAM_ERROR:
 				{
 					const lip_error_t* error = lip_parser_last_error(&ctx->parser);
@@ -1036,7 +1064,7 @@ lip_make_prefix_stream(struct lip_prefix_stream_s* pstream)
 	return &pstream->vtable;
 }
 
-static lip_script_t*
+static lip_function_t*
 lip_do_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 {
 	char magic[sizeof(LIP_BINARY_MAGIC)];
@@ -1061,7 +1089,12 @@ lip_do_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* inpu
 }
 
 lip_script_t*
-lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
+lip_load_script(
+	lip_context_t* ctx,
+	lip_string_ref_t filename,
+	lip_in_t* input,
+	bool link
+)
 {
 	bool own_input = input == NULL;
 	if(own_input)
@@ -1079,7 +1112,34 @@ lip_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 	}
 
 	lip_ctx_begin_load(ctx);
-	lip_script_t* script = lip_do_load_script(ctx, filename, input);
+
+	lip_function_t* fn = lip_do_load_script(ctx, filename, input);
+	lip_script_t* script = NULL;
+	if(fn)
+	{
+		if(link && !lip_link_function(ctx, fn))
+		{
+			lip_free(ctx->allocator, fn);
+			return NULL;
+		}
+
+		lip_closure_t* closure = lip_new(ctx->allocator, lip_closure_t);
+		*closure = (lip_closure_t){
+			.function = { .lip = fn },
+			.is_native = false,
+			.env_len = 0,
+		};
+		int ret;
+		if(link) { kh_put(lip_ptr_set, ctx->new_script_functions, fn, &ret); }
+
+		script = lip_new(ctx->allocator, lip_script_t);
+		*script = (lip_script_t){
+			.closure = closure,
+			.linked = link
+		};
+		kh_put(lip_ptr_set, ctx->scripts, script, &ret);
+	}
+
 	lip_ctx_end_load(ctx);
 
 	if(own_input)
@@ -1110,7 +1170,7 @@ lip_do_dump_script(
 		} \
 	} while(0)
 
-	lip_closure_t* closure = (lip_closure_t*)script;
+	lip_closure_t* closure = script->closure;
 
 	if(closure->is_native)
 	{
@@ -1174,7 +1234,14 @@ lip_dump_script(
 void
 lip_unload_script(lip_context_t* ctx, lip_script_t* script)
 {
-	khiter_t itr = kh_get(lip_ptr_set, ctx->scripts, script);
+	lip_closure_t* closure = script->closure;
+	khiter_t itr = kh_get(lip_ptr_set, ctx->new_script_functions, closure->function.lip);
+	if(itr != kh_end(ctx->new_script_functions))
+	{
+		kh_del(lip_ptr_set, ctx->new_script_functions, itr);
+	}
+
+	itr = kh_get(lip_ptr_set, ctx->scripts, script);
 	if(itr != kh_end(ctx->scripts))
 	{
 		kh_del(lip_ptr_set, ctx->scripts, itr);
@@ -1188,12 +1255,27 @@ lip_exec_status_t
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
 	lip_arena_allocator_reset(rt->allocator);
 
+	if(!script->linked)
+	{
+		lip_function_t* fn = script->closure->function.lip;
+		lip_ctx_begin_load(rt->ctx);
+		bool link_result = lip_link_function(rt->ctx, fn);
+		if(link_result)
+		{
+			int ret;
+			kh_put(lip_ptr_set, rt->ctx->new_script_functions, fn, &ret);
+		}
+		lip_ctx_end_load(rt->ctx);
+		script->linked = link_result;
+		if(!link_result) { return LIP_EXEC_ERROR; }
+	}
+
 	return (lip_call)(
 		vm,
 		result,
 		(lip_value_t){
 			.type = LIP_VAL_FUNCTION,
-			.data = { .reference = script }
+			.data = { .reference = script->closure }
 		},
 		0
 	);
@@ -1303,10 +1385,10 @@ lip_load_module(lip_context_t* ctx, lip_string_ref_t name)
 		returnVal(false);
 	}
 
-	script = lip_load_script(ctx, filename, file);
+	script = lip_load_script(ctx, filename, file, true);
 	if(script == NULL) { returnVal(false); }
 
-	if(!lip_link_function(ctx, ((lip_closure_t*)script)->function.lip))
+	if(!lip_link_function(ctx, script->closure->function.lip))
 	{
 		returnVal(false);
 	}
@@ -1424,7 +1506,16 @@ lip_repl(
 					lip_compiler_begin(&ctx->compiler, source_name);
 					lip_compiler_add_ast(&ctx->compiler, ast_result.value.result);
 					lip_function_t* fn = lip_compiler_end(&ctx->compiler, ctx->temp_pool);
-					if(!lip_link_function(ctx, fn))
+					lip_ctx_begin_load(ctx);
+					bool link_result = lip_link_function(ctx, fn);
+					if(link_result)
+					{
+						int ret;
+						kh_put(lip_ptr_set, ctx->new_script_functions, fn, &ret);
+					}
+					lip_ctx_end_load(ctx);
+
+					if(!link_result)
 					{
 						repl_handler->print(
 							repl_handler,

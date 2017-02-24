@@ -156,7 +156,7 @@ repl_compile(struct repl_common_s* common, struct repl_compile_opts_s* opts)
 		source_name = lip_string_ref(common->script_filename);
 	}
 
-	lip_script_t* script = lip_load_script(common->context, source_name, input);
+	lip_script_t* script = lip_load_script(common->context, source_name, input, false);
 	if(!script)
 	{
 		lip_print_error(lip_stderr(), common->context);

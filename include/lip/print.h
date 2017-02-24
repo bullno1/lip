@@ -2,6 +2,7 @@
 #define LIP_PRINT_H
 
 #include "common.h"
+#include "lip.h"
 #include "opcode.h"
 #include "ast.h"
 
@@ -33,6 +34,14 @@ lip_print_closure(
 	unsigned int indent,
 	lip_out_t* output,
 	const lip_closure_t* closure
+);
+
+LIP_API void
+lip_print_script(
+	unsigned int depth,
+	unsigned int indent,
+	lip_out_t* output,
+	const lip_script_t* script
 );
 
 LIP_API void

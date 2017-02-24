@@ -1,3 +1,4 @@
+#include "lip_internal.h"
 #include <lip/print.h>
 #include <inttypes.h>
 #include <lip/io.h>
@@ -171,7 +172,7 @@ lip_print_function(
 		lip_string_t* import_name =
 			lip_function_resource(function, import.name);
 		lip_printf(
-			output, "%*s%u: %.*s",
+			output, "%*s%u: %.*s\n",
 			indent * 2 + 2, "", i, (int)import_name->length, import_name->ptr
 		);
 	}
@@ -252,6 +253,17 @@ lip_print_list(
 		lip_printf(output, "%*s- ", indent * 2 + 2, "");
 		lip_print_value(depth - 1, indent + 1, output, list->elements[i]);
 	}
+}
+
+void
+lip_print_script(
+	unsigned int depth,
+	unsigned int indent,
+	lip_out_t* output,
+	const lip_script_t* script
+)
+{
+	lip_print_closure(depth, indent, output, script->closure);
 }
 
 void

@@ -65,9 +65,17 @@ struct lip_context_s
 	khash_t(lip_userdata)* userdata;
 	khash_t(lip_symtab)* loading_symtab;
 	khash_t(lip_string_ref_set)* loading_modules;
-	unsigned int region_depth;
+	khash_t(lip_ptr_set)* new_exported_functions;
+	khash_t(lip_ptr_set)* new_script_functions;
+	unsigned int load_depth;
 	unsigned int rt_read_lock_depth;
 	unsigned int rt_write_lock_depth;
+};
+
+struct lip_script_s
+{
+	lip_closure_t* closure;
+	bool linked;
 };
 
 extern const char lip_module_ctx_key;
