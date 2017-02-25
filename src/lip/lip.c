@@ -1633,7 +1633,7 @@ lip_set_userdata(
 	switch(scope)
 	{
 		case LIP_SCOPE_VM:
-			return lip_store_userdata(&rt->userdata, rt->allocator, key, value);
+			return lip_store_userdata(&rt->userdata, rt->ctx->allocator, key, value);
 		case LIP_SCOPE_CONTEXT:
 			return lip_store_userdata(
 				&rt->ctx->userdata, rt->ctx->allocator, key, value
