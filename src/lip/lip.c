@@ -738,6 +738,14 @@ lip_create_vm(lip_context_t* ctx, const lip_vm_config_t* config)
 }
 
 void
+lip_reset_vm(lip_vm_t* vm)
+{
+	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
+	lip_arena_allocator_reset(rt->allocator);
+	lip_vm_reset(vm);
+}
+
+void
 lip_destroy_vm(lip_context_t* ctx, lip_vm_t* vm)
 {
 	khiter_t itr = kh_get(lip_ptr_set, ctx->vms, vm);
@@ -1253,7 +1261,6 @@ lip_exec_status_t
 (lip_exec_script)(lip_vm_t* vm, lip_script_t* script, lip_value_t* result)
 {
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
-	lip_arena_allocator_reset(rt->allocator);
 
 	if(!script->linked)
 	{

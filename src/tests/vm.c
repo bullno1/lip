@@ -275,7 +275,7 @@ error(const MunitParameter params[], void* fixture)
 	lip_assert_enum(lip_exec_status_t, LIP_EXEC_ERROR, ==, status);
 	lip_assert_str("Illegal instruction", result);
 
-	lip_reset_vm(vm);
+	lip_vm_reset(vm);
 	status = lip_call(vm, &result, lip_make_number(vm, 3.0), 0);
 	lip_assert_enum(lip_exec_status_t, LIP_EXEC_ERROR, ==, status);
 	lip_assert_str("Trying to call a non-function", result);

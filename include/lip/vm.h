@@ -147,6 +147,12 @@ lip_vm_init(
 );
 
 LIP_MAYBE_UNUSED static inline void
+lip_vm_reset(lip_vm_t* vm)
+{
+	lip_vm_init(vm, &vm->config, vm->rt, vm->mem);
+}
+
+LIP_MAYBE_UNUSED static inline void
 lip_function_layout(const lip_function_t* function, lip_function_layout_t* layout)
 {
 	char* function_end = (char*)function + sizeof(lip_function_t);

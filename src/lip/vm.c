@@ -15,12 +15,6 @@ lip_vm_memory_required(const lip_vm_config_t* config)
 }
 
 void
-lip_reset_vm(lip_vm_t* vm)
-{
-	lip_vm_init(vm, &vm->config, vm->rt, vm->mem);
-}
-
-void
 lip_vm_init(
 	lip_vm_t* vm,
 	const lip_vm_config_t* config,
