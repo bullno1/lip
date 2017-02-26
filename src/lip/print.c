@@ -23,7 +23,7 @@ lip_print_instruction(
 		case LIP_OP_NIL:
 		case LIP_OP_RET:
 			lip_printf(
-				output, "%*s\n",
+				output, "%*s",
 				-4, lip_opcode_t_to_str(opcode) + sizeof("LIP_OP_") - 1
 			);
 			break;
@@ -33,7 +33,7 @@ lip_print_instruction(
 				int num_captures = (operand >> 12) & 0xFFF;
 
 				lip_printf(
-					output, "%*s %d, %d\n",
+					output, "%*s %d, %d",
 					-4, lip_opcode_t_to_str(opcode) + sizeof("LIP_OP_") - 1,
 					function_index, num_captures
 				);
@@ -41,7 +41,7 @@ lip_print_instruction(
 			break;
 		case LIP_OP_LABEL:
 			lip_printf(
-				output, "%*s %d\n",
+				output, "%*s %d",
 				-4,
 				"LBL",
 				operand
@@ -51,7 +51,7 @@ lip_print_instruction(
 			{
 				const char* opcode_name = lip_opcode_t_to_str(opcode);
 				lip_printf(
-					output, "%*s %d\n",
+					output, "%*s %d",
 					-4,
 					opcode_name ? opcode_name + sizeof("LIP_OP_") - 1 : "ILL",
 					operand
@@ -217,6 +217,11 @@ lip_print_function(
 	{
 		lip_printf(output, "%*s%*u: ", indent * 2 + 1, "", 3, i);
 		lip_print_instruction(output, layout.instructions[i]);
+		lip_loc_range_t loc = layout.locations[i + 1];
+		lip_printf(output, "%*s; %u:%u - %u:%u\n",
+			3, "",
+			loc.start.line, loc.start.column, loc.end.line, loc.end.column
+		);
 	}
 
 	if(function->num_functions > 0)
