@@ -19,7 +19,6 @@ repl_run_script(
 	lip_value_t result;
 	if(lip_exec_script(vm, script, &result) != LIP_EXEC_OK)
 	{
-		lip_traceback(ctx, vm, result);
 		lip_print_error(lip_stderr(), ctx);
 		return false;
 	}

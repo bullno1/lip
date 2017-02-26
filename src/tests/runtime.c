@@ -27,8 +27,6 @@
 		lip_exec_status_t status = lip_exec_script(vm, script, &result); \
 		if(status != LIP_EXEC_OK) \
 		{ \
-			const lip_context_error_t* err = lip_get_error(ctx); \
-			if(err->num_records == 0) { lip_traceback(ctx, vm, result); } \
 			lip_print_error(lip_stderr(), ctx); \
 		} \
 		lip_assert_enum(lip_exec_status_t, expected_status, ==, status); \
@@ -50,8 +48,14 @@
 #define lip_assert_boolean_result(code, result_value) \
 	lip_assert_result(code, LIP_EXEC_OK, lip_assert_boolean, result_value)
 
+#define lip_assert_pass(expected, actual)
+
 #define lip_assert_error_msg(code, msg) \
-	lip_assert_result(code, LIP_EXEC_ERROR, lip_assert_str, msg)
+	do { \
+		lip_assert_result(code, LIP_EXEC_ERROR, lip_assert_pass, msg); \
+		const lip_context_error_t* error = lip_get_error(ctx); \
+		lip_assert_string_ref_equal(lip_string_ref(msg), error->message); \
+	} while(0)
 
 #define lip_assert_syntax_error(code, error_msg, start_line, start_col, end_line, end_col) \
 	do { \
@@ -256,20 +260,20 @@ runtime_error(const MunitParameter params[], void* fixture_)
 	lip_fixture_t* fixture = fixture_;
 	lip_context_t* ctx = fixture->context;
 	lip_vm_t* vm = fixture->vm;
-
-	lip_assert_error_msg("(identity 5)", "Undefined symbol: identity");
-	const lip_context_error_t* error = lip_traceback(ctx, vm, lip_make_nil(vm));
-	unsigned int bottom = error->num_records - 1;
-	lip_assert_string_ref_equal(lip_string_ref(__FILE__), error->records[bottom].filename);
-	lip_assert_string_ref_equal(lip_string_ref(__func__), error->records[bottom].message);
-
 	lip_load_builtins(ctx);
+
+	const char* source_name = SOURCE_NAME; lip_assert_error_msg("(id 5)", "Undefined symbol: id");
+	const lip_context_error_t* error = lip_get_error(ctx);
+	munit_assert_uint(error->num_records, >, 0);
+	unsigned int bottom = error->num_records - 1;
+	lip_assert_string_ref_equal(lip_string_ref(source_name), error->records[bottom].filename);
+
 	lip_assert_error_msg("(identity)", "Bad number of arguments (exactly 1 expected, got 0)");
-	error = lip_traceback(ctx, vm, lip_make_nil(vm));
+	error = lip_get_error(ctx);
 	bottom = error->num_records - 1;
 	lip_assert_string_ref_equal(lip_string_ref(__FILE__), error->records[bottom].filename);
 	lip_assert_string_ref_equal(lip_string_ref(__func__), error->records[bottom].message);
-	lip_assert_string_ref_equal(lip_string_ref("identity"), error->records[0].message);
+	lip_assert_string_ref_equal(lip_string_ref("/identity"), error->records[0].message);
 
 	return MUNIT_OK;
 }

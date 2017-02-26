@@ -111,14 +111,7 @@ repl_print(lip_repl_handler_t* vtable, lip_exec_status_t status, lip_value_t res
 		}
 		break;
 	case LIP_EXEC_ERROR:
-		{
-			const lip_context_error_t* err = lip_get_error(repl->ctx);
-			if(err->num_records == 0)
-			{
-				lip_traceback(repl->ctx, repl->vm, result);
-			}
-			lip_print_error(lip_stderr(), repl->ctx);
-		}
+		lip_print_error(lip_stderr(), repl->ctx);
 		break;
 	}
 }

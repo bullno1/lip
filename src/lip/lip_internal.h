@@ -67,6 +67,8 @@ struct lip_context_s
 	khash_t(lip_string_ref_set)* loading_modules;
 	khash_t(lip_ptr_set)* new_exported_functions;
 	khash_t(lip_ptr_set)* new_script_functions;
+	lip_vm_t* last_vm;
+	lip_value_t last_result;
 	unsigned int load_depth;
 	unsigned int rt_read_lock_depth;
 	unsigned int rt_write_lock_depth;

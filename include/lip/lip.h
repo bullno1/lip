@@ -157,7 +157,7 @@ struct lip_repl_handler_s
 	 * When `status` is LIP_EXEC_OK, `result` will hold the result of the last expression.
 	 *
 	 * When `status` is LIP_EXEC_ERROR, `result` will hold the error of the last expression.
-	 * Use ::lip_traceback and ::lip_get_error to get the full stacktrace.
+	 * Use ::lip_get_error to get the full stacktrace.
 	 *
 	 * @see lip_print_value
 	 * @see print
@@ -446,7 +446,7 @@ lip_unload_script(lip_context_t* ctx, lip_script_t* script);
  *
  * @return Execution status.
  *
- * @remarks In case of error, use ::lip_traceback to get the full stacktrace.
+ * @remarks In case of error, use ::lip_get_error to get the full error message.
  * The vm is now in an inconsistent state, use ::lip_reset_vm before using it again.
  */
 LIP_API lip_exec_status_t

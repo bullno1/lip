@@ -239,6 +239,7 @@ lip_ctx_begin_load(lip_context_t* ctx)
 		kh_clear(lip_string_ref_set, ctx->loading_modules);
 		kh_clear(lip_ptr_set, ctx->new_exported_functions);
 		kh_clear(lip_ptr_set, ctx->new_script_functions);
+		ctx->last_vm = NULL;
 	}
 }
 
@@ -296,9 +297,8 @@ lip_commit_ns_locked(lip_context_t* ctx, lip_string_ref_t name, khash_t(lip_ns)*
 
 		lip_arena_allocator_reset(ctx->temp_pool);
 		lip_array(char) fqn_buf = lip_array_create(ctx->temp_pool, char, 64);
-		struct lip_osstream_s fqn_stream;
-		lip_printf(
-			lip_make_osstream(&fqn_buf, &fqn_stream),
+		lip_sprintf(
+			&fqn_buf,
 			"%.*s/%.*s",
 			(int)name.length, name.ptr,
 			(int)key.length, key.ptr
@@ -509,6 +509,11 @@ lip_destroy_context(lip_context_t* ctx)
 const lip_context_error_t*
 lip_get_error(lip_context_t* ctx)
 {
+	if(ctx->last_vm)
+	{
+		lip_traceback(ctx, ctx->last_vm, ctx->last_result);
+		ctx->last_vm = NULL;
+	}
 	return &ctx->error;
 }
 
@@ -895,6 +900,40 @@ lip_lookup_symbol(lip_context_t* ctx, lip_string_ref_t symbol_name, lip_value_t*
 	return ret_val;
 }
 
+static void
+lip_set_undefined_symbol_error(
+	lip_context_t* ctx,
+	lip_function_t* fn,
+	lip_string_t* name,
+	lip_loc_range_t loc
+)
+{
+	lip_function_layout_t layout;
+	lip_function_layout(fn, &layout);
+
+	lip_array(char) msg_buf = lip_array_create(ctx->module_pool, char, 64);
+	lip_sprintf(&msg_buf, "Undefined symbol: %.*s", (int)name->length, name->ptr);
+	lip_array_push(msg_buf, '\0');
+	lip_array_clear(ctx->error_records);
+	lip_error_record_t record = {
+		.filename = lip_copy_string_ref(
+			ctx->module_pool, lip_string_ref_from_string(layout.source_name)
+		),
+		.location = loc,
+		.message = lip_string_ref("Referenced here")
+	};
+	lip_array_push(ctx->error_records, record);
+
+	ctx->error = (lip_context_error_t){
+		.message = {
+			.length = lip_array_len(msg_buf) - 1,
+			.ptr = msg_buf
+		},
+		.records = ctx->error_records,
+		.num_records = lip_array_len(ctx->error_records)
+	};
+}
+
 static bool
 lip_link_function(lip_context_t* ctx, lip_function_t* fn)
 {
@@ -922,6 +961,7 @@ lip_link_function(lip_context_t* ctx, lip_function_t* fn)
 			}
 			else
 			{
+				lip_set_undefined_symbol_error(ctx, fn, name, loc);
 				return false;
 			}
 		}
@@ -936,6 +976,7 @@ lip_link_function(lip_context_t* ctx, lip_function_t* fn)
 			}
 			else
 			{
+				lip_set_undefined_symbol_error(ctx, fn, name, loc);
 				return false;
 			}
 		}
@@ -947,6 +988,7 @@ lip_link_function(lip_context_t* ctx, lip_function_t* fn)
 		khash_t(lip_ns)* ns = kh_val(ctx->loading_symtab, itr);
 		if(kh_get(lip_ns, ns, function_name) == kh_end(ns))
 		{
+			lip_set_undefined_symbol_error(ctx, fn, name, loc);
 			return false;
 		}
 	}
@@ -1231,20 +1273,6 @@ lip_do_dump_script(
 
 	lip_closure_t* closure = script->closure;
 
-	if(closure->is_native)
-	{
-		ctx->error.message = lip_string_ref("Cannot dump native function");
-		ctx->error.num_records = 0;
-		return false;
-	}
-
-	if(closure->env_len > 0)
-	{
-		ctx->error.message = lip_string_ref("Cannot dump function with captures");
-		ctx->error.num_records = 0;
-		return false;
-	}
-
 	lip_checked_write(LIP_BINARY_MAGIC, sizeof(LIP_BINARY_MAGIC), output);
 	uint8_t ptr_size = sizeof(void*);
 	lip_checked_write(&ptr_size, sizeof(ptr_size), output);
@@ -1328,7 +1356,7 @@ lip_exec_status_t
 		if(!link_result) { return LIP_EXEC_ERROR; }
 	}
 
-	return (lip_call)(
+	lip_exec_status_t status = (lip_call)(
 		vm,
 		result,
 		(lip_value_t){
@@ -1337,6 +1365,9 @@ lip_exec_status_t
 		},
 		0
 	);
+	rt->ctx->last_result = *result;
+	rt->ctx->last_vm = vm;
+	return status;
 }
 
 static lip_vm_t*
@@ -1426,9 +1457,8 @@ lip_load_module(lip_context_t* ctx, lip_string_ref_t name)
 	if(file == NULL)
 	{
 		lip_array(char) error_msg_buf = lip_array_create(ctx->module_pool, char, 64);
-		struct lip_osstream_s msg;
-		lip_printf(
-			lip_make_osstream(&error_msg_buf, &msg),
+		lip_sprintf(
+			&error_msg_buf,
 			"Could not load module %.*s", (int)name.length, name.ptr
 		);
 		lip_array_push(error_msg_buf, '\0');
@@ -1600,6 +1630,8 @@ lip_repl(
 						},
 						0
 					);
+					ctx->last_result = result;
+					ctx->last_vm = vm;
 					repl_handler->print(repl_handler, status, result);
 				}
 				break;
