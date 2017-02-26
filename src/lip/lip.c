@@ -142,6 +142,7 @@ lip_purge_ns(lip_runtime_t* runtime, khash_t(lip_ns)* ns)
 	{
 		lip_free(runtime->cfg.allocator, (void*)kh_key(ns, i).ptr);
 		lip_closure_t* closure = kh_val(ns, i).value;
+		lip_free(runtime->cfg.allocator, closure->debug_name);
 		if(!closure->is_native)
 		{
 			lip_free(runtime->cfg.allocator, closure->function.lip);
@@ -292,6 +293,24 @@ lip_commit_ns_locked(lip_context_t* ctx, lip_string_ref_t name, khash_t(lip_ns)*
 
 		lip_string_ref_t symbol_name = lip_copy_string_ref(runtime->cfg.allocator, key);
 		value.value = lip_copy_closure(runtime->cfg.allocator, value.value);
+
+		lip_arena_allocator_reset(ctx->temp_pool);
+		lip_array(char) fqn_buf = lip_array_create(ctx->temp_pool, char, 64);
+		struct lip_osstream_s fqn_stream;
+		lip_printf(
+			lip_make_osstream(&fqn_buf, &fqn_stream),
+			"%.*s/%.*s",
+			(int)name.length, name.ptr,
+			(int)key.length, key.ptr
+		);
+		size_t str_len = lip_array_len(fqn_buf);
+		lip_string_t* debug_name = lip_malloc(
+			runtime->cfg.allocator, sizeof(lip_string_t) + str_len + 1
+		);
+		memcpy(debug_name->ptr, fqn_buf, str_len);
+		debug_name->ptr[str_len] = '\0';
+		debug_name->length = str_len;
+		value.value->debug_name = debug_name;
 
 		int ret;
 		if(!value.value->is_native)

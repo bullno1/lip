@@ -106,7 +106,9 @@ static lip_function(declare)
 	int ret;
 	khiter_t itr = kh_put(lip_ns, ns, name_ref, &ret);
 	lip_bind_assert_fmt(ret != 0, "Redeclared '%.*s", (int)name_str->length, name_str->ptr);
-	kh_val(ns, itr).value = fn.data.reference;
+	kh_val(ns, itr) = (lip_symbol_t){
+		.value = fn.data.reference
+	};
 
 	lip_return(lip_make_nil(vm));
 }

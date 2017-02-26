@@ -56,12 +56,6 @@ BEGIN_OP(IMP)
 	}
 	LOAD_CONTEXT();
 
-	if(result.type == LIP_VAL_FUNCTION)
-	{
-		lip_closure_t* closure = result.data.reference;
-		closure->debug_name = symbol_name;
-	}
-
 	*(--sp) = result;
 END_OP(IMP)
 
