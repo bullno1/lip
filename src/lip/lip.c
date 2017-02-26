@@ -103,7 +103,7 @@ lip_destroy_runtime(lip_runtime_t* runtime)
 	kh_destroy(lip_symtab, runtime->symtab);
 	kh_destroy(lip_ptr_set, runtime->contexts);
 	if(runtime->userdata) { kh_destroy(lip_userdata, runtime->userdata); }
-	if(runtime->own_fs) { lip_free(runtime->cfg.allocator, runtime->cfg.fs); }
+	if(runtime->own_fs) { lip_destroy_native_fs(runtime->cfg.fs); }
 	lip_free(runtime->cfg.allocator, runtime);
 }
 
