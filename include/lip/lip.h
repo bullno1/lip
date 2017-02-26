@@ -197,8 +197,8 @@ struct lip_context_error_s
 	unsigned int num_records;
 	/// Error record.
 	lip_error_record_t* records;
-
-	lip_context_error_t* parent;
+	/// The error that leads to this error. Can be `NULL`.
+	const lip_context_error_t* parent;
 };
 
 /**

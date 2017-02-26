@@ -58,7 +58,7 @@ repl_inspect(struct repl_common_s* common, struct repl_inspect_opts_s* opts)
 		return EXIT_FAILURE;
 	}
 
-	lip_print_closure(opts->print_depth, 0, lip_stdout(), (lip_closure_t*)script);
+	lip_print_script(opts->print_depth, 0, lip_stdout(), script);
 
 	return EXIT_SUCCESS;
 }

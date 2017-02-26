@@ -240,7 +240,14 @@ lip_ctx_begin_load(lip_context_t* ctx)
 		kh_clear(lip_ptr_set, ctx->new_exported_functions);
 		kh_clear(lip_ptr_set, ctx->new_script_functions);
 		ctx->last_vm = NULL;
+		ctx->load_aborted = false;
 	}
+}
+
+static void
+lip_ctx_abort_load(lip_context_t* ctx)
+{
+	ctx->load_aborted = true;
 }
 
 static lip_closure_t*
@@ -372,7 +379,7 @@ lip_import_referenced(
 		lip_disasm(instr, &opcode, &operand);
 		if(opcode == LIP_OP_IMP && operand == import_index)
 		{
-			*loc = layout.locations[i];
+			*loc = layout.locations[i + 1]; // slot 0 is function's location
 			return true;
 		}
 	}
@@ -424,7 +431,7 @@ static void
 lip_ctx_end_load(lip_context_t* ctx)
 {
 	lip_assert(ctx, ctx->load_depth > 0);
-	if(--ctx->load_depth == 0)
+	if(--ctx->load_depth == 0 && !ctx->load_aborted)
 	{
 		kh_foreach(itr, ctx->loading_symtab)
 		{
@@ -546,10 +553,11 @@ lip_function_name(lip_stack_frame_t* fp)
 const lip_context_error_t*
 lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg)
 {
+	lip_string_ref_t error_message;
 	if(msg.type == LIP_VAL_STRING)
 	{
 		lip_string_t* str = msg.data.reference;
-		ctx->error.message = (lip_string_ref_t){
+		error_message = (lip_string_ref_t){
 			.ptr = str->ptr,
 			.length = str->length
 		};
@@ -562,7 +570,7 @@ lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg)
 		lip_out_t* output = lip_make_osstream(&rt->ctx->string_buff, &osstream);
 		lip_print_value(1, 0, output, msg);
 		size_t msg_len = lip_array_len(rt->ctx->string_buff) - 1; // exclude new line
-		ctx->error.message = (lip_string_ref_t){
+		error_message = (lip_string_ref_t){
 			.ptr = rt->ctx->string_buff,
 			.length = msg_len
 		};
@@ -613,19 +621,22 @@ lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg)
 			};
 		}
 	}
-	ctx->error.num_records = lip_array_len(ctx->error_records);
-	ctx->error.records = ctx->error_records;
+	ctx->error = (lip_context_error_t){
+		.message = error_message,
+		.num_records = lip_array_len(ctx->error_records),
+		.records = ctx->error_records
+	};
 
 	return &ctx->error;
 }
 
-void
-lip_print_error(lip_out_t* out, lip_context_t* ctx)
+static void
+lip_do_print_error(lip_out_t* out, const lip_context_error_t* err, bool first)
 {
-	const lip_context_error_t* err = lip_get_error(ctx);
 	lip_printf(
 		out,
-		"Error: %.*s.\n",
+		"%s: %.*s.\n",
+		first ? "Error" : "due to",
 		(int)err->message.length, err->message.ptr
 	);
 	for(unsigned int i = 0; i < err->num_records; ++i)
@@ -656,6 +667,15 @@ lip_print_error(lip_out_t* out, lip_context_t* ctx)
 			);
 		}
 	}
+
+	if(err->parent) { lip_do_print_error(out, err->parent, false);
+	}
+}
+
+void
+lip_print_error(lip_out_t* out, lip_context_t* ctx)
+{
+	lip_do_print_error(out, lip_get_error(ctx), true);
 }
 
 lip_ns_context_t*
@@ -843,13 +863,16 @@ lip_set_context_error(
 )
 {
 	lip_array_clear(ctx->error_records);
-	lip_error_record_t* record = lip_array_alloc(ctx->error_records);
-	record->filename = filename;
-	record->location = location;
-	record->message = message;
-	ctx->error.message = lip_string_ref(error_type);
-	ctx->error.num_records = 1;
-	ctx->error.records = ctx->error_records;
+	*lip_array_alloc(ctx->error_records) = (lip_error_record_t) {
+		.filename = filename,
+		.location = location,
+		.message = message
+	};
+	ctx->error = (lip_context_error_t) {
+		.message = lip_string_ref(error_type),
+		.num_records = 1,
+		.records = ctx->error_records
+	};
 }
 
 static void
@@ -905,7 +928,8 @@ lip_set_undefined_symbol_error(
 	lip_context_t* ctx,
 	lip_function_t* fn,
 	lip_string_t* name,
-	lip_loc_range_t loc
+	lip_loc_range_t loc,
+	bool stack
 )
 {
 	lip_function_layout_t layout;
@@ -914,24 +938,41 @@ lip_set_undefined_symbol_error(
 	lip_array(char) msg_buf = lip_array_create(ctx->module_pool, char, 64);
 	lip_sprintf(&msg_buf, "Undefined symbol: %.*s", (int)name->length, name->ptr);
 	lip_array_push(msg_buf, '\0');
-	lip_array_clear(ctx->error_records);
-	lip_error_record_t record = {
+	lip_string_ref_t error_message = {
+		.length = lip_array_len(msg_buf) - 1,
+		.ptr = msg_buf
+	};
+	lip_error_record_t* error_record = lip_new(ctx->module_pool, lip_error_record_t);
+	*error_record = (lip_error_record_t){
 		.filename = lip_copy_string_ref(
 			ctx->module_pool, lip_string_ref_from_string(layout.source_name)
 		),
 		.location = loc,
 		.message = lip_string_ref("Referenced here")
 	};
-	lip_array_push(ctx->error_records, record);
 
-	ctx->error = (lip_context_error_t){
-		.message = {
-			.length = lip_array_len(msg_buf) - 1,
-			.ptr = msg_buf
-		},
-		.records = ctx->error_records,
-		.num_records = lip_array_len(ctx->error_records)
-	};
+	if(stack)
+	{
+		lip_context_error_t* error_copy =
+				lip_new(ctx->module_pool, lip_context_error_t);
+		*error_copy = ctx->error;
+		ctx->error = (lip_context_error_t){
+			.message = error_message,
+			.records = error_record,
+			.num_records = 1,
+			.parent = error_copy
+		};
+	}
+	else
+	{
+		ctx->error = (lip_context_error_t){
+			.message = error_message,
+			.records = error_record,
+			.num_records = 1
+		};
+	}
+
+	lip_ctx_abort_load(ctx);
 }
 
 static bool
@@ -961,7 +1002,7 @@ lip_link_function(lip_context_t* ctx, lip_function_t* fn)
 			}
 			else
 			{
-				lip_set_undefined_symbol_error(ctx, fn, name, loc);
+				lip_set_undefined_symbol_error(ctx, fn, name, loc, false);
 				return false;
 			}
 		}
@@ -976,19 +1017,23 @@ lip_link_function(lip_context_t* ctx, lip_function_t* fn)
 			}
 			else
 			{
-				lip_set_undefined_symbol_error(ctx, fn, name, loc);
+				lip_set_undefined_symbol_error(ctx, fn, name, loc, false);
 				return false;
 			}
 		}
 
-		if(!lip_load_module(ctx, module_name)) { return false; }
+		if(!lip_load_module(ctx, module_name))
+		{
+			lip_set_undefined_symbol_error(ctx, fn, name, loc, true);
+			return false;
+		}
 
 		itr = kh_get(lip_symtab, ctx->loading_symtab, module_name);
 		lip_assert(ctx, itr != kh_end(ctx->loading_symtab));
 		khash_t(lip_ns)* ns = kh_val(ctx->loading_symtab, itr);
 		if(kh_get(lip_ns, ns, function_name) == kh_end(ns))
 		{
-			lip_set_undefined_symbol_error(ctx, fn, name, loc);
+			lip_set_undefined_symbol_error(ctx, fn, name, loc, false);
 			return false;
 		}
 	}
@@ -1201,7 +1246,6 @@ lip_load_script(
 	if(own_input)
 	{
 		lip_fs_t* fs = ctx->runtime->cfg.fs;
-
 		input = fs->begin_read(fs, filename);
 		if(input == NULL)
 		{
@@ -1215,13 +1259,15 @@ lip_load_script(
 	lip_ctx_begin_load(ctx);
 
 	lip_function_t* fn = lip_do_load_script(ctx, filename, input);
+
 	lip_script_t* script = NULL;
 	if(fn)
 	{
 		if(link && !lip_link_function(ctx, fn))
 		{
 			lip_free(ctx->allocator, fn);
-			return NULL;
+			script = NULL;
+			goto end;
 		}
 
 		lip_closure_t* closure = lip_new(ctx->allocator, lip_closure_t);
@@ -1241,6 +1287,7 @@ lip_load_script(
 		kh_put(lip_ptr_set, ctx->scripts, script, &ret);
 	}
 
+end:
 	lip_ctx_end_load(ctx);
 
 	if(own_input)
@@ -1386,9 +1433,26 @@ lip_load_module(lip_context_t* ctx, lip_string_ref_t name)
 {
 	int ret;
 	kh_put(lip_string_ref_set, ctx->loading_modules, name, &ret);
-	if(ret == 0) { return false; }
+	if(ret == 0)
+	{
+		lip_array(char) error_msg_buf = lip_array_create(ctx->module_pool, char, 64);
+		lip_sprintf(
+			&error_msg_buf,
+			"Circular dependency around %.*s", (int)name.length, name.ptr
+		);
+		lip_array_push(error_msg_buf, '\0');
+
+		ctx->error = (lip_context_error_t){
+			.message = {
+				.length = lip_array_len(error_msg_buf) - 1,
+				.ptr = error_msg_buf
+			},
+		};
+		return false;
+	}
 
 	bool result = false;
+	bool stacked_error = false;
 	lip_ctx_begin_load(ctx);
 #define returnVal(X) do { result = X; goto end; } while(0)
 
@@ -1464,12 +1528,13 @@ lip_load_module(lip_context_t* ctx, lip_string_ref_t name)
 		lip_array_push(error_msg_buf, '\0');
 		ctx->error = (lip_context_error_t){
 			.message = {
-				.length = lip_array_len(error_msg_buf),
+				.length = lip_array_len(error_msg_buf) - 1,
 				.ptr = error_msg_buf
 			},
 			.num_records = lip_array_len(ctx->error_records),
 			.records = ctx->error_records
 		};
+		stacked_error = true;
 		returnVal(false);
 	}
 
@@ -1488,8 +1553,10 @@ lip_load_module(lip_context_t* ctx, lip_string_ref_t name)
 	kh_val(ctx->loading_symtab, itr) = module;
 	void* previous_ctx = lip_set_userdata(vm, LIP_SCOPE_CONTEXT, &lip_module_ctx_key, module);
 	lip_value_t exec_result;
+	lip_vm_t* old_last_vm = ctx->last_vm;
 	lip_exec_status_t status =
 		lip_exec_script(lip_get_internal_vm(ctx), script, &exec_result);
+	ctx->last_vm = old_last_vm;
 	lip_set_userdata(vm, LIP_SCOPE_CONTEXT, &lip_module_ctx_key, previous_ctx);
 
 	if(status == LIP_EXEC_OK)
@@ -1508,6 +1575,12 @@ lip_load_module(lip_context_t* ctx, lip_string_ref_t name)
 	}
 	else
 	{
+		lip_traceback(ctx, vm, exec_result);
+		lip_array_foreach(lip_error_record_t, record, ctx->error_records)
+		{
+			record->message = lip_copy_string_ref(ctx->module_pool, record->message);
+			record->filename = lip_copy_string_ref(ctx->module_pool, record->filename);
+		}
 		returnVal(false);
 	}
 
@@ -1515,6 +1588,30 @@ end:
 	if(file) { fs->end_read(fs, file); }
 	if(script) { lip_unload_script(ctx, script); }
 
+	if(!result)
+	{
+		if(!stacked_error)
+		{
+			lip_array(char) error_msg_buf = lip_array_create(ctx->module_pool, char, 64);
+			lip_sprintf(
+				&error_msg_buf,
+				"Could not load module %.*s", (int)name.length, name.ptr
+			);
+			lip_array_push(error_msg_buf, '\0');
+
+			lip_context_error_t* error_copy =
+				lip_new(ctx->module_pool, lip_context_error_t);
+			*error_copy = ctx->error;
+			ctx->error = (lip_context_error_t){
+				.message = {
+					.length = lip_array_len(error_msg_buf) - 1,
+					.ptr = error_msg_buf
+				},
+				.parent = error_copy
+			};
+		}
+		lip_ctx_abort_load(ctx);
+	}
 	lip_ctx_end_load(ctx);
 	return result;
 }
@@ -1547,7 +1644,6 @@ lip_repl(
 	{
 		lip_arena_allocator_reset(ctx->temp_pool);
 		lip_parser_reset(&ctx->parser, &input.vtable);
-		ctx->error.num_records = 0;
 
 		lip_sexp_t sexp;
 		switch(lip_parser_next_sexp(&ctx->parser, &sexp))
