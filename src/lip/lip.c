@@ -356,6 +356,30 @@ lip_split_fqn(
 	}
 }
 
+static bool
+lip_import_referenced(
+	lip_function_t* fn, uint16_t import_index, lip_loc_range_t* loc
+)
+{
+	lip_function_layout_t layout;
+	lip_function_layout(fn, &layout);
+
+	for(uint16_t i = 0; i < fn->num_instructions; ++i)
+	{
+		lip_instruction_t instr = layout.instructions[i];
+		lip_opcode_t opcode;
+		lip_operand_t operand;
+		lip_disasm(instr, &opcode, &operand);
+		if(opcode == LIP_OP_IMP && operand == import_index)
+		{
+			*loc = layout.locations[i];
+			return true;
+		}
+	}
+
+	return false;
+}
+
 static void
 lip_static_link_function(lip_context_t* ctx, lip_function_t* fn)
 {
@@ -365,6 +389,10 @@ lip_static_link_function(lip_context_t* ctx, lip_function_t* fn)
 
 	for(uint16_t i = 0; i < fn->num_imports; ++i)
 	{
+		// Some imports are replaced with builtins ops
+		lip_loc_range_t loc;
+		if(!lip_import_referenced(fn, i, &loc)) { continue; }
+
 		lip_string_t* name = lip_function_resource(fn, layout.imports[i].name);
 		lip_string_ref_t symbol_name_ref = { .length = name->length, .ptr = name->ptr };
 
@@ -875,6 +903,10 @@ lip_link_function(lip_context_t* ctx, lip_function_t* fn)
 
 	for(uint16_t i = 0; i < fn->num_imports; ++i)
 	{
+		// Some imports are replaced with builtins ops
+		lip_loc_range_t loc;
+		if(!lip_import_referenced(fn, i, &loc)) { continue; }
+
 		lip_string_t* name = lip_function_resource(fn, layout.imports[i].name);
 		lip_string_ref_t module_name, function_name;
 		lip_string_ref_t symbol_name_ref = { .length = name->length, .ptr = name->ptr };
