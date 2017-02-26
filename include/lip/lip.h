@@ -502,6 +502,19 @@ lip_repl(
 );
 
 /**
+ * @brief Retrieve the default VM of a context.
+ *
+ * The default VM is used whenever a context needs to implicitly execute code
+ * e.g: macro expansion, module loading... It can be retrieved for debugging
+ * or getting/setting userdata without creating a VM.
+ *
+ * @param ctx A context.
+ * @return The default VM of the given context.
+ */
+LIP_API lip_vm_t*
+lip_get_default_vm(lip_context_t* ctx);
+
+/**
  * @brief Get userdata.
  *
  * @param vm A vm.
