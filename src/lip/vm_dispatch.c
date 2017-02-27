@@ -21,15 +21,20 @@
 		goto *dispatch_table[LIP_MIN((unsigned int)opcode, LIP_STATIC_ARRAY_LEN(dispatch_table) - 1)];
 #else
 #	define BEGIN_LOOP() \
-		while(true) { \
-			CALL_HOOK(); \
-			lip_opcode_t opcode; \
-			int32_t operand; \
-			lip_disasm(*(pc++), &opcode, &operand); \
-			switch(opcode) {
-#	define END_LOOP() default: THROW("Illegal instruction"); }}
-#	define BEGIN_OP(OP) case LIP_OP_##OP: {
-#	define END_OP(OP) } continue;
+		lip_opcode_t opcode; \
+		lip_operand_t operand; \
+		DISPATCH()
+#	define END_LOOP() do_LIP_OP_ILLEGAL: THROW("Illegal instruction");
+#	define BEGIN_OP(OP) do_LIP_OP_##OP: {
+#	define END_OP(OP) } DISPATCH()
+#	define DISPATCH() \
+		CALL_HOOK(); \
+		lip_disasm(*(pc++), &opcode, &operand); \
+		switch(opcode) { \
+			LIP_OP(GENERATE_CASE) \
+			default: goto do_LIP_OP_ILLEGAL; \
+		}
+#	define GENERATE_CASE(ENUM) case ENUM: goto do_##ENUM;
 #endif
 
 #define LOAD_CONTEXT() \
