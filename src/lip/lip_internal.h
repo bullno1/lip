@@ -78,8 +78,9 @@ struct lip_context_s
 	khash_t(lip_userdata)* userdata;
 	khash_t(lip_symtab)* loading_symtab;
 	khash_t(lip_string_ref_set)* loading_modules;
-	khash_t(lip_ptr_set)* new_exported_functions;
+	khash_t(lip_userdata)* new_exported_functions;
 	khash_t(lip_ptr_set)* new_script_functions;
+	khash_t(lip_ns)* current_module;
 	lip_vm_t* last_vm;
 	lip_value_t last_result;
 	bool load_aborted;
@@ -94,8 +95,6 @@ struct lip_script_s
 	bool linked;
 };
 
-extern const char lip_module_ctx_key;
-
 void
 lip_ctx_begin_load(lip_context_t* ctx);
 
@@ -103,7 +102,9 @@ void
 lip_ctx_end_load(lip_context_t* ctx);
 
 bool
-lip_link_function(lip_context_t* ctx, lip_function_t* fn);
+lip_link_function(
+	lip_context_t* ctx, lip_function_t* fn, bool is_module, khash_t(lip_ns)* module
+);
 
 void
 lip_ctx_begin_rt_read(lip_context_t* ctx);

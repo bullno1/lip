@@ -1,140 +1,18 @@
 #include <lip/lip.h>
-#include <lip/memory.h>
-#include <lip/io.h>
-#include <lip/print.h>
-#include <lip/vm.h>
 #include <lip/opcode.h>
 #include <lip/bind.h>
 #include "munit.h"
 #include "test_helpers.h"
+#include "runtime_helper.h"
 
-#define SOURCE_NAME __FILE__ ":"  STRINGIFY(__LINE__)
-#define STRINGIFY(X) STRINGIFY2(X)
-#define STRINGIFY2(X) #X
+#define FOREACH_SUITE(F) \
+	F(module)
 
-#define lip_assert_result(code, expected_status, assert_fn, ...) \
-	do { \
-		test_hook_t hook = { .printed = false, .vtable = { .step = step } }; \
-		lip_set_vm_hook(vm, &hook.vtable); \
-		struct lip_isstream_s sstream; \
-		lip_in_t* input = lip_make_isstream(lip_string_ref(code), &sstream); \
-		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input, lip_pp_nth(2, (__VA_ARGS__), false)); \
-		if(script == NULL) { lip_print_error(lip_stderr(), ctx); } \
-		munit_assert_not_null(script); \
-		lip_print_script(100, 0, lip_null, script); \
-		lip_value_t result; \
-		lip_reset_vm(vm); \
-		lip_exec_status_t status = lip_exec_script(vm, script, &result); \
-		if(status != LIP_EXEC_OK) \
-		{ \
-			lip_print_error(lip_stderr(), ctx); \
-		} \
-		lip_assert_enum(lip_exec_status_t, expected_status, ==, status); \
-		assert_fn(lip_pp_nth(1, (__VA_ARGS__), 0), result); \
-	} while(0)
+#define DECLARE_SUITE(S) extern MunitSuite S;
 
-#define lip_assert_num_result(code, ...) \
-	lip_assert_result(code, LIP_EXEC_OK, lip_assert_num, __VA_ARGS__)
+FOREACH_SUITE(DECLARE_SUITE)
 
-#define lip_assert_str_result(code, result_value) \
-	lip_assert_result(code, LIP_EXEC_OK, lip_assert_str, result_value)
-
-#define lip_assert_symbol_result(code, result_value) \
-	lip_assert_result(code, LIP_EXEC_OK, lip_assert_symbol, result_value)
-
-#define lip_assert_nil_result(code) \
-	lip_assert_result(code, LIP_EXEC_OK, lip_assert_nil, placeholder)
-
-#define lip_assert_boolean_result(code, result_value) \
-	lip_assert_result(code, LIP_EXEC_OK, lip_assert_boolean, result_value)
-
-#define lip_assert_pass(expected, actual)
-
-#define lip_assert_error_msg(code, msg) \
-	do { \
-		lip_assert_result(code, LIP_EXEC_ERROR, lip_assert_pass, msg); \
-		const lip_context_error_t* error = lip_get_error(ctx); \
-		lip_assert_string_ref_equal(lip_string_ref(msg), error->message); \
-	} while(0)
-
-#define lip_assert_syntax_error(code, error_msg, start_line, start_col, end_line, end_col) \
-	do { \
-		struct lip_isstream_s sstream; \
-		lip_in_t* input = lip_make_isstream(lip_string_ref(code), &sstream); \
-		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input, false); \
-		munit_assert_null(script); \
-		const lip_context_error_t* error = lip_get_error(ctx); \
-		lip_assert_string_ref_equal(lip_string_ref("Syntax error"), error->message); \
-		lip_assert_string_ref_equal(lip_string_ref(error_msg), error->records[0].message); \
-		munit_assert_uint(1, ==, error->num_records); \
-		lip_loc_range_t expected_location = { \
-			.start = { .line = start_line, .column = start_col }, \
-			.end = { .line = end_line, .column = end_col } \
-		}; \
-		lip_assert_loc_range_equal(expected_location, error->records[0].location); \
-	} while(0)
-
-#define LIP_STRING_REF_LITERAL(str) \
-	{ .length = LIP_STATIC_ARRAY_LEN(str), .ptr = str}
-
-typedef struct lip_fixture_s lip_fixture_t;
-typedef struct test_hook_s test_hook_t;
-
-static const lip_string_ref_t module_search_patterns[] = {
-	LIP_STRING_REF_LITERAL("src/tests/?.lip"),
-	LIP_STRING_REF_LITERAL("src/tests/!.lip")
-};
-
-struct test_hook_s
-{
-	lip_vm_hook_t vtable;
-	bool printed;
-};
-
-struct lip_fixture_s
-{
-	lip_runtime_t* runtime;
-	lip_context_t* context;
-	lip_vm_t* vm;
-};
-
-static void
-step(lip_vm_hook_t* vtable, const lip_vm_t* vm)
-{
-	test_hook_t* hook = LIP_CONTAINER_OF(vtable, test_hook_t, vtable);
-	if(!hook->printed)
-	{
-		hook->printed = true;
-		lip_print_closure(10, 0, lip_stderr(), vm->fp->closure);
-	}
-}
-
-static void*
-setup(const MunitParameter params[], void* data)
-{
-	(void)params;
-	(void)data;
-
-	lip_runtime_config_t cfg;
-	lip_reset_runtime_config(&cfg);
-	cfg.module_search_patterns = module_search_patterns;
-	cfg.num_module_search_patterns = LIP_STATIC_ARRAY_LEN(module_search_patterns);
-	lip_fixture_t* fixture = lip_new(lip_default_allocator, lip_fixture_t);
-	fixture->runtime = lip_create_runtime(&cfg);
-	fixture->context = lip_create_context(fixture->runtime, NULL);
-	fixture->vm = lip_create_vm(fixture->context, NULL);
-	return fixture;
-}
-
-static void
-teardown(void* fixture_)
-{
-	lip_fixture_t* fixture = fixture_;
-	lip_destroy_vm(fixture->context, fixture->vm);
-	lip_destroy_context(fixture->context);
-	lip_destroy_runtime(fixture->runtime);
-	lip_free(lip_default_allocator, fixture);
-}
+#define PLACEHOLDER(S) { .tests = NULL, .suites = NULL },
 
 static MunitResult
 basic_forms(const MunitParameter params[], void* fixture_)
@@ -919,63 +797,6 @@ bytecode(const MunitParameter params[], void* fixture_)
 	return MUNIT_OK;
 }
 
-static const char test_key = 0;
-
-typedef struct lip_test_context_s
-{
-	int count;
-} lip_test_context_t;
-
-static lip_function(count_load)
-{
-	lip_test_context_t* test_ctx = lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &test_key);
-	++test_ctx->count;
-	lip_return(lip_make_nil(vm));
-}
-
-static MunitResult
-module(const MunitParameter params[], void* fixture_)
-{
-	(void)params;
-
-	lip_fixture_t* fixture = fixture_;
-	lip_context_t* ctx2 = fixture->context;
-	lip_vm_t* vm = fixture->vm;
-	lip_load_builtins(ctx2);
-
-	lip_ns_context_t* ns = lip_begin_ns(ctx2, lip_string_ref("test"));
-	lip_declare_function(ns, lip_string_ref("count-load"), count_load);
-	lip_end_ns(ctx2, ns);
-
-	lip_test_context_t test_context = {
-		.count = 0
-	};
-	lip_set_userdata(vm, LIP_SCOPE_RUNTIME, &test_key, &test_context);
-
-	{
-		lip_context_t* ctx = lip_create_context(fixture->runtime, NULL);
-		lip_assert_num_result("(test.mod/test-fun 1)", 2, true);
-		lip_assert_num_result("(test.mod/test-fun 2)", 3, true);
-		lip_destroy_context(ctx);
-	}
-
-	{
-		lip_context_t* ctx = lip_create_context(fixture->runtime, NULL);
-		lip_assert_num_result("(test.mod3/test-fun2 3)", 2, true);
-		lip_destroy_context(ctx);
-	}
-
-	{
-		lip_context_t* ctx = lip_create_context(fixture->runtime, NULL);
-		lip_assert_num_result("(test.mod/test-fun 3)", 4, true);
-		lip_assert_num_result("(test.mod3/test-fun2 4)", 3, true);
-		lip_destroy_context(ctx);
-	}
-	munit_assert_int(1, ==, test_context.count);
-
-	return MUNIT_OK;
-}
-
 static MunitTest tests[] = {
 	{
 		.name = "/basic_forms",
@@ -1049,16 +870,23 @@ static MunitTest tests[] = {
 		.setup = setup,
 		.tear_down = teardown
 	},
-	{
-		.name = "/module",
-		.test = module,
-		.setup = setup,
-		.tear_down = teardown
-	},
 	{ .test = NULL }
 };
 
-MunitSuite runtime = {
-	.prefix = "/runtime",
-	.tests = tests
-};
+MunitSuite runtime()
+{
+#define IMPORT_SUITE(S) all_suites[i++] = S;
+	static MunitSuite all_suites[] = {
+		FOREACH_SUITE(PLACEHOLDER)
+		{ .tests = NULL }
+	};
+
+	int i = 0;
+	FOREACH_SUITE(IMPORT_SUITE)
+
+	return (MunitSuite) {
+		.prefix = "/runtime",
+		.suites = all_suites,
+		.tests = tests
+	};
+}

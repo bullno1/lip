@@ -85,7 +85,7 @@ lip_repl(
 					lip_compiler_add_ast(&ctx->compiler, ast_result.value.result);
 					lip_function_t* fn = lip_compiler_end(&ctx->compiler, ctx->temp_pool);
 					lip_ctx_begin_load(ctx);
-					bool link_result = lip_link_function(ctx, fn);
+					bool link_result = lip_link_function(ctx, fn, false, NULL);
 					if(link_result)
 					{
 						int ret;

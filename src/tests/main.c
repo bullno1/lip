@@ -10,7 +10,7 @@
 	F(assembler) \
 	F(arena_allocator) \
 	F(vm) \
-	F(runtime) \
+	F(runtime()) \
 	F(bind) \
 	F(cpp)
 

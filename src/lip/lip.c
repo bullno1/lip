@@ -17,7 +17,6 @@ static lip_string_ref_t LIP_DEFAULT_MODULE_SEARCH_PATTERNS[] = {
 	LIP_STRING_REF_LITERAL("!/init.lip"),
 	LIP_STRING_REF_LITERAL("!/init.lipc")
 };
-const char lip_module_ctx_key = 0;
 
 void
 lip_reset_runtime_config(lip_runtime_config_t* cfg)
@@ -76,7 +75,7 @@ lip_do_destroy_context(lip_context_t* ctx)
 	lip_array_destroy(ctx->string_buff);
 	kh_destroy(lip_symtab, ctx->loading_symtab);
 	kh_destroy(lip_string_ref_set, ctx->loading_modules);
-	kh_destroy(lip_ptr_set, ctx->new_exported_functions);
+	kh_destroy(lip_userdata, ctx->new_exported_functions);
 	kh_destroy(lip_ptr_set, ctx->new_script_functions);
 	kh_destroy(lip_ptr_set, ctx->vms);
 	kh_destroy(lip_ptr_set, ctx->scripts);
@@ -177,7 +176,7 @@ lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator)
 		.vms = kh_init(lip_ptr_set, allocator),
 		.loading_symtab = kh_init(lip_symtab, allocator),
 		.loading_modules = kh_init(lip_string_ref_set, allocator),
-		.new_exported_functions = kh_init(lip_ptr_set, allocator),
+		.new_exported_functions = kh_init(lip_userdata, allocator),
 		.new_script_functions = kh_init(lip_ptr_set, allocator),
 		.string_buff = lip_array_create(allocator, char, 512),
 		.panic_handler = lip_default_panic_handler
@@ -333,7 +332,7 @@ lip_do_print_error(lip_out_t* out, const lip_context_error_t* err, bool first)
 	lip_printf(
 		out,
 		"%s: %.*s.\n",
-		first ? "Error" : "due to",
+		first ? "Error" : "caused by",
 		(int)err->message.length, err->message.ptr
 	);
 	for(unsigned int i = 0; i < err->num_records; ++i)
@@ -384,10 +383,7 @@ lip_rt_resolve_import(
 {
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vtable, lip_runtime_link_t, vtable);
 	lip_assert(rt->ctx, rt->ctx->load_depth > 0);
-	lip_string_ref_t symbol_name_ref = {
-		.ptr = symbol_name->ptr,
-		.length = symbol_name->length
-	};
+	lip_string_ref_t symbol_name_ref = lip_string_ref_from_string(symbol_name);
 	return lip_lookup_symbol(rt->ctx, symbol_name_ref, result);
 }
 

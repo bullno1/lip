@@ -26,8 +26,58 @@ lip_import_referenced(
 	return false;
 }
 
+static lip_symbol_t*
+lip_lookup_symbol_in_symtab(
+	khash_t(lip_symtab)* symtab,
+	lip_string_ref_t namespace,
+	lip_string_ref_t symbol_name
+)
+{
+	khiter_t itr = kh_get(lip_symtab, symtab, namespace);
+	if(itr == kh_end(symtab)) { return false; }
+
+	khash_t(lip_ns)* ns = kh_val(symtab, itr);
+	itr = kh_get(lip_ns, ns, symbol_name);
+	if(itr == kh_end(ns)) { return false; }
+
+	return &kh_val(ns, itr);
+}
+
 static void
-lip_static_link_function(lip_context_t* ctx, lip_function_t* fn)
+lip_split_fqn(
+	lip_string_ref_t fqn,
+	lip_string_ref_t* module_name,
+	lip_string_ref_t* symbol_name
+)
+{
+	if(fqn.length == 1 && fqn.ptr[0] == '/')
+	{
+		*module_name = lip_string_ref("");
+		*symbol_name = fqn;
+	}
+	else
+	{
+		char* pos = memchr(fqn.ptr, '/', fqn.length);
+
+		if(pos)
+		{
+			module_name->ptr = fqn.ptr;
+			module_name->length = pos - fqn.ptr;
+			symbol_name->ptr = pos + 1;
+			symbol_name->length = fqn.length - module_name->length - 1;
+		}
+		else
+		{
+			*module_name = lip_string_ref("");
+			*symbol_name = fqn;
+		}
+	}
+}
+
+static void
+lip_static_link_function(
+	lip_context_t* ctx, lip_function_t* fn, khash_t(lip_ns)* ns
+)
 {
 	lip_assert(ctx, ctx->rt_read_lock_depth + ctx->rt_write_lock_depth > 0);
 	lip_function_layout_t layout;
@@ -42,7 +92,26 @@ lip_static_link_function(lip_context_t* ctx, lip_function_t* fn)
 		lip_string_t* name = lip_function_resource(fn, layout.imports[i].name);
 		lip_string_ref_t symbol_name_ref = { .length = name->length, .ptr = name->ptr };
 
-		lip_assert(ctx, lip_lookup_symbol(ctx, symbol_name_ref, &layout.imports[i].value));
+		lip_string_ref_t module_name, symbol_name;
+		lip_split_fqn(symbol_name_ref, &module_name, &symbol_name);
+
+		lip_symbol_t* symbol = NULL;
+		if(module_name.length == 0 && ns != NULL)
+		{
+			khiter_t itr =  kh_get(lip_ns, ns, symbol_name);
+			if(itr != kh_end(ns)) { symbol = &kh_value(ns, itr); }
+		}
+		else
+		{
+			symbol = lip_lookup_symbol_in_symtab(
+				ctx->runtime->symtab, module_name, symbol_name
+			);
+		}
+		lip_assert(ctx, symbol != NULL);
+		layout.imports[i].value = (lip_value_t) {
+			.type = LIP_VAL_FUNCTION,
+			.data = { .reference = symbol->value }
+		};
 	}
 
 	for(uint16_t i = 0; i < fn->num_instructions; ++i)
@@ -61,7 +130,7 @@ lip_static_link_function(lip_context_t* ctx, lip_function_t* fn)
 	for(uint16_t i = 0; i < fn->num_functions; ++i)
 	{
 		lip_static_link_function(
-			ctx, lip_function_resource(fn, layout.function_offsets[i])
+			ctx, lip_function_resource(fn, layout.function_offsets[i]), ns
 		);
 	}
 }
@@ -135,9 +204,10 @@ lip_commit_ns_locked(lip_context_t* ctx, lip_string_ref_t name, khash_t(lip_ns)*
 		int ret;
 		if(!value.value->is_native)
 		{
-			kh_put(lip_ptr_set,
+			khiter_t itr = kh_put(lip_userdata,
 				ctx->new_exported_functions, value.value->function.lip, &ret
 			);
+			kh_val(ctx->new_exported_functions, itr) = target_ns;
 		}
 
 		khiter_t itr = kh_put(lip_ns, target_ns, symbol_name, &ret);
@@ -145,56 +215,42 @@ lip_commit_ns_locked(lip_context_t* ctx, lip_string_ref_t name, khash_t(lip_ns)*
 	}
 }
 
-static void
-lip_split_fqn(
-	lip_string_ref_t fqn,
-	lip_string_ref_t* module_name,
-	lip_string_ref_t* symbol_name
-)
-{
-	if(fqn.length == 1 && fqn.ptr[0] == '/')
-	{
-		*module_name = lip_string_ref("");
-		*symbol_name = fqn;
-	}
-	else
-	{
-		char* pos = memchr(fqn.ptr, '/', fqn.length);
-
-		if(pos)
-		{
-			module_name->ptr = fqn.ptr;
-			module_name->length = pos - fqn.ptr;
-			symbol_name->ptr = pos + 1;
-			symbol_name->length = fqn.length - module_name->length - 1;
-		}
-		else
-		{
-			*module_name = lip_string_ref("");
-			*symbol_name = fqn;
-		}
-	}
-}
-
 static bool
 lip_lookup_symbol_locked(
 	lip_context_t* ctx,
 	lip_string_ref_t namespace,
-	lip_string_ref_t symbol,
+	lip_string_ref_t symbol_name,
 	lip_value_t* result
 )
 {
-	khash_t(lip_symtab)* symtab = ctx->runtime->symtab;
-	khiter_t itr = kh_get(lip_symtab, symtab, namespace);
-	if(itr == kh_end(symtab)) { return false; }
+	lip_symbol_t* symbol = NULL;
 
-	khash_t(lip_ns)* ns = kh_val(symtab, itr);
-	itr = kh_get(lip_ns, ns, symbol);
-	if(itr == kh_end(ns)) { return false; }
+	if(ctx->current_module)
+	{
+		khiter_t itr = kh_get(lip_ns, ctx->current_module, symbol_name);
+		if(itr != kh_end(ctx->current_module))
+		{
+			symbol = &kh_val(ctx->current_module, itr);
+		}
+	}
+
+	if(symbol == NULL)
+	{
+		lip_lookup_symbol_in_symtab(ctx->loading_symtab, namespace, symbol_name);
+	}
+
+	if(symbol == NULL)
+	{
+		symbol = lip_lookup_symbol_in_symtab(
+			ctx->runtime->symtab, namespace, symbol_name
+		);
+	}
+
+	if(symbol == NULL) { return false; }
 
 	*result = (lip_value_t){
 		.type = LIP_VAL_FUNCTION,
-		.data = { .reference = kh_val(ns, itr).value }
+		.data = { .reference = symbol->value }
 	};
 	return true;
 }
@@ -314,7 +370,7 @@ lip_ctx_begin_load(lip_context_t* ctx)
 		lip_arena_allocator_reset(ctx->module_pool);
 		kh_clear(lip_symtab, ctx->loading_symtab);
 		kh_clear(lip_string_ref_set, ctx->loading_modules);
-		kh_clear(lip_ptr_set, ctx->new_exported_functions);
+		kh_clear(lip_userdata, ctx->new_exported_functions);
 		kh_clear(lip_ptr_set, ctx->new_script_functions);
 		ctx->last_vm = NULL;
 		ctx->load_aborted = false;
@@ -338,12 +394,18 @@ lip_ctx_end_load(lip_context_t* ctx)
 
 		kh_foreach(itr, ctx->new_exported_functions)
 		{
-			lip_static_link_function(ctx, kh_key(ctx->new_exported_functions, itr));
+			lip_static_link_function(
+				ctx,
+				(void*)kh_key(ctx->new_exported_functions, itr),
+				kh_value(ctx->new_exported_functions, itr)
+			);
 		}
 
 		kh_foreach(itr, ctx->new_script_functions)
 		{
-			lip_static_link_function(ctx, kh_key(ctx->new_script_functions, itr));
+			lip_static_link_function(
+				ctx, kh_key(ctx->new_script_functions, itr), NULL
+			);
 		}
 	}
 
@@ -363,7 +425,9 @@ lip_destroy_all_modules(lip_runtime_t* runtime)
 }
 
 bool
-lip_link_function(lip_context_t* ctx, lip_function_t* fn)
+lip_link_function(
+	lip_context_t* ctx, lip_function_t* fn, bool is_module, khash_t(lip_ns)* module
+)
 {
 	lip_function_layout_t layout;
 	lip_function_layout(fn, &layout);
@@ -378,6 +442,15 @@ lip_link_function(lip_context_t* ctx, lip_function_t* fn)
 		lip_string_ref_t module_name, function_name;
 		lip_string_ref_t symbol_name_ref = { .length = name->length, .ptr = name->ptr };
 		lip_split_fqn(symbol_name_ref, &module_name, &function_name);
+
+		if(true
+			&& is_module
+			&& module_name.length == 0
+			&& (!module || kh_get(lip_ns, module, function_name) != kh_end(module))
+		)
+		{
+			continue;
+		}
 
 		khiter_t itr = kh_get(lip_symtab, ctx->loading_symtab, module_name);
 		if(itr != kh_end(ctx->loading_symtab))
@@ -428,7 +501,10 @@ lip_link_function(lip_context_t* ctx, lip_function_t* fn)
 	for(uint16_t i = 0; i < fn->num_functions; ++i)
 	{
 		bool link_status = lip_link_function(
-			ctx, lip_function_resource(fn, layout.function_offsets[i])
+			ctx,
+			lip_function_resource(fn, layout.function_offsets[i]),
+			is_module,
+			module
 		);
 		if(!link_status) { return false; }
 	}
@@ -560,28 +636,43 @@ lip_load_module(lip_context_t* ctx, lip_string_ref_t name)
 		returnVal(false);
 	}
 
-	script = lip_load_script(ctx, filename, file, true);
+	script = lip_load_script(ctx, filename, file, false);
 	if(script == NULL) { returnVal(false); }
 
-	if(!lip_link_function(ctx, script->closure->function.lip))
+	if(!lip_link_function(ctx, script->closure->function.lip, true, NULL))
 	{
 		returnVal(false);
 	}
 
-	lip_vm_t* vm = lip_get_default_vm(ctx);
 	khash_t(lip_ns)* module = kh_init(lip_ns, ctx->module_pool);
 	lip_string_ref_t name_copy = lip_copy_string_ref(ctx->module_pool, name);
 	khiter_t itr = kh_put(lip_symtab, ctx->loading_symtab, name_copy, &ret);
 	kh_val(ctx->loading_symtab, itr) = module;
-	void* previous_ctx = lip_set_userdata(vm, LIP_SCOPE_CONTEXT, &lip_module_ctx_key, module);
+
+	khash_t(lip_ns)* previous_module = ctx->current_module;
+	ctx->current_module = module;
+
+	lip_vm_t* vm = lip_get_default_vm(ctx);
 	lip_value_t exec_result;
-	lip_vm_t* old_last_vm = ctx->last_vm;
-	lip_exec_status_t status = lip_exec_script(vm, script, &exec_result);
-	ctx->last_vm = old_last_vm;
-	lip_set_userdata(vm, LIP_SCOPE_CONTEXT, &lip_module_ctx_key, previous_ctx);
+	lip_exec_status_t status = lip_call(
+		vm,
+		&exec_result,
+		(lip_value_t){
+			.type = LIP_VAL_FUNCTION,
+			.data = { .reference = script->closure }
+		},
+		0
+	);
+
+	ctx->current_module = previous_module;
 
 	if(status == LIP_EXEC_OK)
 	{
+		if(!lip_link_function(ctx, script->closure->function.lip, true, module))
+		{
+			returnVal(false);
+		}
+
 		// Copy out all declared name-function pairs because the script is going
 		// to be freed
 		kh_foreach(itr, module)

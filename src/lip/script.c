@@ -173,9 +173,8 @@ lip_load_source(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 	return NULL;
 }
 
-
 static lip_function_t*
-lip_do_load_script(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
+lip_load_function(lip_context_t* ctx, lip_string_ref_t filename, lip_in_t* input)
 {
 	char magic[sizeof(LIP_BINARY_MAGIC)];
 	size_t bytes_read = lip_read(magic, sizeof(magic), input);
@@ -252,14 +251,13 @@ lip_load_script(
 		}
 	}
 
-	lip_ctx_begin_load(ctx);
-
-	lip_function_t* fn = lip_do_load_script(ctx, filename, input);
+	lip_function_t* fn = lip_load_function(ctx, filename, input);
 
 	lip_script_t* script = NULL;
+	lip_ctx_begin_load(ctx);
 	if(fn)
 	{
-		if(link && !lip_link_function(ctx, fn))
+		if(link && !lip_link_function(ctx, fn, false, NULL))
 		{
 			lip_free(ctx->allocator, fn);
 			script = NULL;
@@ -365,7 +363,8 @@ lip_exec_status_t
 	{
 		lip_function_t* fn = script->closure->function.lip;
 		lip_ctx_begin_load(rt->ctx);
-		bool link_result = lip_link_function(rt->ctx, fn);
+		bool link_result = lip_link_function(rt->ctx, fn, false, NULL);
+
 		if(link_result)
 		{
 			int ret;

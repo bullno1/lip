@@ -94,8 +94,9 @@ static lip_function(is_fn)
 static lip_function(declare)
 {
 	lip_bind_args((symbol, name), (function, fn));
+	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
 
-	khash_t(lip_ns)* ns = lip_get_userdata(vm, LIP_SCOPE_CONTEXT, &lip_module_ctx_key);
+	khash_t(lip_ns)* ns = rt->ctx->current_module;
 	lip_bind_assert(ns != NULL, "Cannot use `declare` out of module context");
 
 	lip_closure_t* closure = fn.data.reference;
