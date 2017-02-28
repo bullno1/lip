@@ -1,8 +1,8 @@
 (test/count-load)
 
-(declare 'a (fn (y) (b y)))
+(declare 'a true (fn (y) (b y)))
 
 ; b is defined after a
-(declare 'b (fn (x) (* 2 x)))
+(declare 'b true (fn (x) (* 2 x)))
 
 (b 2) ; Should not crash

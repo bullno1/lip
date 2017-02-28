@@ -1,1 +1,1 @@
-(declare 'test-fun (fn (x) (test.mod2/test-fun x)))
+(declare 'test-fun true (fn (x) (test.mod2/test-fun x)))

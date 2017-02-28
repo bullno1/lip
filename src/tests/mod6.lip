@@ -1,0 +1,3 @@
+(declare 'a true (fn (x) (b x)))
+
+(declare 'b false (fn (x) x))

@@ -154,6 +154,13 @@
 		name = value; \
 	} while(0)
 
+#define lip_bind_declare_boolean(name) bool name;
+#define lip_bind_load_boolean(i, name, value) \
+	do { \
+		lip_bind_check_type(i, LIP_VAL_BOOLEAN, value.type); \
+		name = value.data.boolean; \
+	} while(0)
+
 #define lip_bind_declare_number(name) double name;
 #define lip_bind_load_number(i, name, value) \
 	do { \

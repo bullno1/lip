@@ -32,6 +32,7 @@ KHASH_DECLARE(lip_userdata, const void*, void*)
 
 struct lip_symbol_s
 {
+	bool is_public;
 	lip_closure_t* value;
 };
 

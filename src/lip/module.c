@@ -358,7 +358,10 @@ lip_declare_function(
 		.function = { .native = fn }
 	};
 
-	kh_val(ns->content, itr).value = closure;
+	kh_val(ns->content, itr) = (lip_symbol_t) {
+		.is_public = true,
+		.value = closure
+	};
 }
 
 void
@@ -456,7 +459,8 @@ lip_link_function(
 		if(itr != kh_end(ctx->loading_symtab))
 		{
 			khash_t(lip_ns)* ns = kh_val(ctx->loading_symtab, itr);
-			if(kh_get(lip_ns, ns, function_name) != kh_end(ns))
+			khiter_t itr = kh_get(lip_ns, ns, function_name);
+			if(itr != kh_end(ns) && kh_val(ns, itr).is_public)
 			{
 				continue;
 			}
@@ -471,7 +475,8 @@ lip_link_function(
 		if(itr != kh_end(ctx->runtime->symtab))
 		{
 			khash_t(lip_ns)* ns = kh_val(ctx->runtime->symtab, itr);
-			if(kh_get(lip_ns, ns, function_name) != kh_end(ns))
+			khiter_t itr = kh_get(lip_ns, ns, function_name);
+			if(itr != kh_end(ns) && kh_val(ns, itr).is_public)
 			{
 				continue;
 			}
@@ -491,7 +496,8 @@ lip_link_function(
 		itr = kh_get(lip_symtab, ctx->loading_symtab, module_name);
 		lip_assert(ctx, itr != kh_end(ctx->loading_symtab));
 		khash_t(lip_ns)* ns = kh_val(ctx->loading_symtab, itr);
-		if(kh_get(lip_ns, ns, function_name) == kh_end(ns))
+		itr = kh_get(lip_ns, ns, function_name);
+		if(!(itr != kh_end(ns) && kh_val(ns, itr).is_public))
 		{
 			lip_set_undefined_symbol_error(ctx, fn, name, loc, false);
 			return false;

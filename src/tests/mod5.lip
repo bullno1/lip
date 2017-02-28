@@ -1,4 +1,4 @@
-(declare 'a (fn (y) (b y c))) ; Should fail to link
+(declare 'a true (fn (y) (b y c))) ; Should fail to link
 
 ; b is defined after a
-(declare 'b (fn (x) (* 2 x)))
+(declare 'b true (fn (x) (* 2 x)))

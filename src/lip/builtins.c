@@ -93,7 +93,7 @@ static lip_function(is_fn)
 
 static lip_function(declare)
 {
-	lip_bind_args((symbol, name), (function, fn));
+	lip_bind_args((symbol, name), (boolean, public), (function, fn));
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
 
 	khash_t(lip_ns)* ns = rt->ctx->current_module;
@@ -108,7 +108,8 @@ static lip_function(declare)
 	khiter_t itr = kh_put(lip_ns, ns, name_ref, &ret);
 	lip_bind_assert_fmt(ret != 0, "Redeclared '%.*s", (int)name_str->length, name_str->ptr);
 	kh_val(ns, itr) = (lip_symbol_t){
-		.value = fn.data.reference
+		.value = fn.data.reference,
+		.is_public = public
 	};
 
 	lip_return(lip_make_nil(vm));
