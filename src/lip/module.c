@@ -316,10 +316,11 @@ lip_set_undefined_symbol_error(
 lip_module_context_t*
 lip_begin_module(lip_context_t* ctx, lip_string_ref_t name)
 {
-	lip_module_context_t* module_context = lip_new(ctx->allocator, lip_module_context_t);
+	lip_ctx_begin_load(ctx);
+	lip_module_context_t* module_context = lip_new(ctx->module_pool, lip_module_context_t);
 	*module_context = (lip_module_context_t){
-		.allocator = lip_arena_allocator_create(ctx->allocator, 2048, true),
-		.content = kh_init(lip_module, ctx->allocator),
+		.content = kh_init(lip_module, ctx->module_pool),
+		.allocator = ctx->module_pool,
 		.name = name
 	};
 	return module_context;
@@ -328,19 +329,18 @@ lip_begin_module(lip_context_t* ctx, lip_string_ref_t name)
 void
 lip_end_module(lip_context_t* ctx, lip_module_context_t* module)
 {
-	lip_ctx_begin_load(ctx);
-	lip_commit_module_locked(ctx, module->name, module->content);
-	lip_ctx_end_load(ctx);
+	int ret;
+	khiter_t itr = kh_put(lip_symtab, ctx->loading_symtab, module->name, &ret);
+	kh_val(ctx->loading_symtab, itr) = module->content;
 
-	lip_discard_module(ctx, module);
+	lip_ctx_end_load(ctx);
 }
 
 void
 lip_discard_module(lip_context_t* ctx, lip_module_context_t* module)
 {
-	kh_destroy(lip_module, module->content);
-	lip_arena_allocator_destroy(module->allocator);
-	lip_free(ctx->allocator, module);
+	(void)module;
+	lip_ctx_end_load(ctx);
 }
 
 void
