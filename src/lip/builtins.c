@@ -96,8 +96,8 @@ static lip_function(declare)
 	lip_bind_args((symbol, name), (boolean, public), (function, fn));
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
 
-	khash_t(lip_ns)* ns = rt->ctx->current_module;
-	lip_bind_assert(ns != NULL, "Cannot use `declare` out of module context");
+	khash_t(lip_module)* module = rt->ctx->current_module;
+	lip_bind_assert(module != NULL, "Cannot use `declare` out of module context");
 
 	lip_closure_t* closure = fn.data.reference;
 	lip_bind_assert(closure->env_len == 0, "Cannot `declare` function with captured var");
@@ -105,9 +105,9 @@ static lip_function(declare)
 	lip_string_t* name_str = lip_as_string(name);
 	lip_string_ref_t name_ref = { .length = name_str->length, .ptr = name_str->ptr };
 	int ret;
-	khiter_t itr = kh_put(lip_ns, ns, name_ref, &ret);
+	khiter_t itr = kh_put(lip_module, module, name_ref, &ret);
 	lip_bind_assert_fmt(ret != 0, "Redeclared '%.*s", (int)name_str->length, name_str->ptr);
-	kh_val(ns, itr) = (lip_symbol_t){
+	kh_val(module, itr) = (lip_symbol_t){
 		.value = fn.data.reference,
 		.is_public = public
 	};
@@ -407,40 +407,40 @@ static lip_function(sort)
 void
 lip_load_builtins(lip_context_t* ctx)
 {
-	lip_ns_context_t* ns = lip_begin_ns(ctx, lip_string_ref(""));
-	lip_declare_function(ns, lip_string_ref("nop"), nop);
-	lip_declare_function(ns, lip_string_ref("identity"), identity);
-	lip_declare_function(ns, lip_string_ref("print"), print);
-	lip_declare_function(ns, lip_string_ref("throw"), throw);
-	lip_declare_function(ns, lip_string_ref("list"), list);
-	lip_declare_function(ns, lip_string_ref("declare"), declare);
+	lip_module_context_t* module = lip_begin_module(ctx, lip_string_ref(""));
+	lip_declare_function(module, lip_string_ref("nop"), nop);
+	lip_declare_function(module, lip_string_ref("identity"), identity);
+	lip_declare_function(module, lip_string_ref("print"), print);
+	lip_declare_function(module, lip_string_ref("throw"), throw);
+	lip_declare_function(module, lip_string_ref("list"), list);
+	lip_declare_function(module, lip_string_ref("declare"), declare);
 
-	lip_declare_function(ns, lip_string_ref("nil?"), is_nil);
-	lip_declare_function(ns, lip_string_ref("bool?"), is_bool);
-	lip_declare_function(ns, lip_string_ref("number?"), is_number);
-	lip_declare_function(ns, lip_string_ref("string?"), is_string);
-	lip_declare_function(ns, lip_string_ref("symbol?"), is_symbol);
-	lip_declare_function(ns, lip_string_ref("list?"), is_list);
-	lip_declare_function(ns, lip_string_ref("fn?"), is_fn);
+	lip_declare_function(module, lip_string_ref("nil?"), is_nil);
+	lip_declare_function(module, lip_string_ref("bool?"), is_bool);
+	lip_declare_function(module, lip_string_ref("number?"), is_number);
+	lip_declare_function(module, lip_string_ref("string?"), is_string);
+	lip_declare_function(module, lip_string_ref("symbol?"), is_symbol);
+	lip_declare_function(module, lip_string_ref("list?"), is_list);
+	lip_declare_function(module, lip_string_ref("fn?"), is_fn);
 
 #define LIP_STRINGIFY(x) LIP_STRINGIFY1(x)
 #define LIP_STRINGIFY1(x) #x
 #define LIP_REGISTER_PRIM_OP(op, name) \
-	lip_declare_function(ns, lip_string_ref(LIP_STRINGIFY(op)), LIP_PRIM_OP_WRAPPER_NAME(name));
+	lip_declare_function(module, lip_string_ref(LIP_STRINGIFY(op)), LIP_PRIM_OP_WRAPPER_NAME(name));
 	LIP_PRIM_OP(LIP_REGISTER_PRIM_OP)
 #undef LIP_REGISTER_PRIM_OP
-	lip_end_ns(ctx, ns);
+	lip_end_module(ctx, module);
 
-	ns = lip_begin_ns(ctx, lip_string_ref("list"));
-	lip_declare_function(ns, lip_string_ref("head"), head);
-	lip_declare_function(ns, lip_string_ref("tail"), tail);
-	lip_declare_function(ns, lip_string_ref("len"), len);
-	lip_declare_function(ns, lip_string_ref("nth"), nth);
-	lip_declare_function(ns, lip_string_ref("append"), append);
-	lip_declare_function(ns, lip_string_ref("concat"), concat);
-	lip_declare_function(ns, lip_string_ref("map"), map);
-	lip_declare_function(ns, lip_string_ref("foldl"), foldl);
-	lip_declare_function(ns, lip_string_ref("foldr"), foldr);
-	lip_declare_function(ns, lip_string_ref("sort"), sort);
-	lip_end_ns(ctx, ns);
+	module = lip_begin_module(ctx, lip_string_ref("list"));
+	lip_declare_function(module, lip_string_ref("head"), head);
+	lip_declare_function(module, lip_string_ref("tail"), tail);
+	lip_declare_function(module, lip_string_ref("len"), len);
+	lip_declare_function(module, lip_string_ref("nth"), nth);
+	lip_declare_function(module, lip_string_ref("append"), append);
+	lip_declare_function(module, lip_string_ref("concat"), concat);
+	lip_declare_function(module, lip_string_ref("map"), map);
+	lip_declare_function(module, lip_string_ref("foldl"), foldl);
+	lip_declare_function(module, lip_string_ref("foldr"), foldr);
+	lip_declare_function(module, lip_string_ref("sort"), sort);
+	lip_end_module(ctx, module);
 }

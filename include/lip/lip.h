@@ -65,11 +65,11 @@ typedef struct lip_context_error_s lip_context_error_t;
 typedef struct lip_error_record_s lip_error_record_t;
 
 /**
- * @brief Handle to a namespace context.
+ * @brief Handle to a module context.
  *
- * @see lip_begin_ns
+ * @see lip_begin_module
  */
-typedef struct lip_ns_context_s lip_ns_context_t;
+typedef struct lip_module_context_s lip_module_context_t;
 
 /**
  * @brief Panic handler.
@@ -299,59 +299,59 @@ LIP_API void
 lip_print_error(lip_out_t* out, lip_context_t* ctx);
 
 /**
- * @brief Create a namespace context to start defining symbols.
+ * @brief Create a module context to start defining symbols.
  *
  * This function can be likened to the `BEGIN` statement in a SQL.
  *
- * @see lip_end_ns
- * @see lip_discard_ns
+ * @see lip_end_module
+ * @see lip_discard_module
  * @see lip_declare_function
  */
-LIP_API lip_ns_context_t*
-lip_begin_ns(lip_context_t* ctx, lip_string_ref_t name);
+LIP_API lip_module_context_t*
+lip_begin_module(lip_context_t* ctx, lip_string_ref_t name);
 
 /**
- * @brief Finish namespace definition.
+ * @brief Finish module definition.
  *
  * After this function returns, all defined symbols will be visible to all virtual machines in the same runtime.
  * This function can be likened to the `COMMIT` statement in SQL.
  *
- * @remarks The namespace context will become invalid and must not be accessed again.
+ * @remarks The module context will become invalid and must not be accessed again.
  *
- * @see lip_begin_ns
- * @see lip_discard_ns
+ * @see lip_begin_module
+ * @see lip_discard_module
  * @see lip_declare_function
  */
 LIP_API void
-lip_end_ns(lip_context_t* ctx, lip_ns_context_t* ns);
+lip_end_module(lip_context_t* ctx, lip_module_context_t* module);
 
 /**
- * @brief Discard a namespace definition context.
+ * @brief Discard a module definition context.
  *
- * Discard all symbols defined in the current namespace context.
+ * Discard all symbols defined in the current module context.
  * This function can be likened to the `ROLLBACK` statement in SQL.
  *
- * @remarks The namespace context will become invalid and must not be accessed again.
+ * @remarks The module context will become invalid and must not be accessed again.
  *
- * @see lip_begin_ns
- * @see lip_end_ns
+ * @see lip_begin_module
+ * @see lip_end_module
  * @see lip_declare_function
  */
 LIP_API void
-lip_discard_ns(lip_context_t* ctx, lip_ns_context_t* ns);
+lip_discard_module(lip_context_t* ctx, lip_module_context_t* module);
 
 
 /**
- * @brief Define a native function in the given namespace.
+ * @brief Define a native function in the given module.
  *
- * @remarks After a series of calls to ::lip_declare_function, one must call ::lip_end_ns for the definitions to be visible.
+ * @remarks After a series of calls to ::lip_declare_function, one must call ::lip_end_module for the definitions to be visible.
  *
- * @see lip_begin_ns
- * @see lip_end_ns
+ * @see lip_begin_module
+ * @see lip_end_module
  */
 LIP_API void
 lip_declare_function(
-	lip_ns_context_t* ns, lip_string_ref_t name, lip_native_fn_t fn
+	lip_module_context_t* module, lip_string_ref_t name, lip_native_fn_t fn
 );
 
 /**

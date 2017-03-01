@@ -25,9 +25,9 @@ basic(const MunitParameter params[], void* fixture_)
 	lip_context_t* ctx2 = fixture->context;
 	lip_load_builtins(ctx2);
 
-	lip_ns_context_t* ns = lip_begin_ns(ctx2, lip_string_ref("test"));
-	lip_declare_function(ns, lip_string_ref("count-load"), count_load);
-	lip_end_ns(ctx2, ns);
+	lip_module_context_t* module = lip_begin_module(ctx2, lip_string_ref("test"));
+	lip_declare_function(module, lip_string_ref("count-load"), count_load);
+	lip_end_module(ctx2, module);
 
 	lip_test_context_t test_context = {
 		.count = 0
@@ -70,9 +70,9 @@ local_function(const MunitParameter params[], void* fixture_)
 	lip_context_t* ctx2 = fixture->context;
 	lip_load_builtins(ctx2);
 
-	lip_ns_context_t* ns = lip_begin_ns(ctx2, lip_string_ref("test"));
-	lip_declare_function(ns, lip_string_ref("count-load"), count_load);
-	lip_end_ns(ctx2, ns);
+	lip_module_context_t* module = lip_begin_module(ctx2, lip_string_ref("test"));
+	lip_declare_function(module, lip_string_ref("count-load"), count_load);
+	lip_end_module(ctx2, module);
 
 	lip_test_context_t test_context = {
 		.count = 0

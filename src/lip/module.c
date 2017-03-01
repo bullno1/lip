@@ -29,18 +29,18 @@ lip_import_referenced(
 static lip_symbol_t*
 lip_lookup_symbol_in_symtab(
 	khash_t(lip_symtab)* symtab,
-	lip_string_ref_t namespace,
+	lip_string_ref_t module_name,
 	lip_string_ref_t symbol_name
 )
 {
-	khiter_t itr = kh_get(lip_symtab, symtab, namespace);
+	khiter_t itr = kh_get(lip_symtab, symtab, module_name);
 	if(itr == kh_end(symtab)) { return false; }
 
-	khash_t(lip_ns)* ns = kh_val(symtab, itr);
-	itr = kh_get(lip_ns, ns, symbol_name);
-	if(itr == kh_end(ns)) { return false; }
+	khash_t(lip_module)* module = kh_val(symtab, itr);
+	itr = kh_get(lip_module, module, symbol_name);
+	if(itr == kh_end(module)) { return false; }
 
-	return &kh_val(ns, itr);
+	return &kh_val(module, itr);
 }
 
 static void
@@ -76,7 +76,7 @@ lip_split_fqn(
 
 static void
 lip_static_link_function(
-	lip_context_t* ctx, lip_function_t* fn, khash_t(lip_ns)* ns
+	lip_context_t* ctx, lip_function_t* fn, khash_t(lip_module)* module
 )
 {
 	lip_assert(ctx, ctx->rt_read_lock_depth + ctx->rt_write_lock_depth > 0);
@@ -96,10 +96,10 @@ lip_static_link_function(
 		lip_split_fqn(symbol_name_ref, &module_name, &symbol_name);
 
 		lip_symbol_t* symbol = NULL;
-		if(module_name.length == 0 && ns != NULL)
+		if(module_name.length == 0 && module != NULL)
 		{
-			khiter_t itr =  kh_get(lip_ns, ns, symbol_name);
-			if(itr != kh_end(ns)) { symbol = &kh_value(ns, itr); }
+			khiter_t itr =  kh_get(lip_module, module, symbol_name);
+			if(itr != kh_end(module)) { symbol = &kh_value(module, itr); }
 		}
 		else
 		{
@@ -130,18 +130,18 @@ lip_static_link_function(
 	for(uint16_t i = 0; i < fn->num_functions; ++i)
 	{
 		lip_static_link_function(
-			ctx, lip_function_resource(fn, layout.function_offsets[i]), ns
+			ctx, lip_function_resource(fn, layout.function_offsets[i]), module
 		);
 	}
 }
 
 static void
-lip_purge_ns(lip_runtime_t* runtime, khash_t(lip_ns)* ns)
+lip_purge_module(lip_runtime_t* runtime, khash_t(lip_module)* module)
 {
-	kh_foreach(i, ns)
+	kh_foreach(i, module)
 	{
-		lip_free(runtime->cfg.allocator, (void*)kh_key(ns, i).ptr);
-		lip_closure_t* closure = kh_val(ns, i).value;
+		lip_free(runtime->cfg.allocator, (void*)kh_key(module, i).ptr);
+		lip_closure_t* closure = kh_val(module, i).value;
 		lip_free(runtime->cfg.allocator, closure->debug_name);
 		if(!closure->is_native)
 		{
@@ -149,37 +149,37 @@ lip_purge_ns(lip_runtime_t* runtime, khash_t(lip_ns)* ns)
 		}
 		lip_free(runtime->cfg.allocator, closure);
 	}
-	kh_clear(lip_ns, ns);
+	kh_clear(lip_module, module);
 }
 
 static void
-lip_commit_ns_locked(lip_context_t* ctx, lip_string_ref_t name, khash_t(lip_ns)* ns)
+lip_commit_module_locked(lip_context_t* ctx, lip_string_ref_t name, khash_t(lip_module)* module)
 {
 	lip_assert(ctx, ctx->rt_write_lock_depth > 0);
 	lip_runtime_t* runtime = ctx->runtime;
 	khash_t(lip_symtab)* symtab = runtime->symtab;
 	khiter_t itr = kh_get(lip_symtab, symtab, name);
 
-	khash_t(lip_ns)* target_ns;
+	khash_t(lip_module)* target_module;
 	if(itr != kh_end(symtab))
 	{
-		target_ns = kh_val(symtab, itr);
-		lip_purge_ns(runtime, target_ns);
+		target_module = kh_val(symtab, itr);
+		lip_purge_module(runtime, target_module);
 	}
 	else
 	{
-		lip_string_ref_t ns_name = lip_copy_string_ref(runtime->cfg.allocator, name);
-		target_ns = kh_init(lip_ns, runtime->cfg.allocator);
+		lip_string_ref_t module_name = lip_copy_string_ref(runtime->cfg.allocator, name);
+		target_module = kh_init(lip_module, runtime->cfg.allocator);
 
 		int ret;
-		khiter_t itr = kh_put(lip_symtab, symtab, ns_name, &ret);
-		kh_val(symtab, itr) = target_ns;
+		khiter_t itr = kh_put(lip_symtab, symtab, module_name, &ret);
+		kh_val(symtab, itr) = target_module;
 	}
 
-	kh_foreach(i, ns)
+	kh_foreach(i, module)
 	{
-		lip_string_ref_t key = kh_key(ns, i);
-		lip_symbol_t value = kh_val(ns, i);
+		lip_string_ref_t key = kh_key(module, i);
+		lip_symbol_t value = kh_val(module, i);
 
 		lip_string_ref_t symbol_name = lip_copy_string_ref(runtime->cfg.allocator, key);
 		value.value = lip_copy_closure(runtime->cfg.allocator, value.value);
@@ -207,18 +207,18 @@ lip_commit_ns_locked(lip_context_t* ctx, lip_string_ref_t name, khash_t(lip_ns)*
 			khiter_t itr = kh_put(lip_userdata,
 				ctx->new_exported_functions, value.value->function.lip, &ret
 			);
-			kh_val(ctx->new_exported_functions, itr) = target_ns;
+			kh_val(ctx->new_exported_functions, itr) = target_module;
 		}
 
-		khiter_t itr = kh_put(lip_ns, target_ns, symbol_name, &ret);
-		kh_val(target_ns, itr) = value;
+		khiter_t itr = kh_put(lip_module, target_module, symbol_name, &ret);
+		kh_val(target_module, itr) = value;
 	}
 }
 
 static bool
 lip_lookup_symbol_locked(
 	lip_context_t* ctx,
-	lip_string_ref_t namespace,
+	lip_string_ref_t module,
 	lip_string_ref_t symbol_name,
 	lip_value_t* result
 )
@@ -227,7 +227,7 @@ lip_lookup_symbol_locked(
 
 	if(ctx->current_module)
 	{
-		khiter_t itr = kh_get(lip_ns, ctx->current_module, symbol_name);
+		khiter_t itr = kh_get(lip_module, ctx->current_module, symbol_name);
 		if(itr != kh_end(ctx->current_module))
 		{
 			symbol = &kh_val(ctx->current_module, itr);
@@ -236,13 +236,13 @@ lip_lookup_symbol_locked(
 
 	if(symbol == NULL)
 	{
-		lip_lookup_symbol_in_symtab(ctx->loading_symtab, namespace, symbol_name);
+		lip_lookup_symbol_in_symtab(ctx->loading_symtab, module, symbol_name);
 	}
 
 	if(symbol == NULL)
 	{
 		symbol = lip_lookup_symbol_in_symtab(
-			ctx->runtime->symtab, namespace, symbol_name
+			ctx->runtime->symtab, module, symbol_name
 		);
 	}
 
@@ -313,52 +313,52 @@ lip_set_undefined_symbol_error(
 	lip_ctx_abort_load(ctx);
 }
 
-lip_ns_context_t*
-lip_begin_ns(lip_context_t* ctx, lip_string_ref_t name)
+lip_module_context_t*
+lip_begin_module(lip_context_t* ctx, lip_string_ref_t name)
 {
-	lip_ns_context_t* ns_context = lip_new(ctx->allocator, lip_ns_context_t);
-	*ns_context = (lip_ns_context_t){
+	lip_module_context_t* module_context = lip_new(ctx->allocator, lip_module_context_t);
+	*module_context = (lip_module_context_t){
 		.allocator = lip_arena_allocator_create(ctx->allocator, 2048, true),
-		.content = kh_init(lip_ns, ctx->allocator),
+		.content = kh_init(lip_module, ctx->allocator),
 		.name = name
 	};
-	return ns_context;
+	return module_context;
 }
 
 void
-lip_end_ns(lip_context_t* ctx, lip_ns_context_t* ns)
+lip_end_module(lip_context_t* ctx, lip_module_context_t* module)
 {
 	lip_ctx_begin_load(ctx);
-	lip_commit_ns_locked(ctx, ns->name, ns->content);
+	lip_commit_module_locked(ctx, module->name, module->content);
 	lip_ctx_end_load(ctx);
 
-	lip_discard_ns(ctx, ns);
+	lip_discard_module(ctx, module);
 }
 
 void
-lip_discard_ns(lip_context_t* ctx, lip_ns_context_t* ns)
+lip_discard_module(lip_context_t* ctx, lip_module_context_t* module)
 {
-	kh_destroy(lip_ns, ns->content);
-	lip_arena_allocator_destroy(ns->allocator);
-	lip_free(ctx->allocator, ns);
+	kh_destroy(lip_module, module->content);
+	lip_arena_allocator_destroy(module->allocator);
+	lip_free(ctx->allocator, module);
 }
 
 void
 lip_declare_function(
-	lip_ns_context_t* ns, lip_string_ref_t name, lip_native_fn_t fn
+	lip_module_context_t* module, lip_string_ref_t name, lip_native_fn_t fn
 )
 {
 	int ret;
-	khiter_t itr  = kh_put(lip_ns, ns->content, name, &ret);
+	khiter_t itr  = kh_put(lip_module, module->content, name, &ret);
 
-	lip_closure_t* closure = lip_new(ns->allocator, lip_closure_t);
+	lip_closure_t* closure = lip_new(module->allocator, lip_closure_t);
 	*closure = (lip_closure_t){
 		.is_native = true,
 		.env_len = 0,
 		.function = { .native = fn }
 	};
 
-	kh_val(ns->content, itr) = (lip_symbol_t) {
+	kh_val(module->content, itr) = (lip_symbol_t) {
 		.is_public = true,
 		.value = closure
 	};
@@ -388,7 +388,7 @@ lip_ctx_end_load(lip_context_t* ctx)
 	{
 		kh_foreach(itr, ctx->loading_symtab)
 		{
-			lip_commit_ns_locked(
+			lip_commit_module_locked(
 				ctx,
 				kh_key(ctx->loading_symtab, itr),
 				kh_val(ctx->loading_symtab, itr)
@@ -421,15 +421,15 @@ lip_destroy_all_modules(lip_runtime_t* runtime)
 	kh_foreach(itr, runtime->symtab)
 	{
 		lip_free(runtime->cfg.allocator, (void*)kh_key(runtime->symtab, itr).ptr);
-		khash_t(lip_ns)* ns = kh_val(runtime->symtab, itr);
-		lip_purge_ns(runtime, ns);
-		kh_destroy(lip_ns, ns);
+		khash_t(lip_module)* module = kh_val(runtime->symtab, itr);
+		lip_purge_module(runtime, module);
+		kh_destroy(lip_module, module);
 	}
 }
 
 bool
 lip_link_function(
-	lip_context_t* ctx, lip_function_t* fn, bool is_module, khash_t(lip_ns)* module
+	lip_context_t* ctx, lip_function_t* fn, bool is_module, khash_t(lip_module)* module
 )
 {
 	lip_function_layout_t layout;
@@ -449,7 +449,7 @@ lip_link_function(
 		if(true
 			&& is_module
 			&& module_name.length == 0
-			&& (!module || kh_get(lip_ns, module, function_name) != kh_end(module))
+			&& (!module || kh_get(lip_module, module, function_name) != kh_end(module))
 		)
 		{
 			continue;
@@ -458,9 +458,9 @@ lip_link_function(
 		khiter_t itr = kh_get(lip_symtab, ctx->loading_symtab, module_name);
 		if(itr != kh_end(ctx->loading_symtab))
 		{
-			khash_t(lip_ns)* ns = kh_val(ctx->loading_symtab, itr);
-			khiter_t itr = kh_get(lip_ns, ns, function_name);
-			if(itr != kh_end(ns) && kh_val(ns, itr).is_public)
+			khash_t(lip_module)* module = kh_val(ctx->loading_symtab, itr);
+			khiter_t itr = kh_get(lip_module, module, function_name);
+			if(itr != kh_end(module) && kh_val(module, itr).is_public)
 			{
 				continue;
 			}
@@ -474,9 +474,9 @@ lip_link_function(
 		itr = kh_get(lip_symtab, ctx->runtime->symtab, module_name);
 		if(itr != kh_end(ctx->runtime->symtab))
 		{
-			khash_t(lip_ns)* ns = kh_val(ctx->runtime->symtab, itr);
-			khiter_t itr = kh_get(lip_ns, ns, function_name);
-			if(itr != kh_end(ns) && kh_val(ns, itr).is_public)
+			khash_t(lip_module)* module = kh_val(ctx->runtime->symtab, itr);
+			khiter_t itr = kh_get(lip_module, module, function_name);
+			if(itr != kh_end(module) && kh_val(module, itr).is_public)
 			{
 				continue;
 			}
@@ -495,9 +495,9 @@ lip_link_function(
 
 		itr = kh_get(lip_symtab, ctx->loading_symtab, module_name);
 		lip_assert(ctx, itr != kh_end(ctx->loading_symtab));
-		khash_t(lip_ns)* ns = kh_val(ctx->loading_symtab, itr);
-		itr = kh_get(lip_ns, ns, function_name);
-		if(!(itr != kh_end(ns) && kh_val(ns, itr).is_public))
+		khash_t(lip_module)* module = kh_val(ctx->loading_symtab, itr);
+		itr = kh_get(lip_module, module, function_name);
+		if(!(itr != kh_end(module) && kh_val(module, itr).is_public))
 		{
 			lip_set_undefined_symbol_error(ctx, fn, name, loc, false);
 			return false;
@@ -650,12 +650,12 @@ lip_load_module(lip_context_t* ctx, lip_string_ref_t name)
 		returnVal(false);
 	}
 
-	khash_t(lip_ns)* module = kh_init(lip_ns, ctx->module_pool);
+	khash_t(lip_module)* module = kh_init(lip_module, ctx->module_pool);
 	lip_string_ref_t name_copy = lip_copy_string_ref(ctx->module_pool, name);
 	khiter_t itr = kh_put(lip_symtab, ctx->loading_symtab, name_copy, &ret);
 	kh_val(ctx->loading_symtab, itr) = module;
 
-	khash_t(lip_ns)* previous_module = ctx->current_module;
+	khash_t(lip_module)* previous_module = ctx->current_module;
 	ctx->current_module = module;
 
 	lip_vm_t* vm = lip_get_default_vm(ctx);

@@ -25,8 +25,8 @@
 typedef struct lip_runtime_link_s lip_runtime_link_t;
 typedef struct lip_symbol_s lip_symbol_t;
 
-KHASH_DECLARE(lip_ns, lip_string_ref_t, lip_symbol_t)
-KHASH_DECLARE(lip_symtab, lip_string_ref_t, khash_t(lip_ns)*)
+KHASH_DECLARE(lip_module, lip_string_ref_t, lip_symbol_t)
+KHASH_DECLARE(lip_symtab, lip_string_ref_t, khash_t(lip_module)*)
 KHASH_DECLARE(lip_ptr_set, void*, char)
 KHASH_DECLARE(lip_userdata, const void*, void*)
 
@@ -36,11 +36,11 @@ struct lip_symbol_s
 	lip_closure_t* value;
 };
 
-struct lip_ns_context_s
+struct lip_module_context_s
 {
 	lip_allocator_t* allocator;
 	lip_string_ref_t name;
-	khash_t(lip_ns)* content;
+	khash_t(lip_module)* content;
 };
 
 struct lip_runtime_s
@@ -81,7 +81,7 @@ struct lip_context_s
 	khash_t(lip_string_ref_set)* loading_modules;
 	khash_t(lip_userdata)* new_exported_functions;
 	khash_t(lip_ptr_set)* new_script_functions;
-	khash_t(lip_ns)* current_module;
+	khash_t(lip_module)* current_module;
 	lip_vm_t* last_vm;
 	lip_value_t last_result;
 	bool load_aborted;
@@ -104,7 +104,7 @@ lip_ctx_end_load(lip_context_t* ctx);
 
 bool
 lip_link_function(
-	lip_context_t* ctx, lip_function_t* fn, bool is_module, khash_t(lip_ns)* module
+	lip_context_t* ctx, lip_function_t* fn, bool is_module, khash_t(lip_module)* module
 );
 
 void

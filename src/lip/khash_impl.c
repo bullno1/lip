@@ -19,7 +19,7 @@ __KHASH_IMPL(
 )
 
 __KHASH_IMPL(
-	lip_ns,
+	lip_module,
 	,
 	lip_string_ref_t,
 	lip_symbol_t,
@@ -32,7 +32,7 @@ __KHASH_IMPL(
 	lip_symtab,
 	,
 	lip_string_ref_t,
-	khash_t(lip_ns)*,
+	khash_t(lip_module)*,
 	1,
 	lip_string_ref_hash,
 	lip_string_ref_equal
