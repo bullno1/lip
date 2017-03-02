@@ -101,7 +101,8 @@ lip_static_link_function(
 			khiter_t itr =  kh_get(lip_module, module, symbol_name);
 			if(itr != kh_end(module)) { symbol = &kh_value(module, itr); }
 		}
-		else
+
+		if(symbol == NULL)
 		{
 			symbol = lip_lookup_symbol_in_symtab(
 				ctx->runtime->symtab, module_name, symbol_name
