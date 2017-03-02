@@ -103,9 +103,7 @@ void
 lip_ctx_end_load(lip_context_t* ctx);
 
 bool
-lip_link_function(
-	lip_context_t* ctx, lip_function_t* fn, bool is_module, khash_t(lip_module)* module
-);
+lip_link_function(lip_context_t* ctx, lip_function_t* fn);
 
 void
 lip_ctx_begin_rt_read(lip_context_t* ctx);

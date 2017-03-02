@@ -2,6 +2,33 @@
 #include <lip/asm.h>
 #include "utils.h"
 
+typedef bool(*lip_import_iteratee_t)(
+	lip_function_t* fn,
+	lip_import_t* import,
+	lip_loc_range_t loc,
+	lip_string_ref_t module_name,
+	lip_string_ref_t symbol_name,
+	void* ctx
+);
+
+typedef bool(*lip_function_iteratee_t)(
+	lip_function_t* fn,
+	lip_function_layout_t* layout,
+	void* ctx
+);
+
+struct lip_link_ctx_s
+{
+	lip_context_t* ctx;
+	khash_t(lip_module)* module;
+};
+
+struct lip_import_itr_ctx_s
+{
+	void* user_ctx;
+	lip_import_iteratee_t iteratee;
+};
+
 static bool
 lip_import_referenced(
 	lip_function_t* fn, uint16_t import_index, lip_loc_range_t* loc
@@ -71,68 +98,6 @@ lip_split_fqn(
 			*module_name = lip_string_ref("");
 			*symbol_name = fqn;
 		}
-	}
-}
-
-static void
-lip_static_link_function(
-	lip_context_t* ctx, lip_function_t* fn, khash_t(lip_module)* module
-)
-{
-	lip_assert(ctx, ctx->rt_read_lock_depth + ctx->rt_write_lock_depth > 0);
-	lip_function_layout_t layout;
-	lip_function_layout(fn, &layout);
-
-	for(uint16_t i = 0; i < fn->num_imports; ++i)
-	{
-		// Some imports are replaced with builtins ops
-		lip_loc_range_t loc;
-		if(!lip_import_referenced(fn, i, &loc)) { continue; }
-
-		lip_string_t* name = lip_function_resource(fn, layout.imports[i].name);
-		lip_string_ref_t symbol_name_ref = { .length = name->length, .ptr = name->ptr };
-
-		lip_string_ref_t module_name, symbol_name;
-		lip_split_fqn(symbol_name_ref, &module_name, &symbol_name);
-
-		lip_symbol_t* symbol = NULL;
-		if(module_name.length == 0 && module != NULL)
-		{
-			khiter_t itr =  kh_get(lip_module, module, symbol_name);
-			if(itr != kh_end(module)) { symbol = &kh_value(module, itr); }
-		}
-
-		if(symbol == NULL)
-		{
-			symbol = lip_lookup_symbol_in_symtab(
-				ctx->runtime->symtab, module_name, symbol_name
-			);
-		}
-		lip_assert(ctx, symbol != NULL);
-		layout.imports[i].value = (lip_value_t) {
-			.type = LIP_VAL_FUNCTION,
-			.data = { .reference = symbol->value }
-		};
-	}
-
-	for(uint16_t i = 0; i < fn->num_instructions; ++i)
-	{
-		lip_instruction_t* instr = &layout.instructions[i];
-		lip_opcode_t opcode;
-		lip_operand_t operand;
-		lip_disasm(*instr, &opcode, &operand);
-
-		if(opcode == LIP_OP_IMP)
-		{
-			*instr = lip_asm(LIP_OP_IMPS, operand);
-		}
-	}
-
-	for(uint16_t i = 0; i < fn->num_functions; ++i)
-	{
-		lip_static_link_function(
-			ctx, lip_function_resource(fn, layout.function_offsets[i]), module
-		);
 	}
 }
 
@@ -263,10 +228,10 @@ lip_ctx_abort_load(lip_context_t* ctx)
 }
 
 static void
-lip_set_undefined_symbol_error(
+lip_set_link_error(
 	lip_context_t* ctx,
+	lip_string_ref_t error_message,
 	lip_function_t* fn,
-	lip_string_t* name,
 	lip_loc_range_t loc,
 	bool stack
 )
@@ -274,13 +239,6 @@ lip_set_undefined_symbol_error(
 	lip_function_layout_t layout;
 	lip_function_layout(fn, &layout);
 
-	lip_array(char) msg_buf = lip_array_create(ctx->module_pool, char, 64);
-	lip_sprintf(&msg_buf, "Undefined symbol: %.*s", (int)name->length, name->ptr);
-	lip_array_push(msg_buf, '\0');
-	lip_string_ref_t error_message = {
-		.length = lip_array_len(msg_buf) - 1,
-		.ptr = msg_buf
-	};
 	lip_error_record_t* error_record = lip_new(ctx->module_pool, lip_error_record_t);
 	*error_record = (lip_error_record_t){
 		.filename = lip_copy_string_ref(
@@ -312,6 +270,25 @@ lip_set_undefined_symbol_error(
 	}
 
 	lip_ctx_abort_load(ctx);
+}
+
+static void
+lip_set_undefined_symbol_error(
+	lip_context_t* ctx,
+	lip_function_t* fn,
+	lip_string_t* name,
+	lip_loc_range_t loc,
+	bool stack
+)
+{
+	lip_array(char) msg_buf = lip_array_create(ctx->module_pool, char, 64);
+	lip_sprintf(&msg_buf, "Undefined symbol: %.*s", (int)name->length, name->ptr);
+	lip_array_push(msg_buf, '\0');
+	lip_string_ref_t error_message = {
+		.length = lip_array_len(msg_buf) - 1,
+		.ptr = msg_buf
+	};
+	lip_set_link_error(ctx, error_message, fn, loc, stack);
 }
 
 lip_module_context_t*
@@ -382,6 +359,245 @@ lip_ctx_begin_load(lip_context_t* ctx)
 }
 
 void
+lip_destroy_all_modules(lip_runtime_t* runtime)
+{
+	kh_foreach(itr, runtime->symtab)
+	{
+		lip_free(runtime->cfg.allocator, (void*)kh_key(runtime->symtab, itr).ptr);
+		khash_t(lip_module)* module = kh_val(runtime->symtab, itr);
+		lip_purge_module(runtime, module);
+		kh_destroy(lip_module, module);
+	}
+}
+
+static bool
+lip_iterate_functions(
+	lip_function_t* fn,
+	lip_function_iteratee_t iteratee,
+	void* ctx
+)
+{
+	lip_function_layout_t layout;
+	lip_function_layout(fn, &layout);
+	if(!iteratee(fn, &layout, ctx)) { return false; }
+
+	for(uint16_t i = 0; i < fn->num_functions; ++i)
+	{
+		lip_function_t* nested_fn =
+			lip_function_resource(fn, layout.function_offsets[i]);
+		if(!lip_iterate_functions(nested_fn, iteratee, ctx)) { return false; }
+	}
+
+	return true;
+}
+
+static bool
+lip_apply_import_iteratee(
+	lip_function_t* fn,
+	lip_function_layout_t* layout,
+	void* ctx_
+)
+{
+	struct lip_import_itr_ctx_s* ctx = ctx_;
+
+	for(uint16_t i = 0; i < fn->num_imports; ++i)
+	{
+		// Some imports are replaced with builtins ops
+		lip_loc_range_t loc;
+		if(!lip_import_referenced(fn, i, &loc)) { continue; }
+
+		lip_string_t* name = lip_function_resource(fn, layout->imports[i].name);
+		lip_string_ref_t module_name, function_name;
+		lip_string_ref_t symbol_name_ref = { .length = name->length, .ptr = name->ptr };
+		lip_split_fqn(symbol_name_ref, &module_name, &function_name);
+
+		if(!ctx->iteratee(
+			fn, &layout->imports[i], loc, module_name, function_name, ctx->user_ctx
+		))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool
+lip_iterate_imports(
+	lip_function_t* fn,
+	lip_import_iteratee_t iteratee,
+	void* ctx
+)
+{
+	struct lip_import_itr_ctx_s itr_ctx = {
+		.user_ctx = ctx,
+		.iteratee = iteratee
+	};
+	return lip_iterate_functions(fn, lip_apply_import_iteratee, &itr_ctx);
+}
+
+
+static bool
+lip_replace_import_instructions(
+	lip_function_t* fn,
+	lip_function_layout_t* layout,
+	void* ctx
+)
+{
+	(void)ctx;
+	for(uint16_t i = 0; i < fn->num_instructions; ++i)
+	{
+		lip_instruction_t* instr = &layout->instructions[i];
+		lip_opcode_t opcode;
+		lip_operand_t operand;
+		lip_disasm(*instr, &opcode, &operand);
+
+		if(opcode == LIP_OP_IMP) { *instr = lip_asm(LIP_OP_IMPS, operand); }
+	}
+
+	return true;
+}
+
+static bool
+lip_hard_link_import(
+	lip_function_t* fn,
+	lip_import_t* import,
+	lip_loc_range_t loc,
+	lip_string_ref_t module_name,
+	lip_string_ref_t symbol_name,
+	void* ctx_
+)
+{
+	(void)fn;
+	(void)loc;
+
+	struct lip_link_ctx_s* link_ctx = ctx_;
+	lip_context_t* ctx = link_ctx->ctx;
+	khash_t(lip_module)* module = link_ctx->module;
+
+	lip_symbol_t* symbol = NULL;
+	if(module_name.length == 0 && module != NULL)
+	{
+		khiter_t itr =  kh_get(lip_module, module, symbol_name);
+		if(itr != kh_end(module)) { symbol = &kh_value(module, itr); }
+	}
+
+	if(symbol == NULL)
+	{
+		symbol = lip_lookup_symbol_in_symtab(
+			ctx->runtime->symtab, module_name, symbol_name
+		);
+	}
+
+	lip_assert(ctx, symbol != NULL);
+
+	import->value = (lip_value_t) {
+		.type = LIP_VAL_FUNCTION,
+		.data = { .reference = symbol->value }
+	};
+
+	return true;
+}
+
+static void
+lip_hard_link_function(
+	lip_context_t* ctx, lip_function_t* fn, khash_t(lip_module)* module
+)
+{
+	lip_assert(ctx, ctx->rt_read_lock_depth + ctx->rt_write_lock_depth > 0);
+
+	struct lip_link_ctx_s link_ctx = {
+		.ctx = ctx,
+		.module = module
+	};
+	lip_iterate_imports(fn, lip_hard_link_import, &link_ctx);
+	lip_iterate_functions(fn, lip_replace_import_instructions, &link_ctx);
+}
+
+static bool
+lip_soft_link_import(
+	lip_function_t* fn,
+	lip_import_t* import,
+	lip_loc_range_t loc,
+	lip_string_ref_t module_name,
+	lip_string_ref_t symbol_name,
+	void* ctx_
+)
+{
+	lip_context_t* ctx = ctx_;
+	lip_string_t* import_name = lip_function_resource(fn, import->name);
+
+	// Try to resolve symbol from pending modules
+	khiter_t itr = kh_get(lip_symtab, ctx->loading_symtab, module_name);
+	if(itr != kh_end(ctx->loading_symtab))
+	{
+		khash_t(lip_module)* module = kh_val(ctx->loading_symtab, itr);
+		khiter_t itr = kh_get(lip_module, module, symbol_name);
+		if(itr != kh_end(module) && kh_val(module, itr).is_public)
+		{
+			return true;
+		}
+		else
+		{
+			lip_set_undefined_symbol_error(ctx, fn, import_name, loc, false);
+			return false;
+		}
+	}
+
+	// Try to resolve symbol from loaded modules
+	itr = kh_get(lip_symtab, ctx->runtime->symtab, module_name);
+	if(itr != kh_end(ctx->runtime->symtab))
+	{
+		khash_t(lip_module)* module = kh_val(ctx->runtime->symtab, itr);
+		khiter_t itr = kh_get(lip_module, module, symbol_name);
+		if(itr != kh_end(module) && kh_val(module, itr).is_public)
+		{
+			return true;
+		}
+		else
+		{
+			lip_set_undefined_symbol_error(ctx, fn, import_name, loc, false);
+			return false;
+		}
+	}
+
+	// Try to load the referenced module
+	if(!lip_load_module(ctx, module_name))
+	{
+		lip_set_undefined_symbol_error(ctx, fn, import_name, loc, true);
+		return false;
+	}
+
+	// Try to resolve symbol from the module just loaded
+	itr = kh_get(lip_symtab, ctx->loading_symtab, module_name);
+	lip_assert(ctx, itr != kh_end(ctx->loading_symtab));
+	khash_t(lip_module)* module = kh_val(ctx->loading_symtab, itr);
+	itr = kh_get(lip_module, module, symbol_name);
+	if(!(itr != kh_end(module) && kh_val(module, itr).is_public))
+	{
+		lip_set_undefined_symbol_error(ctx, fn, import_name, loc, false);
+		return false;
+	}
+
+	return true;
+}
+
+bool
+lip_link_function(lip_context_t* ctx, lip_function_t* fn)
+{
+	lip_assert(ctx, ctx->load_depth > 0);
+	bool linked = lip_iterate_imports(fn, lip_soft_link_import, ctx);
+
+	if(linked)
+	{
+		int ret;
+		kh_put(lip_ptr_set, ctx->new_script_functions, fn, &ret);
+	}
+
+	return linked;
+}
+
+void
 lip_ctx_end_load(lip_context_t* ctx)
 {
 	lip_assert(ctx, ctx->load_depth > 0);
@@ -398,7 +614,7 @@ lip_ctx_end_load(lip_context_t* ctx)
 
 		kh_foreach(itr, ctx->new_exported_functions)
 		{
-			lip_static_link_function(
+			lip_hard_link_function(
 				ctx,
 				(void*)kh_key(ctx->new_exported_functions, itr),
 				kh_value(ctx->new_exported_functions, itr)
@@ -407,116 +623,13 @@ lip_ctx_end_load(lip_context_t* ctx)
 
 		kh_foreach(itr, ctx->new_script_functions)
 		{
-			lip_static_link_function(
+			lip_hard_link_function(
 				ctx, kh_key(ctx->new_script_functions, itr), NULL
 			);
 		}
 	}
 
 	lip_ctx_end_rt_write(ctx);
-}
-
-void
-lip_destroy_all_modules(lip_runtime_t* runtime)
-{
-	kh_foreach(itr, runtime->symtab)
-	{
-		lip_free(runtime->cfg.allocator, (void*)kh_key(runtime->symtab, itr).ptr);
-		khash_t(lip_module)* module = kh_val(runtime->symtab, itr);
-		lip_purge_module(runtime, module);
-		kh_destroy(lip_module, module);
-	}
-}
-
-bool
-lip_link_function(
-	lip_context_t* ctx, lip_function_t* fn, bool is_module, khash_t(lip_module)* module
-)
-{
-	lip_function_layout_t layout;
-	lip_function_layout(fn, &layout);
-
-	for(uint16_t i = 0; i < fn->num_imports; ++i)
-	{
-		// Some imports are replaced with builtins ops
-		lip_loc_range_t loc;
-		if(!lip_import_referenced(fn, i, &loc)) { continue; }
-
-		lip_string_t* name = lip_function_resource(fn, layout.imports[i].name);
-		lip_string_ref_t module_name, function_name;
-		lip_string_ref_t symbol_name_ref = { .length = name->length, .ptr = name->ptr };
-		lip_split_fqn(symbol_name_ref, &module_name, &function_name);
-
-		if(true
-			&& is_module
-			&& module_name.length == 0
-			&& (!module || kh_get(lip_module, module, function_name) != kh_end(module))
-		)
-		{
-			continue;
-		}
-
-		khiter_t itr = kh_get(lip_symtab, ctx->loading_symtab, module_name);
-		if(itr != kh_end(ctx->loading_symtab))
-		{
-			khash_t(lip_module)* module = kh_val(ctx->loading_symtab, itr);
-			khiter_t itr = kh_get(lip_module, module, function_name);
-			if(itr != kh_end(module) && kh_val(module, itr).is_public)
-			{
-				continue;
-			}
-			else
-			{
-				lip_set_undefined_symbol_error(ctx, fn, name, loc, false);
-				return false;
-			}
-		}
-
-		itr = kh_get(lip_symtab, ctx->runtime->symtab, module_name);
-		if(itr != kh_end(ctx->runtime->symtab))
-		{
-			khash_t(lip_module)* module = kh_val(ctx->runtime->symtab, itr);
-			khiter_t itr = kh_get(lip_module, module, function_name);
-			if(itr != kh_end(module) && kh_val(module, itr).is_public)
-			{
-				continue;
-			}
-			else
-			{
-				lip_set_undefined_symbol_error(ctx, fn, name, loc, false);
-				return false;
-			}
-		}
-
-		if(!lip_load_module(ctx, module_name))
-		{
-			lip_set_undefined_symbol_error(ctx, fn, name, loc, true);
-			return false;
-		}
-
-		itr = kh_get(lip_symtab, ctx->loading_symtab, module_name);
-		lip_assert(ctx, itr != kh_end(ctx->loading_symtab));
-		khash_t(lip_module)* module = kh_val(ctx->loading_symtab, itr);
-		itr = kh_get(lip_module, module, function_name);
-		if(!(itr != kh_end(module) && kh_val(module, itr).is_public))
-		{
-			lip_set_undefined_symbol_error(ctx, fn, name, loc, false);
-			return false;
-		}
-	}
-
-	for(uint16_t i = 0; i < fn->num_functions; ++i)
-	{
-		bool link_status = lip_link_function(
-			ctx,
-			lip_function_resource(fn, layout.function_offsets[i]),
-			is_module,
-			module
-		);
-		if(!link_status) { return false; }
-	}
-
-	return true;
 }
 
 bool
@@ -531,6 +644,65 @@ lip_lookup_symbol(lip_context_t* ctx, lip_string_ref_t symbol_name, lip_value_t*
 	lip_ctx_end_rt_read(ctx);
 
 	return ret_val;
+}
+
+static bool
+lip_link_module_import_pre_exec(
+	lip_function_t* fn,
+	lip_import_t* import,
+	lip_loc_range_t loc,
+	lip_string_ref_t module_name,
+	lip_string_ref_t symbol_name,
+	void* ctx
+)
+{
+	// All built-ins and local functions are checked post-exec
+	if(module_name.length == 0) { return true; }
+
+	return lip_soft_link_import(fn, import, loc, module_name, symbol_name, ctx);
+}
+
+static bool
+lip_link_module_pre_exec(lip_context_t* ctx, lip_function_t* fn)
+{
+	return lip_iterate_imports(fn, lip_link_module_import_pre_exec, ctx);
+}
+
+static bool
+lip_link_module_import_post_exec(
+	lip_function_t* fn,
+	lip_import_t* import,
+	lip_loc_range_t loc,
+	lip_string_ref_t module_name,
+	lip_string_ref_t symbol_name,
+	void* ctx_
+)
+{
+	struct lip_link_ctx_s* link_ctx = ctx_;
+	lip_context_t* ctx = link_ctx->ctx;
+	khash_t(lip_module)* module = link_ctx->module;
+
+	if(true
+		&& module_name.length == 0
+		&& kh_get(lip_module, module, symbol_name) != kh_end(module)
+	)
+	{
+		return true;
+	}
+
+	return lip_soft_link_import(fn, import, loc, module_name, symbol_name, ctx);
+}
+
+static bool
+lip_link_module_post_exec(
+	lip_context_t* ctx, lip_function_t* fn, khash_t(lip_module)* module
+)
+{
+	struct lip_link_ctx_s link_ctx = {
+		.ctx = ctx,
+		.module = module
+	};
+	return lip_iterate_imports(fn, lip_link_module_import_post_exec, &link_ctx);
 }
 
 bool
@@ -570,6 +742,7 @@ lip_load_module(lip_context_t* ctx, lip_string_ref_t name)
 
 	lip_array_clear(ctx->error_records);
 
+	// Try all search patterns until the first one that matches an existing file
 	for(unsigned int i = 0; i < num_patterns; ++i)
 	{
 		lip_array(char) filename_buf = lip_array_create(ctx->module_pool, char, 512);
@@ -646,7 +819,9 @@ lip_load_module(lip_context_t* ctx, lip_string_ref_t name)
 	script = lip_load_script(ctx, filename, file, false);
 	if(script == NULL) { returnVal(false); }
 
-	if(!lip_link_function(ctx, script->closure->function.lip, true, NULL))
+	// Ignore all local or builtin references and let the dynamic linker deals
+	// with them
+	if(!lip_link_module_pre_exec(ctx, script->closure->function.lip))
 	{
 		returnVal(false);
 	}
@@ -675,7 +850,8 @@ lip_load_module(lip_context_t* ctx, lip_string_ref_t name)
 
 	if(status == LIP_EXEC_OK)
 	{
-		if(!lip_link_function(ctx, script->closure->function.lip, true, module))
+		// Check whether references to local functions can be resolved
+		if(!lip_link_module_post_exec(ctx, script->closure->function.lip, module))
 		{
 			returnVal(false);
 		}

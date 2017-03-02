@@ -257,7 +257,7 @@ lip_load_script(
 	lip_ctx_begin_load(ctx);
 	if(fn)
 	{
-		if(link && !lip_link_function(ctx, fn, false, NULL))
+		if(link && !lip_link_function(ctx, fn))
 		{
 			lip_free(ctx->allocator, fn);
 			script = NULL;
@@ -270,14 +270,13 @@ lip_load_script(
 			.is_native = false,
 			.env_len = 0,
 		};
-		int ret;
-		if(link) { kh_put(lip_ptr_set, ctx->new_script_functions, fn, &ret); }
 
 		script = lip_new(ctx->allocator, lip_script_t);
 		*script = (lip_script_t){
 			.closure = closure,
 			.linked = link
 		};
+		int ret;
 		kh_put(lip_ptr_set, ctx->scripts, script, &ret);
 	}
 
@@ -363,16 +362,10 @@ lip_exec_status_t
 	{
 		lip_function_t* fn = script->closure->function.lip;
 		lip_ctx_begin_load(rt->ctx);
-		bool link_result = lip_link_function(rt->ctx, fn, false, NULL);
-
-		if(link_result)
-		{
-			int ret;
-			kh_put(lip_ptr_set, rt->ctx->new_script_functions, fn, &ret);
-		}
+		bool linked = lip_link_function(rt->ctx, fn);
 		lip_ctx_end_load(rt->ctx);
-		script->linked = link_result;
-		if(!link_result) { return LIP_EXEC_ERROR; }
+		script->linked = linked;
+		if(!linked) { return LIP_EXEC_ERROR; }
 	}
 
 	lip_exec_status_t status = (lip_call)(

@@ -85,15 +85,10 @@ lip_repl(
 					lip_compiler_add_ast(&ctx->compiler, ast_result.value.result);
 					lip_function_t* fn = lip_compiler_end(&ctx->compiler, ctx->temp_pool);
 					lip_ctx_begin_load(ctx);
-					bool link_result = lip_link_function(ctx, fn, false, NULL);
-					if(link_result)
-					{
-						int ret;
-						kh_put(lip_ptr_set, ctx->new_script_functions, fn, &ret);
-					}
+					bool linked = lip_link_function(ctx, fn);
 					lip_ctx_end_load(ctx);
 
-					if(!link_result)
+					if(!linked)
 					{
 						repl_handler->print(
 							repl_handler,
