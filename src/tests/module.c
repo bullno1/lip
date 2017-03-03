@@ -106,6 +106,31 @@ local_function(const MunitParameter params[], void* fixture_)
 }
 
 static MunitResult
+no_declare_in_body(const MunitParameter params[], void* fixture_)
+{
+	(void)params;
+
+	lip_fixture_t* fixture = fixture_;
+	lip_context_t* ctx2 = fixture->context;
+	lip_load_builtins(ctx2);
+
+	{
+		lip_context_t* ctx = lip_create_context(fixture->runtime, NULL);
+		lip_vm_t* vm = lip_create_vm(ctx, NULL);
+		lip_assert_error_msg("(mod7/b 3)", "Undefined symbol: mod7/b");
+		const lip_context_error_t* error = lip_get_error(ctx);
+		while(error->parent) { error = error->parent; }
+		lip_assert_string_ref_equal(
+			lip_string_ref("Cannot use `declare` inside a `declare`-d function"),
+			error->message
+		);
+		lip_destroy_context(ctx);
+	}
+
+	return MUNIT_OK;
+}
+
+static MunitResult
 private_function(const MunitParameter params[], void* fixture_)
 {
 	(void)params;
@@ -147,6 +172,12 @@ static MunitTest tests[] = {
 	{
 		.name = "/private_function",
 		.test = private_function,
+		.setup = setup,
+		.tear_down = teardown
+	},
+	{
+		.name = "/no_declare_in_body",
+		.test = no_declare_in_body,
 		.setup = setup,
 		.tear_down = teardown
 	},

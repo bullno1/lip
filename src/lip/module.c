@@ -21,6 +21,7 @@ struct lip_link_ctx_s
 {
 	lip_context_t* ctx;
 	khash_t(lip_module)* module;
+	lip_function_t* top_level_fn;
 };
 
 struct lip_import_itr_ctx_s
@@ -508,7 +509,8 @@ lip_hard_link_function(
 
 	struct lip_link_ctx_s link_ctx = {
 		.ctx = ctx,
-		.module = module
+		.module = module,
+		.top_level_fn = fn
 	};
 	lip_iterate_imports(fn, lip_hard_link_import, &link_ctx);
 	lip_iterate_functions(fn, lip_replace_import_instructions, &link_ctx);
@@ -682,12 +684,24 @@ lip_link_module_import_post_exec(
 	lip_context_t* ctx = link_ctx->ctx;
 	khash_t(lip_module)* module = link_ctx->module;
 
-	if(true
-		&& module_name.length == 0
-		&& kh_get(lip_module, module, symbol_name) != kh_end(module)
-	)
+	if(module_name.length == 0)
 	{
-		return true;
+		if(kh_get(lip_module, module, symbol_name) != kh_end(module))
+		{
+			return true;
+		}
+
+		if(true
+			&& link_ctx->top_level_fn != fn
+			&& lip_string_ref_equal(symbol_name, lip_string_ref("declare"))
+		)
+		{
+			lip_set_link_error(
+				ctx, lip_string_ref("Cannot use `declare` inside a `declare`-d function"),
+				fn, loc, false
+			);
+			return false;
+		}
 	}
 
 	return lip_soft_link_import(fn, import, loc, module_name, symbol_name, ctx);
@@ -700,7 +714,8 @@ lip_link_module_post_exec(
 {
 	struct lip_link_ctx_s link_ctx = {
 		.ctx = ctx,
-		.module = module
+		.module = module,
+		.top_level_fn = fn
 	};
 	return lip_iterate_imports(fn, lip_link_module_import_post_exec, &link_ctx);
 }

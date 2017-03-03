@@ -1,0 +1,1 @@
+(declare 'b true (fn (x) (declare 'a true identity)))
