@@ -850,6 +850,7 @@ lip_load_module(lip_context_t* ctx, lip_string_ref_t name)
 	ctx->current_module = module;
 
 	lip_vm_t* vm = lip_get_default_vm(ctx);
+	lip_reset_vm(vm);
 	lip_value_t exec_result;
 	lip_exec_status_t status = lip_call(
 		vm,

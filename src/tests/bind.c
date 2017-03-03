@@ -56,6 +56,7 @@ direct(const MunitParameter params[], void* fixture_)
 	lip_fixture_t* fixture = fixture_;
 	lip_vm_t* vm = fixture->vm;
 
+	lip_reset_vm(vm);
 	lip_value_t fn = lip_make_function(vm, lip_pow, 0, NULL);
 	lip_value_t result;
 	lip_exec_status_t status =
@@ -65,6 +66,7 @@ direct(const MunitParameter params[], void* fixture_)
 	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
 	munit_assert_double_equal(pow(3.5, 3.6), result.data.number, 3);
 
+	lip_reset_vm(vm);
 	lip_value_t latan = lip_make_function(vm, lip_atan, 0, NULL);
 	status =
 		lip_call(vm, &result, latan, 2, lip_make_number(vm, 3.5), lip_make_number(vm, 3.6));
@@ -72,16 +74,22 @@ direct(const MunitParameter params[], void* fixture_)
 	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
 	munit_assert_double_equal(atan2(3.5, 3.6), result.data.number, 3);
 
+	lip_reset_vm(vm);
+	latan = lip_make_function(vm, lip_atan, 0, NULL);
 	status =
 		lip_call(vm, &result, latan, 1, lip_make_number(vm, 3.5));
 	lip_assert_enum(lip_exec_status_t, LIP_EXEC_OK, ==, status);
 	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
 	munit_assert_double_equal(atan(3.5), result.data.number, 3);
 
+	lip_reset_vm(vm);
+	latan = lip_make_function(vm, lip_atan, 0, NULL);
 	status = lip_call(vm, &result, latan, 0);
 	lip_assert_enum(lip_exec_status_t, LIP_EXEC_ERROR, ==, status);
 	lip_assert_str("Bad number of arguments (at least 1 expected, got 0)", result);
 
+	lip_reset_vm(vm);
+	latan = lip_make_function(vm, lip_atan, 0, NULL);
 	status = lip_call(vm, &result, latan, 3, lip_make_number(vm, 3.5), lip_make_number(vm, 3.5), lip_make_number(vm, 3.5));
 	lip_assert_enum(lip_exec_status_t, LIP_EXEC_ERROR, ==, status);
 	lip_assert_str("Bad number of arguments (at most 2 expected, got 3)", result);
@@ -108,10 +116,14 @@ wrapper(const MunitParameter params[], void* fixture_)
 	lip_assert_enum(lip_value_type_t, LIP_VAL_NUMBER, ==, result.type);
 	munit_assert_double_equal(pow(3.5, 3.6), result.data.number, 3);
 
+	lip_reset_vm(vm);
+	fn = lip_make_function(vm, lip_bind_wrapper(pow), 0, NULL);
 	status = lip_call(vm, &result, fn, 1, lip_make_number(vm, 3.5));
 	lip_assert_enum(lip_exec_status_t, LIP_EXEC_ERROR, ==, status);
 	lip_assert_str("Bad number of arguments (exactly 2 expected, got 1)", result);
 
+	lip_reset_vm(vm);
+	fn = lip_make_function(vm, lip_bind_wrapper(pow), 0, NULL);
 	status = lip_call(vm, &result, fn, 2, lip_make_number(vm, 3.5), lip_make_string(vm, "wat"));
 	lip_assert_enum(lip_exec_status_t, LIP_EXEC_ERROR, ==, status);
 	lip_assert_str("Bad argument #2 (LIP_VAL_NUMBER expected, got LIP_VAL_STRING)", result);

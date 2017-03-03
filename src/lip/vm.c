@@ -28,6 +28,7 @@ lip_vm_init(
 	*vm = (lip_vm_t){
 		.config = *config,
 		.rt = rt,
+		.status = LIP_EXEC_OK,
 		.mem = mem,
 		.sp = (lip_value_t*)lip_locate_memblock(mem, &os_block) + config->os_len,
 		.fp = lip_locate_memblock(mem, &cs_block)
@@ -51,6 +52,12 @@ lip_exec_status_t
 	...
 )
 {
+	if(vm->status != LIP_EXEC_OK)
+	{
+		*result = lip_make_string_copy(vm, lip_string_ref("VM is in error state"));
+		return vm->status;
+	}
+
 	vm->sp -= num_args;
 	va_list args;
 	va_start(args, num_args);
@@ -78,6 +85,7 @@ lip_exec_status_t
 end:
 	*result = *vm->sp;
 	++vm->sp;
+	vm->status = status;
 	return status;
 }
 

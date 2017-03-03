@@ -103,6 +103,7 @@ struct lip_stack_frame_s
 struct lip_vm_s
 {
 	lip_vm_config_t config;
+	lip_exec_status_t status;
 	lip_runtime_interface_t* rt;
 
 	void* mem;

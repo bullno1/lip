@@ -1,0 +1,3 @@
+(declare 'b true print)
+
+(identity 3 4 5 6)
