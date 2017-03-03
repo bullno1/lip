@@ -529,7 +529,7 @@ lip_soft_link_import(
 	lip_context_t* ctx = ctx_;
 	lip_string_t* import_name = lip_function_resource(fn, import->name);
 
-	// Try to resolve symbol from pending modules
+	// Try to resolve symbol using pending modules
 	khiter_t itr = kh_get(lip_symtab, ctx->loading_symtab, module_name);
 	if(itr != kh_end(ctx->loading_symtab))
 	{
@@ -546,7 +546,7 @@ lip_soft_link_import(
 		}
 	}
 
-	// Try to resolve symbol from loaded modules
+	// Try to resolve symbol using loaded modules
 	itr = kh_get(lip_symtab, ctx->runtime->symtab, module_name);
 	if(itr != kh_end(ctx->runtime->symtab))
 	{
@@ -570,7 +570,7 @@ lip_soft_link_import(
 		return false;
 	}
 
-	// Try to resolve symbol from the module just loaded
+	// Try to resolve symbol using the module just loaded
 	itr = kh_get(lip_symtab, ctx->loading_symtab, module_name);
 	lip_assert(ctx, itr != kh_end(ctx->loading_symtab));
 	khash_t(lip_module)* module = kh_val(ctx->loading_symtab, itr);
@@ -658,7 +658,7 @@ lip_link_module_import_pre_exec(
 	void* ctx
 )
 {
-	// All built-ins and local functions are checked post-exec
+	// All built-ins and local functions will be checked post-exec
 	if(module_name.length == 0) { return true; }
 
 	return lip_soft_link_import(fn, import, loc, module_name, symbol_name, ctx);
