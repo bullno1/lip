@@ -175,6 +175,15 @@ lip_vm_do_call(lip_vm_t* vm, lip_value_t* fn, uint8_t num_args)
 			list->length = num_varargs;
 			memcpy(list->elements, vm->sp + arity, sizeof(lip_value_t) * num_varargs);
 
+			// Ensure that there is enough space to place the vararg list
+			if(num_varargs == 0)
+			{
+				memmove(vm->sp - 1, vm->sp, sizeof(*vm->sp) * num_args);
+				--vm->sp;
+				--vm->fp->bp;
+				++vm->fp->num_args;
+			}
+
 			vm->sp[arity] = (lip_value_t){
 				.type = LIP_VAL_LIST,
 				.data = { .reference = list }

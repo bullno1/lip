@@ -452,6 +452,17 @@ arity(const MunitParameter params[], void* fixture_)
 	);
 
 	lip_assert_num_result(
+		"(+ 8 ((fn (x &y) (+ x (list/len y))) 2 3 4))",
+		12
+	);
+
+	// Calling vararg without arg
+	lip_assert_num_result(
+		"(+ ((fn (x &y) (+ x (list/len y))) 9) 1)",
+		10
+	);
+
+	lip_assert_num_result(
 		"((fn (x &y) (list/nth 1 y)) 1 2 3)",
 		3
 	);
