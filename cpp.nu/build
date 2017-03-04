@@ -55,5 +55,5 @@ do
 done
 
 echo "" >> $2
-echo "build ${BUILD_DIR}/${BUILD_SUBDIR}/tmp_output: link ${objs}" >> $2
+echo "build ${BUILD_DIR}/${BUILD_SUBDIR}/tmp_output: link ${objs} | ${libs}" >> $2
 echo "default ${BUILD_DIR}/${BUILD_SUBDIR}/tmp_output" >> $2
