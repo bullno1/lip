@@ -231,10 +231,7 @@ lip_function_name(lip_stack_frame_t* fp)
 	}
 	else if(fp->closure->debug_name)
 	{
-		return (lip_string_ref_t) {
-			.ptr = fp->closure->debug_name->ptr,
-			.length = fp->closure->debug_name->length
-		};
+		return lip_string_ref_from_string(fp->closure->debug_name);
 	}
 	else if(fp->native_function)
 	{
@@ -252,11 +249,7 @@ lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg)
 	lip_string_ref_t error_message;
 	if(msg.type == LIP_VAL_STRING)
 	{
-		lip_string_t* str = msg.data.reference;
-		error_message = (lip_string_ref_t){
-			.ptr = str->ptr,
-			.length = str->length
-		};
+		error_message = lip_string_ref_from_string(msg.data.reference);
 	}
 	else
 	{
@@ -308,10 +301,7 @@ lip_traceback(lip_context_t* ctx, lip_vm_t* vm, lip_value_t msg)
 			lip_loc_range_t location =
 				function_layout.locations[LIP_MAX(0, fp->pc - function_layout.instructions)];
 			*lip_array_alloc(ctx->error_records) = (lip_error_record_t){
-				.filename = (lip_string_ref_t){
-					.ptr = function_layout.source_name->ptr,
-					.length = function_layout.source_name->length
-				},
+				.filename = lip_string_ref_from_string(function_layout.source_name),
 				.location = location,
 				.message = lip_function_name(fp)
 			};
