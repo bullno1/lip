@@ -113,9 +113,9 @@ bin/lip: << C_FLAGS CPP_FLAGS CC LIBLIP LIBLIP_EXTRA_FLAGS CLEAR_ENV
 	${CLEAR_ENV}
 	${NUMAKE} exe:$@ \
 		sources="`find src/repl -name '*.cpp' -or -name '*.c'`" \
-		c_flags="${C_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Ideps/linenoise -Ideps/cargo -Ideps/miniz" \
+		c_flags="${C_FLAGS} ${LIBLIP_EXTRA_FLAGS} -Isrc/dbg -Ideps/linenoise -Ideps/cargo -Ideps/miniz" \
 		linker="${CC}" \
-		libs="bin/liblinenoise.a bin/libcargo.a bin/libminiz.a ${LIBLIP}"
+		libs="bin/liblinenoise.a bin/libcargo.a bin/libminiz.a bin/libdbg.a bin/libcmp.a ${LIBLIP}"
 
 bin/liblip.so: << CC C_FLAGS CLEAR_ENV LIP_CONFIG_H
 	${CLEAR_ENV}
@@ -148,6 +148,12 @@ include/lip/gen/%.h: src/lip/%.h.in << c_flags C_FLAGS link_flags LINK_FLAGS lin
 	mkdir -p $(dirname $@)
 	envsubst < ${deps} > $@
 
+bin/libdbg.a: << CLEAR_ENV C_FLAGS
+	${CLEAR_ENV}
+	${NUMAKE} static-lib:$@ \
+		c_flags="${C_FLAGS} -Iinclude -Ideps/cmp -Wno-unused-function" \
+		sources="$(find src/dbg -name '*.cpp' -or -name '*.c')"
+
 bin/liblinenoise.a: << C_FLAGS CPP_FLAGS CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS  LTO_FLAGS
 	${CLEAR_ENV}
 	${NUMAKE} static-lib:$@ \
@@ -159,6 +165,12 @@ bin/libcargo.a: << CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS LTO_FLAGS
 	${NUMAKE} static-lib:$@ \
 		c_flags="${LTO_FLAGS} ${ASAN_COMPILE_FLAGS} ${UBSAN_COMPILE_FLAGS}" \
 		sources="deps/cargo/cargo.c"
+
+bin/libcmp.a: << CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS LTO_FLAGS
+	${CLEAR_ENV}
+	${NUMAKE} static-lib:$@ \
+		c_flags="${LTO_FLAGS} ${ASAN_COMPILE_FLAGS} ${UBSAN_COMPILE_FLAGS}" \
+		sources="deps/cmp/cmp.c"
 
 bin/libminiz.a: << C_FLAGS CPP_FLAGS CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS  LTO_FLAGS
 	${CLEAR_ENV}

@@ -2,11 +2,15 @@
 #define LIP_REPL_RUN_H
 
 #include "common.h"
+#include <dbg.h>
 
 struct repl_run_opts_s
 {
 	int interactive;
+	int debug;
 	char* exec_string;
+
+	lip_dbg_t* dbg;
 };
 
 void

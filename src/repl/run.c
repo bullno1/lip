@@ -129,6 +129,11 @@ repl_init_run_opts(cargo_t cargo, struct repl_run_opts_s* opts)
 	);
 	cargo_add_option(
 		cargo, 0,
+		"<run> --debug -d", "Enable debugger", "b",
+		&opts->debug
+	);
+	cargo_add_option(
+		cargo, 0,
 		"<run> --execute -e", "Execute STRING", "s",
 		&opts->exec_string
 	);
@@ -138,13 +143,18 @@ repl_init_run_opts(cargo_t cargo, struct repl_run_opts_s* opts)
 void
 repl_cleanup_run_opts(struct repl_run_opts_s* opts)
 {
+	if(opts->debug)
+	{
+		lip_destroy_debugger(opts->dbg);
+	}
+
 	free(opts->exec_string);
 }
 
 bool
 repl_run_mode_activated(struct repl_run_opts_s* opts)
 {
-	return opts->interactive || opts->exec_string;
+	return opts->debug || opts->interactive || opts->exec_string;
 }
 
 int
@@ -152,6 +162,14 @@ repl_run(struct repl_common_s* common, struct repl_run_opts_s* opts)
 {
 	lip_load_builtins(common->context);
 	lip_vm_t* vm = lip_create_vm(common->context, NULL);
+
+	if(opts->debug)
+	{
+		lip_dbg_config_t cfg;
+		lip_reset_dbg_config(&cfg);
+		opts->dbg = lip_create_debugger(&cfg);
+		lip_attach_debugger(opts->dbg, vm);
+	}
 
 	if(opts->exec_string)
 	{
