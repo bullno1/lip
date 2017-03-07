@@ -44,7 +44,7 @@ repl_cleanup_compile_opts(struct repl_compile_opts_s* opts)
 bool
 repl_compile_mode_activated(struct repl_compile_opts_s* opts)
 {
-	return opts->output_filename;
+	return opts->output_filename || opts->standalone;
 }
 
 static int
