@@ -1,0 +1,68 @@
+@import '~normalize-scss/sass/normalize';
+@include normalize();
+@import '~purecss';
+
+.full-height {
+	height: 100%;
+}
+
+html, body {
+	background-color: #F6F6F6;
+	height: 100%;
+}
+
+.content {
+	box-shadow: inset 0 1px 2px #e4e4e4;
+	background-color: #fff;
+	height: 100%;
+}
+
+i.icon {
+    font-style: normal;
+	position: relative;
+	white-space: pre;
+
+	&.icon-run {
+		&:after {
+			content: "\25ba";
+		}
+	}
+
+	&.icon-step-over {
+		&:after {
+			font-size: 125%;
+			position: absolute;
+			top: -11px;
+			left: -1px;
+			content: "\293a";
+			-webkit-transform: matrix(-1, 0, 0, 1, 0, 0);
+			   -moz-transform: matrix(-1, 0, 0, 1, 0, 0);
+			     -o-transform: matrix(-1, 0, 0, 1, 0, 0);
+			        transform: matrix(-1, 0, 0, 1, 0, 0);
+		}
+	}
+
+	&.icon-step-in {
+		&:after {
+			position: absolute;
+			top: -7px;
+			left: 0.5px;
+			content: "\21b4";
+		}
+	}
+
+	&.icon-step-out {
+		&:after {
+			position: absolute;
+			top: -6px;
+			left: 4px;
+			content: "\21b1";
+		}
+	}
+}
+
+.pure-button {
+	&.button-small {
+        font-size: 85%;
+	}
+}
