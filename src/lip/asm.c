@@ -296,7 +296,10 @@ lip_asm_end(lip_asm_t* lasm, lip_allocator_t* allocator)
 
 					if(op_instr != 0)
 					{
-						lasm->instructions[out_index].instruction = op_instr;
+						lasm->instructions[out_index] = (lip_tagged_instruction_t) {
+							.instruction = op_instr,
+							.location = lasm->instructions[i + 1].location
+						};
 						++i;
 					}
 				}
