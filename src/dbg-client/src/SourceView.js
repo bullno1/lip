@@ -21,22 +21,19 @@ export const SourceView = {
 	},
 	onbeforeupdate: function(vnode) {
 		const attrs = vnode.attrs;
-		this.cm.setOption("mode", vnode.attrs.filename.endsWith('.c') ? "clike" : "clojure");
+		const loc = attrs.location;
+		this.cm.setOption("mode", attrs.filename.endsWith('.c') ? "clike" : "clojure");
 		this.cm.setValue(attrs.sourceCode);
 		this.cm.markText(
 			{
-				line: Math.max(0, attrs.location.start.line - 1),
-				ch: Math.max(0, attrs.location.start.column - 1)
+				line: Math.max(0, loc.start.line - 1),
+				ch: Math.max(0, loc.start.column - 1)
 			},
 			{
-				line: Math.max(0, attrs.location.end.line - 1),
-				ch: Math.max(0, attrs.location.end.column || 80)
+				line: Math.max(0, loc.end.line - 1),
+				ch: Math.max(0, loc.end.column || 80)
 			},
 			{ className: "active-range" }
-		);
-		console.log(
-			{ line: attrs.location.start.line, ch: attrs.location.start.column },
-			{ line: attrs.location.end.line, ch: attrs.location.end.column || 80 },
 		);
 	}
 };
