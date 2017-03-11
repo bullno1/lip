@@ -29,6 +29,11 @@ COVERAGE_0 =
 COVERAGE_1 = --coverage
 COVERAGE_FLAGS = $(eval echo \${COVERAGE_$WITH_COVERAGE})
 
+WITH_DBG_EMBED_RESOURCES ?= 0
+DBG_EMBED_RESOURCES_0 = -DLIP_DBG_EMBED_RESOURCES=0
+DBG_EMBED_RESOURCES_1 = -DLIP_DBG_EMBED_RESOURCES=1
+DBG_FLAGS = $(eval echo \${DBG_EMBED_RESOURCES_$WITH_DBG_EMBED_RESOURCES})
+
 OPTIMIZATION_0 = -O3
 OPTIMIZATION_1 = -O0
 OPTIMIZATION_FLAGS = $(eval echo \${OPTIMIZATION_$WITH_COVERAGE})
@@ -61,6 +66,7 @@ CPP_FLAGS ?= ${COMPILE_FLAGS} ${COMMON_FLAGS}
 LINK_FLAGS ?= -g ${COMMON_FLAGS} ${UBSAN_LINK_FLAGS} ${ASAN_LINK_FLAGS}
 
 -import cpp.nu
+-include src/dbg-client
 
 all: tests bin/lip doc ! live
 
@@ -148,10 +154,13 @@ include/lip/gen/%.h: src/lip/%.h.in << c_flags C_FLAGS link_flags LINK_FLAGS lin
 	mkdir -p $(dirname $@)
 	envsubst < ${deps} > $@
 
-bin/libdbg.a: << CLEAR_ENV C_FLAGS
+bin/libdbg.a: << CLEAR_ENV C_FLAGS DBG_FLAGS WITH_DBG_EMBED_RESOURCES
 	${CLEAR_ENV}
+	if [ "${WITH_DBG_EMBED_RESOURCES}" = 1 ]; then
+		${NUMAKE} --depend src/dbg-client/gen
+	fi
 	${NUMAKE} static-lib:$@ \
-		c_flags="${C_FLAGS} -Iinclude -Ideps/cmp -Wno-unused-function" \
+		c_flags="${C_FLAGS} ${DBG_FLAGS} -Iinclude -Isrc/dbg-client/gen -Ideps/cmp -Wno-unused-function" \
 		sources="$(find src/dbg -name '*.cpp' -or -name '*.c')"
 
 bin/liblinenoise.a: << C_FLAGS CPP_FLAGS CLEAR_ENV ASAN_COMPILE_FLAGS UBSAN_COMPILE_FLAGS  LTO_FLAGS

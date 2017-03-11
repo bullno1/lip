@@ -7,6 +7,13 @@
 #include <lip/print.h>
 #include <lip/asm.h>
 #include <cmp.h>
+
+#if LIP_DBG_EMBED_RESOURCES == 1
+#	include <index.html.h>
+#	include <bundle.js.h>
+#	include <bundle.js.map.h>
+#endif
+
 #define WBY_STATIC
 #define WBY_IMPLEMENTATION
 #include "vendor/wby.h"
@@ -761,6 +768,23 @@ lip_dbg_handle_command(lip_dbg_t* dbg, struct wby_con* conn)
 	return 0;
 }
 
+#if LIP_DBG_EMBED_RESOURCES == 1
+static int
+lip_dbg_send_static(
+	struct wby_con* conn, size_t size, const void* data, const char* contentType
+)
+{
+	const struct wby_header headers[] = {
+		{ .name = "Content-Type", .value = contentType },
+		{ .name = "Cache-Control", .value = "no-cache" },
+	};
+	wby_response_begin(conn, 200, (int)size, headers, LIP_STATIC_ARRAY_LEN(headers));
+	wby_write(conn, data, size);
+	wby_response_end(conn);
+	return 0;
+}
+#endif
+
 static int
 lip_dbg_dispatch(struct wby_con* conn, void* userdata)
 {
@@ -791,6 +815,26 @@ lip_dbg_dispatch(struct wby_con* conn, void* userdata)
 	{
 		return lip_dbg_handle_command(dbg, conn);
 	}
+#if LIP_DBG_EMBED_RESOURCES == 1
+	else if(strcmp(uri, "/") == 0)
+	{
+		return lip_dbg_send_static(
+			conn, index_html_size, index_html_data, "text/html; charset=UTF-8"
+		);
+	}
+	else if(strcmp(uri, "/bundle.js") == 0)
+	{
+		return lip_dbg_send_static(
+			conn, bundle_js_size, bundle_js_data, "application/javascript; charset=UTF-8"
+		);
+	}
+	else if(strcmp(uri, "/bundle.js.map") == 0)
+	{
+		return lip_dbg_send_static(
+			conn, bundle_js_map_size, bundle_js_map_data, "application/json"
+		);
+	}
+#endif
 	else
 	{
 		return 1;

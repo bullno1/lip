@@ -10,6 +10,7 @@ module.exports = function(env) {
         debug: false
       }));
       plugins.push(new webpack.optimize.UglifyJsPlugin({
+        sourceMap: true,
         compress: {
           warnings: false,
           screw_ie8: true,
