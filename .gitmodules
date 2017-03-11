@@ -5,9 +5,6 @@
 	path = deps/linenoise
 	url = https://github.com/yhirose/linenoise
 	branch = utf8-support
-[submodule "deps/cn-cbor"]
-	path = deps/cn-cbor
-	url = https://github.com/cabo/cn-cbor
 [submodule "deps/cmp"]
 	path = deps/cmp
 	url = https://github.com/camgunz/cmp
