@@ -22,14 +22,16 @@
     "webpack-dev-server": "^2.4.1"
   },
   "dependencies": {
-    "classnames": "^2.2.5",
     "codemirror": "^5.24.2",
-    "font-awesome": "^4.7.0",
-    "mithril": "^1.0.1",
+    "flyd": "^0.2.4",
     "msgpack-lite": "^0.1.26",
+    "node-sass": "^4.5.0",
     "normalize-scss": "^6.0.0",
     "purecss": "^0.6.2",
+    "ramda": "^0.23.0",
+    "snabbdom": "^0.6.6",
     "split.js": "^1.2.0",
+    "union-type": "^0.3.3",
     "uri-template": "^1.0.1"
   }
 }

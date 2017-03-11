@@ -1,12 +1,16 @@
-import m from 'mithril';
+import h from 'snabbdom/h';
+import './SourceView.scss';
 
-export const Toolbar = {
-	view: function(vnode) {
-		return m("div.pure-button-group", [
-			m("button.pure-button.button-small", [m("i.icon.icon-run")]),
-			m("button.pure-button.button-small", [m("i.icon.icon-step-over", "( )")]),
-			m("button.pure-button.button-small", [m("i.icon.icon-step-in", "(  )")]),
-			m("button.pure-button.button-small", [m("i.icon.icon-step-out", "(  )")])
-		])
-	}
-};
+export const init = () => null;
+
+export const Action = () => true;
+
+export const update = () => null;
+
+export const render = () =>
+	h("div.pure-button-group", [
+		h("button.pure-button.button-small", [h("i.icon.icon-run")]),
+		h("button.pure-button.button-small", [h("i.icon.icon-step-over", "( )")]),
+		h("button.pure-button.button-small", [h("i.icon.icon-step-in", "(  )")]),
+		h("button.pure-button.button-small", [h("i.icon.icon-step-out", "(  )")])
+	]);
