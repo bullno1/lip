@@ -9,7 +9,7 @@ import Msgpack from 'msgpack-lite';
 import { HALApp } from './hal';
 import { nested, updateNested } from './krueger';
 import { splitPane } from './splitPane';
-import * as SourceView from './SourceView';
+import * as CodeView from './CodeView';
 import * as Toolbar from './Toolbar';
 import * as CallStackView from './CallStackView';
 
@@ -37,16 +37,19 @@ const halApp = new HALApp({
 
 export const Action = Union({
 	UpdateDbg: [Object],
-	SourceView: [SourceView.Action],
+	SourceView: [CodeView.Action],
+	BytecodeView: [CodeView.Action],
 	Toolbar: [Toolbar.Action],
-	CallStackView: [CallStackView.Action]
+	CallStackView: [CallStackView.Action],
+	DisplayStackFrame: [Object]
 });
 
 export const init = () => ({
 	dbg: null,
 	notify$: flyd.stream(),
 	activeStackLevel: 0,
-	sourceView: nested(SourceView, Action.SourceView),
+	sourceView: nested(CodeView, Action.SourceView),
+	bytecodeView: nested(CodeView, Action.BytecodeView),
 	toolbar: nested(Toolbar, Action.Toolbar),
 	callStackView: nested(CallStackView, Action.CallStackView)
 });
@@ -58,16 +61,42 @@ const refreshSource = (model) => {
 	activeStackEntry.getLink("src").fetch()
 		.then((source) => {
 			model.notify$(Action.SourceView(
-				SourceView.Action.ViewSource(
+				CodeView.Action.ViewCode(
 					source,
-					activeStackEntry.filename,
+					activeStackEntry.filename.endsWith('.c') ? "clike" : "clojure",
 					activeStackEntry.location
 				)
 			))
 		});
 
-	return model;
+	if(!activeStackEntry.is_native) {
+		activeStackEntry.getLink("self").fetch()
+			.then((stackFrame) =>
+				model.notify$(Action.DisplayStackFrame(stackFrame))
+			);
+
+		return model;
+	} else {
+		return updateNested(
+			lensProp('bytecodeView'),
+			CodeView.Action.ViewCode(
+				'',
+				'',
+				{
+					start: { line: 0, column: 0 },
+					end: { line: 0, column: 0 }
+				}
+			),
+			model
+		);
+	}
 };
+
+const refreshDbg = (model) =>
+	halApp.fetch().then((dbg) => model.notify$(Action.UpdateDbg(dbg)));
+
+const formatBytecode = (bytecode) =>
+	bytecode.map((instr) => instr.join(" ")).join("\n");
 
 export const update = Action.caseOn({
 	UpdateDbg: (dbg, model) => {
@@ -81,6 +110,7 @@ export const update = Action.caseOn({
 		}, model));
 	},
 	SourceView: updateNested(lensProp('sourceView')),
+	BytecodeView: updateNested(lensProp('bytecodeView')),
 	Toolbar: updateNested(lensProp('toolbar')),
 	CallStackView: (action, model) => CallStackView.Action.case({
 		SetActiveStackLevel: (level) =>
@@ -89,12 +119,28 @@ export const update = Action.caseOn({
 				assoc('callStackView', model.callStackView.update(action)),
 			)(model)),
 		_: updateNested(lensProp('callStackView'), action)
-	}, action)
+	}, action),
+	DisplayStackFrame: (stackFrame, model) =>
+		updateNested(
+			lensProp('bytecodeView'),
+			CodeView.Action.ViewCode(
+				formatBytecode(stackFrame.function.bytecode),
+				'',
+				{
+					start: { line: stackFrame.pc + 1, column: 0 },
+					end: { line: stackFrame.pc + 1, column: 0 }
+				}
+			),
+			model
+		)
 });
 
 export const render = (model, actions) =>
 	splitPane({ direction: 'horizontal', sizes: [75, 25] }, [
-		model.sourceView.render(actions),
+		splitPane({ direction: 'vertical', sizes: [50, 50] }, [
+			model.sourceView.render(actions),
+			model.bytecodeView.render(actions),
+		]),
 		h("div", [
 			model.toolbar.render(actions),
 			model.callStackView.render(actions),
@@ -102,6 +148,6 @@ export const render = (model, actions) =>
 	]);
 
 export const subscribe = (model) => {
-	halApp.fetch().then((dbg) => model.notify$(Action.UpdateDbg(dbg)));
+	refreshDbg(model);
 	return model.notify$;
 };

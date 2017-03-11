@@ -1,5 +1,4 @@
 import h from 'snabbdom/h';
-import './SourceView.scss';
 
 export const init = () => null;
 

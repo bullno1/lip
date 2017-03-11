@@ -5,6 +5,7 @@
 #include <lip/vm.h>
 #include <lip/array.h>
 #include <lip/print.h>
+#include <lip/asm.h>
 #include <cmp.h>
 #define WBY_STATIC
 #define WBY_IMPLEMENTATION
@@ -233,10 +234,71 @@ lip_dbg_handle_src(lip_dbg_t* dbg, struct wby_con* conn)
 }
 
 static void
+lip_write_value_array(cmp_ctx_t* cmp, uint16_t count, const lip_value_t* array)
+{
+	cmp_write_array(cmp, count);
+	for(uint16_t i = 0; i < count; ++i)
+	{
+		const lip_value_t* value = &array[i];
+		switch(value->type)
+		{
+			case LIP_VAL_NIL:
+				cmp_write_nil(cmp);
+				break;
+			case LIP_VAL_NUMBER:
+				cmp_write_double(cmp, value->data.number);
+				break;
+			case LIP_VAL_BOOLEAN:
+				cmp_write_bool(cmp, value->data.boolean);
+				break;
+			case LIP_VAL_STRING:
+				cmp_write_str_ref(cmp, lip_string_ref_from_string(value->data.reference));
+				break;
+			case LIP_VAL_LIST:
+				{
+					const lip_list_t* list = value->data.reference;
+					lip_write_value_array(cmp, list->length, list->elements);
+				}
+				break;
+			case LIP_VAL_SYMBOL:
+				{
+					cmp_write_map(cmp, 1);
+					cmp_write_str_ref(cmp, lip_string_ref("symbol"));
+					cmp_write_str_ref(cmp, lip_string_ref_from_string(value->data.reference));
+				}
+				break;
+			case LIP_VAL_NATIVE:
+				{
+					cmp_write_map(cmp, 1);
+					cmp_write_str_ref(cmp, lip_string_ref("native"));
+					cmp_write_uinteger(cmp, (uintptr_t)value->data.reference);
+				}
+				break;
+			case LIP_VAL_FUNCTION:
+				{
+					cmp_write_map(cmp, 1);
+					cmp_write_str_ref(cmp, lip_string_ref("function"));
+					cmp_write_uinteger(cmp, (uintptr_t)value->data.reference);
+				}
+				break;
+			case LIP_VAL_PLACEHOLDER:
+				{
+					cmp_write_map(cmp, 1);
+					cmp_write_str_ref(cmp, lip_string_ref("placeholder"));
+					cmp_write_uinteger(cmp, value->data.index);
+				}
+				break;
+			default:
+				cmp_write_str_ref(cmp, lip_string_ref("<corrupted>"));
+		}
+	}
+}
+
+static void
 lip_dbg_write_stack_frame(
 	lip_dbg_t* dbg,
 	cmp_ctx_t* cmp,
-	lip_stack_frame_t* fp,
+	const lip_stack_frame_t* fp,
 	uint16_t index,
 	bool summary
 )
@@ -244,7 +306,9 @@ lip_dbg_write_stack_frame(
 	lip_string_ref_t filename;
 	lip_loc_range_t location;
 
-	if(lip_stack_frame_is_native(fp))
+	bool is_native = lip_stack_frame_is_native(fp);
+
+	if(is_native)
 	{
 		filename = lip_string_ref(
 			fp->native_filename ? fp->native_filename : "<native>"
@@ -266,7 +330,7 @@ lip_dbg_write_stack_frame(
 		lip_function_layout_t function_layout;
 		lip_function_layout(fp->closure->function.lip, &function_layout);
 		filename = lip_string_ref_from_string(function_layout.source_name);
-		location = function_layout.locations[LIP_MAX(0, fp->pc - function_layout.instructions)];
+		location = function_layout.locations[LIP_MAX(0, fp->pc - function_layout.instructions) + 1];
 	}
 
 	lip_string_ref_t function_name;
@@ -289,7 +353,7 @@ lip_dbg_write_stack_frame(
 		function_name =  lip_string_ref("?");
 	}
 
-	cmp_write_map(cmp, 4);
+	cmp_write_map(cmp, summary ? 5 : 7);
 	{
 		cmp_write_str_ref(cmp, lip_string_ref("_links"));
 		cmp_write_map(cmp, 2);
@@ -326,7 +390,164 @@ lip_dbg_write_stack_frame(
 
 		cmp_write_str_ref(cmp, lip_string_ref("function_name"));
 		cmp_write_str_ref(cmp, function_name);
+
+		cmp_write_str_ref(cmp, lip_string_ref("is_native"));
+		cmp_write_bool(cmp, is_native);
+
+		if(summary) { return; }
+
+		if(fp->closure == NULL)
+		{
+			cmp_write_str_ref(cmp, lip_string_ref("function"));
+			cmp_write_nil(cmp);
+
+			cmp_write_str_ref(cmp, lip_string_ref("pc"));
+			cmp_write_nil(cmp);
+		}
+		else if(fp->closure->is_native)
+		{
+			cmp_write_str_ref(cmp, lip_string_ref("function"));
+			cmp_write_map(cmp, 1);
+			{
+				cmp_write_str_ref(cmp, lip_string_ref("env"));
+				lip_write_value_array(cmp, fp->closure->env_len, fp->closure->environment);
+			}
+
+			cmp_write_str_ref(cmp, lip_string_ref("pc"));
+			cmp_write_nil(cmp);
+		}
+		else
+		{
+			lip_function_t* fn = fp->closure->function.lip;
+			lip_function_layout_t layout;
+			lip_function_layout(fn, &layout);
+
+			cmp_write_str_ref(cmp, lip_string_ref("function"));
+			cmp_write_map(cmp, 8);
+			{
+				cmp_write_str_ref(cmp, lip_string_ref("env"));
+				lip_write_value_array(cmp, fp->closure->env_len, fp->closure->environment);
+
+				cmp_write_str_ref(cmp, lip_string_ref("constants"));
+				lip_write_value_array(cmp, fn->num_constants, layout.constants);
+
+				cmp_write_str_ref(cmp, lip_string_ref("arity"));
+				cmp_write_uinteger(cmp, fn->num_args);
+
+				cmp_write_str_ref(cmp, lip_string_ref("vararg"));
+				cmp_write_bool(cmp, fn->is_vararg);
+
+				cmp_write_str_ref(cmp, lip_string_ref("stack"));
+				lip_write_value_array(cmp, fp->bp - dbg->vm->sp, dbg->vm->sp);
+
+				cmp_write_str_ref(cmp, lip_string_ref("locals"));
+				lip_write_value_array(cmp, fn->num_locals, fp->ep);
+
+				cmp_write_str_ref(cmp, lip_string_ref("bytecode"));
+				cmp_write_array(cmp, fn->num_instructions);
+				for(uint16_t i = 0; i < fn->num_instructions; ++i)
+				{
+					lip_opcode_t opcode;
+					lip_operand_t operand;
+
+					lip_disasm(layout.instructions[i], &opcode, &operand);
+					const char* opcode_str = lip_opcode_t_to_str(opcode);
+
+					switch((uint8_t)opcode)
+					{
+						case LIP_OP_NOP:
+						case LIP_OP_NIL:
+						case LIP_OP_RET:
+							cmp_write_array(cmp, 1);
+							cmp_write_str_ref(
+								cmp,
+								lip_string_ref(opcode_str + sizeof("LIP_OP_") - 1)
+							);
+							break;
+						case LIP_OP_CLS:
+							{
+								int function_index = operand & 0xFFF;
+								int num_captures = (operand >> 12) & 0xFFF;
+								cmp_write_array(cmp, 3);
+								cmp_write_str_ref(
+									cmp,
+									lip_string_ref(opcode_str + sizeof("LIP_OP_") - 1)
+								);
+								cmp_write_integer(cmp, function_index);
+								cmp_write_integer(cmp, num_captures);
+							}
+							break;
+						case LIP_OP_LABEL:
+							cmp_write_array(cmp, 2);
+							cmp_write_str_ref(cmp, lip_string_ref("LBL"));
+							cmp_write_integer(cmp, operand);
+							break;
+						default:
+							{
+								cmp_write_array(cmp, 2);
+								cmp_write_str_ref(
+									cmp,
+									lip_string_ref(
+										opcode_str ? opcode_str + sizeof("LIP_OP_") - 1 : "ILL"
+									)
+								);
+								cmp_write_integer(cmp, operand);
+							}
+							break;
+					}
+				}
+
+				cmp_write_str_ref(cmp, lip_string_ref("locations"));
+				cmp_write_array(cmp, fn->num_instructions);
+				for(uint16_t i = 0; i < fn->num_instructions; ++i)
+				{
+					cmp_write_loc_range(cmp, layout.locations[i + 1]);
+				}
+			}
+
+			cmp_write_str_ref(cmp, lip_string_ref("pc"));
+			cmp_write_uint(cmp, fp->pc - layout.instructions);
+		}
 	}
+}
+
+static int
+lip_dbg_handle_stack_frame(lip_dbg_t* dbg, struct wby_con* conn)
+{
+	if(strcmp(conn->request.method, "GET") != 0)
+	{
+		return lip_dbg_simple_response(conn, 405);
+	}
+
+	const char* uri = conn->request.uri;
+	const char* path = uri + sizeof("/vm/call_stack/") - 1;
+	char* last_char;
+	long frame_index = strtol(path, &last_char, 10);
+	if(last_char != uri + strlen(uri))
+	{
+		return lip_dbg_simple_response(conn, 400);
+	}
+
+	lip_vm_t* vm = dbg->vm;
+	lip_memblock_info_t os_block, env_block, cs_block;
+	lip_vm_memory_layout(&vm->config, &os_block, &env_block, &cs_block);
+	lip_stack_frame_t* fp_min = lip_locate_memblock(vm->mem, &cs_block);
+	size_t num_frames = vm->fp - fp_min + 1;
+
+	if(frame_index < 0 || frame_index >= (long)num_frames)
+	{
+		return lip_dbg_simple_response(conn, 404);
+	}
+
+	struct lip_dbg_msgpack_s msgpack;
+	cmp_ctx_t* cmp = lip_dbg_begin_msgpack(&msgpack, &dbg->msg_buf, conn);
+
+	const lip_stack_frame_t* stack_frame = &fp_min[num_frames - frame_index - 1];
+	lip_dbg_write_stack_frame(dbg, cmp, stack_frame, frame_index, false);
+
+	lip_dbg_end_msgpack(&msgpack);
+
+	return 0;
 }
 
 static void
@@ -557,6 +778,10 @@ lip_dbg_dispatch(struct wby_con* conn, void* userdata)
 	else if(strcmp(uri, "/vm/call_stack") == 0)
 	{
 		return lip_dbg_handle_call_stack(dbg, conn);
+	}
+	else if(lip_str_startswith(uri, "/vm/call_stack/"))
+	{
+		return lip_dbg_handle_stack_frame(dbg, conn);
 	}
 	else if(lip_str_startswith(uri, "/src/"))
 	{

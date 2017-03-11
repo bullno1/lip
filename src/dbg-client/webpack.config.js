@@ -26,9 +26,8 @@ module.exports = function(env) {
           comments: false,
         },
       }));
-  } else {
-      plugins.push(new webpack.HotModuleReplacementPlugin());
   }
+
   return {
     devtool: env.prod ? 'source-map' : 'eval',
     entry: './main.js',
@@ -54,8 +53,6 @@ module.exports = function(env) {
       historyApiFallback: true,
       port: 8080,
       compress: isProd,
-      inline: !isProd,
-      hot: !isProd,
       stats: {
         assets: true,
         children: false,

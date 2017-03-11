@@ -3,7 +3,7 @@ import Union from 'union-type';
 import assoc from 'ramda/src/assoc';
 import CodeMirror from 'codemirror';
 import 'codemirror/lib/codemirror.css';
-import './SourceView.scss';
+import './CodeView.scss';
 
 require('codemirror/mode/clojure/clojure');
 require('codemirror/mode/clike/clike');
@@ -12,13 +12,13 @@ export const init = () => null;
 
 export const Action = Union({
 	InitCodeMirror: [Object],
-	ViewSource: [String, String, Object]
+	ViewCode: [String, String, Object]
 });
 
 export const update = Action.caseOn({
 	InitCodeMirror: (codemirror, _) => codemirror,
-	ViewSource: (code, filename, location, codemirror) => {
-		codemirror.setOption("mode", filename.endsWith('.c') ? "clike" : "clojure");
+	ViewCode: (code, mode, location, codemirror) => {
+		codemirror.setOption("mode", mode);
 		codemirror.setValue(code);
 		codemirror.markText(
 			{

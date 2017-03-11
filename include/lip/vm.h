@@ -185,7 +185,7 @@ lip_function_resource(const lip_function_t* function, uint32_t offset)
 }
 
 LIP_MAYBE_UNUSED static inline bool
-lip_stack_frame_is_native(lip_stack_frame_t* frame)
+lip_stack_frame_is_native(const lip_stack_frame_t* frame)
 {
 	return frame->closure == NULL || frame->closure->is_native;
 }
