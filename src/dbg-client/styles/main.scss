@@ -20,10 +20,28 @@ i.icon {
     font-style: normal;
 	position: relative;
 	white-space: pre;
+	width: 20px;
+	display: inline-block;
 
-	&.icon-run {
+	&.icon-continue {
 		&:after {
 			content: "\25ba";
+		}
+	}
+
+	&.icon-break {
+		&:after {
+			content: "\23f8";
+		}
+	}
+
+	&.icon-step {
+		&:after {
+			content: "\2911";
+			font-size: 150%;
+			position: absolute;
+			top: -5px;
+			left: 0px;
 		}
 	}
 
@@ -32,7 +50,7 @@ i.icon {
 			font-size: 125%;
 			position: absolute;
 			top: -11px;
-			left: 0px;
+			left: 3px;
 			content: "\293a";
 			-webkit-transform: matrix(-1, 0, 0, 1, 0, 0);
 			   -moz-transform: matrix(-1, 0, 0, 1, 0, 0);
@@ -41,11 +59,11 @@ i.icon {
 		}
 	}
 
-	&.icon-step-in {
+	&.icon-step-into {
 		&:after {
 			position: absolute;
 			top: -7px;
-			left: 0.5px;
+			left: 2.5px;
 			content: "\21b4";
 		}
 	}
@@ -53,8 +71,8 @@ i.icon {
 	&.icon-step-out {
 		&:after {
 			position: absolute;
-			top: -6px;
-			left: 4px;
+			top: -7px;
+			left: 6px;
 			content: "\21b1";
 		}
 	}

@@ -195,7 +195,11 @@ lip_compile_if(lip_compiler_t* compiler, const lip_ast_t* ast)
 	lip_scope_t* scope = compiler->current_scope;
 	lip_asm_index_t else_label = lip_asm_new_label(&scope->lasm);
 	lip_asm_index_t done_label = lip_asm_new_label(&scope->lasm);
-	LASM(compiler, LIP_OP_JOF, else_label, LIP_LOC_NOWHERE);
+	LASM(compiler, LIP_OP_JOF, else_label,
+		((lip_loc_range_t){
+			.start = ast->location.start,
+			.end = ast->data.if_.condition->location.end
+		}));
 	lip_compile_exp(compiler, ast->data.if_.then);
 	LASM(compiler, LIP_OP_JMP, done_label, LIP_LOC_NOWHERE);
 	LASM(compiler, LIP_OP_LABEL, else_label, LIP_LOC_NOWHERE);

@@ -17,7 +17,9 @@ const halApp = new HALApp({
 	entrypoint: 'http://localhost:8081/dbg',
 	custom_rels: {
 		call_stack: "http://lip.bullno1.com/hal/relations/call_stack",
+		command: "http://lip.bullno1.com/hal/relations/command",
 		src: "http://lip.bullno1.com/hal/relations/src",
+		status: "http://lip.bullno1.com/hal/relations/status",
 		vm: "http://lip.bullno1.com/hal/relations/vm"
 	},
 	codecs: {
@@ -37,6 +39,7 @@ const halApp = new HALApp({
 
 export const Action = Union({
 	UpdateDbg: [Object],
+	ConnectWS: [String],
 	SourceView: [CodeView.Action],
 	BytecodeView: [CodeView.Action],
 	Toolbar: [Toolbar.Action],
@@ -46,6 +49,8 @@ export const Action = Union({
 
 export const init = () => ({
 	dbg: null,
+	ws: null,
+	wsURL: null,
 	notify$: flyd.stream(),
 	activeStackLevel: 0,
 	sourceView: nested(CodeView, Action.SourceView),
@@ -98,15 +103,40 @@ const refreshDbg = (model) =>
 const formatBytecode = (bytecode) =>
 	bytecode.map((instr) => instr.join(" ")).join("\n");
 
+const connectWS = (wsURL, model) => {
+	const hasWS = !!model.ws && (model.ws.readyState === WebSocket.CONNECTING || model.ws.readyState === WebSocket.OPEN);
+	const wsURLChanged = wsURL !== model.wsURL;
+
+	if(hasWS && !wsURLChanged) { return model; }
+
+	if(hasWS) { model.ws.close(); }
+
+	const ws = new WebSocket(wsURL);
+	model = pipe(assoc('ws', ws), assoc('wsURL', wsURL))(model);
+
+	ws.onmessage = () => refreshDbg(model);
+	ws.onerror = ws.onclose = (error) => {
+		setTimeout(() => model.notify$(Action.ConnectWS(wsURL)), 3000);
+	}
+
+	return model;
+};
+
 export const update = Action.caseOn({
 	UpdateDbg: (dbg, model) => {
 		const vm = dbg.getEmbedded('vm');
 		const callStack = vm.getEmbedded('call_stack').getEmbedded('item');
 
+		const wsURL = dbg.getLink('status').href;
+		model = connectWS(wsURL, model);
+
 		return refreshSource(evolve({
+			wsURL: (_) => wsURL,
 			dbg: (_) => dbg,
 			callStackView: (callStackView) =>
-				callStackView.update(CallStackView.Action.SetCallStack(callStack))
+				callStackView.update(CallStackView.Action.SetCallStack(callStack)),
+			toolbar: (toolbar) =>
+				toolbar.update(Toolbar.Action.UpdateDbg(dbg))
 		}, model));
 	},
 	SourceView: updateNested(lensProp('sourceView')),
@@ -132,11 +162,12 @@ export const update = Action.caseOn({
 				}
 			),
 			model
-		)
+		),
+	ConnectWS: connectWS
 });
 
 export const render = (model, actions) =>
-	splitPane({ direction: 'horizontal', sizes: [75, 25] }, [
+	splitPane({ direction: 'horizontal', sizes: [70, 30] }, [
 		splitPane({ direction: 'vertical', sizes: [50, 50] }, [
 			model.sourceView.render(actions),
 			model.bytecodeView.render(actions),

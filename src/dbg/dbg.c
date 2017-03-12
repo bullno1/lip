@@ -18,29 +18,25 @@
 #define WBY_IMPLEMENTATION
 #include "vendor/wby.h"
 
-#if defined(__unix__)
-#	include <sched.h>
-#	define yield() sched_yield()
-#elif defined(_WIN32)
-#	define WIN32_LEAN_AND_MEAN
-#	include <windows.h>
-#	define yield() SwitchToThread()
-#else
-#	define yield()
-#endif
-
 #define LIP_HAL_REL_BASE "http://lip.bullno1.com/hal/relations"
 
 #define LIP_DBG(F) \
 	F(LIP_DBG_BREAK) \
 	F(LIP_DBG_CONTINUE) \
-	F(LIP_DBG_STEP)
+	F(LIP_DBG_STEP) \
+	F(LIP_DBG_STEP_INTO) \
+	F(LIP_DBG_STEP_OUT) \
+	F(LIP_DBG_STEP_OVER)
 
 LIP_ENUM(lip_dbg_cmd_type_t, LIP_DBG)
 
 struct lip_dbg_cmd_s
 {
 	lip_dbg_cmd_type_t type;
+	union
+	{
+		lip_stack_frame_t* fp;
+	} arg;
 };
 
 struct lip_dbg_s
@@ -54,7 +50,12 @@ struct lip_dbg_s
 	lip_vm_t* vm;
 	lip_array(char) char_buf;
 	lip_array(char) msg_buf;
+	struct wby_con* ws_conns;
 	void* server_mem;
+};
+
+static const struct wby_header lip_cors_headers[] = {
+	{ .name = "Access-Control-Allow-Origin", .value = "*" }
 };
 
 static const struct wby_header lip_msgpack_headers[] = {
@@ -196,7 +197,9 @@ lip_dbg_end_msgpack(struct lip_dbg_msgpack_s* msgpack)
 static int
 lip_dbg_simple_response(struct wby_con* conn, int status)
 {
-	wby_response_begin(conn, status, 0, NULL, 0);
+	wby_response_begin(
+		conn, status, 0, lip_cors_headers, LIP_STATIC_ARRAY_LEN(lip_cors_headers)
+	);
 	wby_response_end(conn);
 	return 0;
 }
@@ -681,10 +684,19 @@ lip_dbg_handle_dbg(lip_dbg_t* dbg, struct wby_con* conn)
 		cmp_write_str_ref(cmp, lip_string_ref(lip_dbg_cmd_type_t_to_str(dbg->cmd.type)));
 
 		cmp_write_str_ref(cmp, lip_string_ref("_links"));
-		cmp_write_map(cmp, 2);
+		cmp_write_map(cmp, 3);
 		{
 			cmp_write_simple_link(cmp, "self", "/dbg");
 			cmp_write_simple_link(cmp, LIP_HAL_REL_BASE "/command", "/command");
+
+			const char* host = wby_find_header(conn, "Host");
+			if(host == NULL) { host = "localhost"; }
+			lip_array_clear(dbg->char_buf);
+			lip_sprintf(
+				&dbg->char_buf, "ws://%s:%" PRIu16 "/status", host, dbg->cfg.port
+			);
+			lip_array_push(dbg->char_buf, '\0');
+			cmp_write_simple_link(cmp, LIP_HAL_REL_BASE "/status", dbg->char_buf);
 		}
 
 		cmp_write_str_ref(cmp, lip_string_ref("_embedded"));
@@ -737,6 +749,29 @@ lip_dbg_handle_command(lip_dbg_t* dbg, struct wby_con* conn)
 		{
 			dbg->cmd = (struct lip_dbg_cmd_s) {
 				.type = LIP_DBG_STEP
+			};
+			return lip_dbg_simple_response(conn, 202);
+		}
+		else if(strcmp(cmd_buf, "step-into") == 0)
+		{
+			dbg->cmd = (struct lip_dbg_cmd_s) {
+				.type = LIP_DBG_STEP_INTO
+			};
+			return lip_dbg_simple_response(conn, 202);
+		}
+		else if(strcmp(cmd_buf, "step-out") == 0)
+		{
+			dbg->cmd = (struct lip_dbg_cmd_s) {
+				.type = LIP_DBG_STEP_OUT,
+				.arg = { .fp = dbg->vm->fp }
+			};
+			return lip_dbg_simple_response(conn, 202);
+		}
+		else if(strcmp(cmd_buf, "step-over") == 0)
+		{
+			dbg->cmd = (struct lip_dbg_cmd_s) {
+				.type = LIP_DBG_STEP_OVER,
+				.arg = { .fp = dbg->vm->fp }
 			};
 			return lip_dbg_simple_response(conn, 202);
 		}
@@ -844,23 +879,34 @@ lip_dbg_dispatch(struct wby_con* conn, void* userdata)
 static int
 lip_dbg_ws_connect(struct wby_con* conn, void* userdata)
 {
-	(void)conn;
 	(void)userdata;
-	return 1;
+	return strcmp(conn->request.uri, "/status");
 }
 
 static void
 lip_dbg_ws_connected(struct wby_con* conn, void* userdata)
 {
-	(void)conn;
-	(void)userdata;
+	lip_dbg_t* dbg = userdata;
+	conn->user_data = dbg->ws_conns;
+	dbg->ws_conns = conn;
 }
 
 static void
 lip_dbg_ws_closed(struct wby_con* conn, void* userdata)
 {
-	(void)conn;
-	(void)userdata;
+	lip_dbg_t* dbg = userdata;
+	struct wby_con** connp = &dbg->ws_conns;
+	struct wby_con* itr;
+	for(itr = dbg->ws_conns; itr != NULL; itr = itr->user_data)
+	{
+		if(itr == conn)
+		{
+			*connp = itr->user_data;
+			break;
+		}
+
+		connp = (struct wby_con**)&itr->user_data;
+	}
 }
 
 static int
@@ -882,18 +928,67 @@ lip_dbg_step(
 	(void)vm;
 	lip_dbg_t* dbg = LIP_CONTAINER_OF(vtable, lip_dbg_t, vtable);
 
-	wby_update(&dbg->server);
+	bool is_native = lip_stack_frame_is_native(vm->fp);
+	bool has_loc;
+	if(is_native)
+	{
+		has_loc = false;
+	}
+	else
+	{
+		lip_function_t* fn = vm->fp->closure->function.lip;
+		lip_function_layout_t layout;
+		lip_function_layout(fn, &layout);
+
+		lip_loc_range_t location = layout.locations[vm->fp->pc - layout.instructions + 1];
+		has_loc = memcmp(&location, &LIP_LOC_NOWHERE, sizeof(location)) != 0;
+	}
+
+	bool can_break;
+	switch(dbg->cmd.type)
+	{
+		case LIP_DBG_BREAK:
+			can_break = true;
+			break;
+		case LIP_DBG_CONTINUE:
+			can_break = false;
+			break;
+		case LIP_DBG_STEP:
+			can_break = true;
+			break;
+		case LIP_DBG_STEP_INTO:
+			can_break = has_loc;
+			break;
+		case LIP_DBG_STEP_OUT:
+			can_break = has_loc && vm->fp < dbg->cmd.arg.fp;
+			break;
+		case LIP_DBG_STEP_OVER:
+			can_break = has_loc && vm->fp <= dbg->cmd.arg.fp;
+			break;
+	}
+
+	if(can_break) { dbg->cmd.type = LIP_DBG_BREAK; }
+
+	wby_update(&dbg->server, 0);
+
+	// Broadcast break status over WebSocket
+	if(dbg->cmd.type == LIP_DBG_BREAK)
+	{
+		for(
+			struct wby_con* ws_conn = dbg->ws_conns;
+			ws_conn != NULL;
+			ws_conn = ws_conn->user_data
+		)
+		{
+			wby_frame_begin(ws_conn, WBY_WSOP_TEXT_FRAME);
+			wby_write(ws_conn, "break", sizeof("break") - 1);
+			wby_frame_end(ws_conn);
+		}
+	}
 
 	while(dbg->cmd.type == LIP_DBG_BREAK)
 	{
-		wby_update(&dbg->server);
-		if(dbg->cmd.type != LIP_DBG_BREAK) { break; }
-		yield();
-	}
-
-	if(dbg->cmd.type == LIP_DBG_STEP)
-	{
-		dbg->cmd.type = LIP_DBG_BREAK;
+		wby_update(&dbg->server, 1);
 	}
 }
 

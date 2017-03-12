@@ -3,10 +3,12 @@ import Union from 'union-type';
 import assoc from 'ramda/src/assoc';
 import CodeMirror from 'codemirror';
 import 'codemirror/lib/codemirror.css';
+import 'codemirror/addon/scroll/simplescrollbars.css';
 import './CodeView.scss';
 
 require('codemirror/mode/clojure/clojure');
 require('codemirror/mode/clike/clike');
+require('codemirror/addon/scroll/simplescrollbars');
 
 export const init = () => null;
 
@@ -31,6 +33,9 @@ export const update = Action.caseOn({
 			},
 			{ className: "active-range" }
 		);
+		const t = codemirror.charCoords({line: location.start.line, ch: 0}, "local").top;
+		const middleHeight = codemirror.getScrollerElement().offsetHeight / 2;
+		codemirror.scrollTo(null, t - middleHeight - 5);
 		return codemirror;
 	}
 });
@@ -42,6 +47,7 @@ export const render = (model, actions$) =>
 				const codemirror = CodeMirror.fromTextArea(vnode.elm, {
 					theme: "default",
 					mode: "clike",
+					scrollbarStyle: "simple",
 					lineNumbers: true,
 					readOnly: true
 				});

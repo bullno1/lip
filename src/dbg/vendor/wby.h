@@ -307,7 +307,7 @@ WBY_API int wby_start(struct wby_server*, void *memory);
     Input:
     -   allocated memory space to create the server into
 */
-WBY_API void wby_update(struct wby_server*);
+WBY_API void wby_update(struct wby_server*, int block);
 /* updates the server by being called frequenctly (at least once a frame) */
 WBY_API void wby_stop(struct wby_server*);
 /* stops and shutdown the server */
@@ -1230,7 +1230,7 @@ wby_con_is_websocket_request(struct wby_con* conn)
 {
     const char *hdr;
     if ((hdr = wby_find_header(conn, "Connection")) == NULL) return 0;
-    if (strcasecmp(hdr, "Upgrade")) return 0;
+    if (strstr(hdr, "Upgrade") == NULL) return 0;
     if ((hdr = wby_find_header(conn, "Upgrade")) == NULL) return 0;
     if (strcasecmp(hdr, "websocket")) return 0;
     return 1;
@@ -1518,7 +1518,7 @@ wby_response_end(struct wby_con *conn)
     wby_connection_push(conn_priv, "", 0);
 
     /* Close connection when Content-Length is zero that maybe HTTP/1.0. */
-    if (conn->request.content_length == 0)
+    if (conn->request.content_length == 0 && !wby_con_is_websocket_request(conn))
         wby_connection_close(conn_priv);
 }
 
@@ -1913,7 +1913,7 @@ wby_update_connection(struct wby_server *srv, struct wby_connection* connection)
 }
 
 WBY_API void
-wby_update(struct wby_server *srv)
+wby_update(struct wby_server *srv, int block)
 {
     int err;
     wby_size i, count;
@@ -1945,8 +1945,8 @@ wby_update(struct wby_server *srv)
     }
 
     timeout.tv_sec = 0;
-    timeout.tv_usec = 5;
-    err = select((int)(max_socket + 1), &read_fds, &write_fds, &except_fds, &timeout);
+    timeout.tv_usec = 0;
+    err = select((int)(max_socket + 1), &read_fds, &write_fds, &except_fds, block ? NULL : &timeout);
     if (err < 0) {
         wby_dbg(srv->config.log, "failed to select");
         return;
