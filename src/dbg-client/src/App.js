@@ -12,6 +12,7 @@ import { splitPane } from './splitPane';
 import * as CodeView from './CodeView';
 import * as Toolbar from './Toolbar';
 import * as CallStackView from './CallStackView';
+import * as ValueListView from './ValueListView';
 
 const halApp = new HALApp({
 	entrypoint: 'http://localhost:8081/dbg',
@@ -46,7 +47,10 @@ export const init = () => ({
 	sourceView: nested(CodeView, Action.SourceView),
 	bytecodeView: nested(CodeView, Action.BytecodeView),
 	toolbar: nested(Toolbar, Action.Toolbar),
-	callStackView: nested(CallStackView, Action.CallStackView)
+	callStackView: nested(CallStackView, Action.CallStackView),
+	operandStackView: nested(ValueListView, Action.OperandStackView, "Operand Stack"),
+	localView: nested(ValueListView, Action.LocalView, "Locals"),
+	closureView: nested(ValueListView, Action.ClosureView, "Closure")
 });
 
 export const Action = Union({
@@ -56,6 +60,9 @@ export const Action = Union({
 	BytecodeView: [CodeView.Action],
 	Toolbar: [Toolbar.Action],
 	CallStackView: [CallStackView.Action],
+	OperandStackView: [ValueListView.Action],
+	LocalView: [ValueListView.Action],
+	ClosureView: [ValueListView.Action],
 	DisplayStackFrame: [Object]
 });
 
@@ -155,19 +162,35 @@ export const update = Action.caseOn({
 			)(model)),
 		_: () => updateNested(lensProp('callStackView'), action, model)
 	}, action),
+	OperandStackView: updateNested(lensProp('operandStackView')),
+	LocalView: updateNested(lensProp('localView')),
+	ClosureView: updateNested(lensProp('closureView')),
 	DisplayStackFrame: (stackFrame, model) =>
-		updateNested(
-			lensProp('bytecodeView'),
-			CodeView.Action.ViewCode(
-				formatBytecode(stackFrame.function.bytecode),
-				'',
-				{
-					start: { line: stackFrame.pc + 1, column: 0 },
-					end: { line: stackFrame.pc + 1, column: 0 }
-				}
+		pipe(
+			updateNested(
+				lensProp('bytecodeView'),
+				CodeView.Action.ViewCode(
+					formatBytecode(stackFrame.function.bytecode),
+					'',
+					{
+						start: { line: stackFrame.pc + 1, column: 0 },
+						end: { line: stackFrame.pc + 1, column: 0 }
+					}
+				)
 			),
-			model
-		),
+			updateNested(
+				lensProp('operandStackView'),
+				ValueListView.Action.SetValueList(stackFrame.function.stack)
+			),
+			updateNested(
+				lensProp('localView'),
+				ValueListView.Action.SetValueList(stackFrame.function.locals)
+			),
+			updateNested(
+				lensProp('closureView'),
+				ValueListView.Action.SetValueList(stackFrame.function.env)
+			)
+		)(model),
 	ConnectWS: connectWS
 });
 
@@ -180,6 +203,9 @@ export const render = (model, actions) =>
 		h("div", [
 			model.toolbar.render(actions),
 			model.callStackView.render(actions),
+			model.operandStackView.render(actions),
+			model.localView.render(actions),
+			model.closureView.render(actions)
 		])
 	]);
 

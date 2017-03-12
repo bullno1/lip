@@ -306,7 +306,10 @@ lip_write_value_array(cmp_ctx_t* cmp, uint16_t count, const lip_value_t* array)
 				}
 				break;
 			default:
+				cmp_write_map(cmp, 1);
 				cmp_write_str_ref(cmp, lip_string_ref("<corrupted>"));
+				cmp_write_nil(cmp);
+				break;
 		}
 	}
 }
