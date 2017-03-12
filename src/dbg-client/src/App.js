@@ -153,7 +153,7 @@ export const update = Action.caseOn({
 				assoc('activeStackLevel', level),
 				assoc('callStackView', model.callStackView.update(action)),
 			)(model)),
-		_: updateNested(lensProp('callStackView'), action)
+		_: () => updateNested(lensProp('callStackView'), action, model)
 	}, action),
 	DisplayStackFrame: (stackFrame, model) =>
 		updateNested(
