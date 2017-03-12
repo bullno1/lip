@@ -251,66 +251,74 @@ lip_dbg_handle_src(lip_dbg_t* dbg, struct wby_con* conn)
 }
 
 static void
+lip_write_value_array(cmp_ctx_t* cmp, uint16_t count, const lip_value_t* array);
+
+static void
+lip_write_value(cmp_ctx_t* cmp, const lip_value_t* value)
+{
+	switch(value->type)
+	{
+		case LIP_VAL_NIL:
+			cmp_write_nil(cmp);
+			break;
+		case LIP_VAL_NUMBER:
+			cmp_write_double(cmp, value->data.number);
+			break;
+		case LIP_VAL_BOOLEAN:
+			cmp_write_bool(cmp, value->data.boolean);
+			break;
+		case LIP_VAL_STRING:
+			cmp_write_str_ref(cmp, lip_string_ref_from_string(value->data.reference));
+			break;
+		case LIP_VAL_LIST:
+			{
+				const lip_list_t* list = value->data.reference;
+				lip_write_value_array(cmp, list->length, list->elements);
+			}
+			break;
+		case LIP_VAL_SYMBOL:
+			{
+				cmp_write_map(cmp, 1);
+				cmp_write_str_ref(cmp, lip_string_ref("symbol"));
+				cmp_write_str_ref(cmp, lip_string_ref_from_string(value->data.reference));
+			}
+			break;
+		case LIP_VAL_NATIVE:
+			{
+				cmp_write_map(cmp, 1);
+				cmp_write_str_ref(cmp, lip_string_ref("native"));
+				cmp_write_uinteger(cmp, (uintptr_t)value->data.reference);
+			}
+			break;
+		case LIP_VAL_FUNCTION:
+			{
+				cmp_write_map(cmp, 1);
+				cmp_write_str_ref(cmp, lip_string_ref("function"));
+				cmp_write_uinteger(cmp, (uintptr_t)value->data.reference);
+			}
+			break;
+		case LIP_VAL_PLACEHOLDER:
+			{
+				cmp_write_map(cmp, 1);
+				cmp_write_str_ref(cmp, lip_string_ref("placeholder"));
+				cmp_write_uinteger(cmp, value->data.index);
+			}
+			break;
+		default:
+			cmp_write_map(cmp, 1);
+			cmp_write_str_ref(cmp, lip_string_ref("<corrupted>"));
+			cmp_write_nil(cmp);
+			break;
+	}
+}
+
+static void
 lip_write_value_array(cmp_ctx_t* cmp, uint16_t count, const lip_value_t* array)
 {
 	cmp_write_array(cmp, count);
 	for(uint16_t i = 0; i < count; ++i)
 	{
-		const lip_value_t* value = &array[i];
-		switch(value->type)
-		{
-			case LIP_VAL_NIL:
-				cmp_write_nil(cmp);
-				break;
-			case LIP_VAL_NUMBER:
-				cmp_write_double(cmp, value->data.number);
-				break;
-			case LIP_VAL_BOOLEAN:
-				cmp_write_bool(cmp, value->data.boolean);
-				break;
-			case LIP_VAL_STRING:
-				cmp_write_str_ref(cmp, lip_string_ref_from_string(value->data.reference));
-				break;
-			case LIP_VAL_LIST:
-				{
-					const lip_list_t* list = value->data.reference;
-					lip_write_value_array(cmp, list->length, list->elements);
-				}
-				break;
-			case LIP_VAL_SYMBOL:
-				{
-					cmp_write_map(cmp, 1);
-					cmp_write_str_ref(cmp, lip_string_ref("symbol"));
-					cmp_write_str_ref(cmp, lip_string_ref_from_string(value->data.reference));
-				}
-				break;
-			case LIP_VAL_NATIVE:
-				{
-					cmp_write_map(cmp, 1);
-					cmp_write_str_ref(cmp, lip_string_ref("native"));
-					cmp_write_uinteger(cmp, (uintptr_t)value->data.reference);
-				}
-				break;
-			case LIP_VAL_FUNCTION:
-				{
-					cmp_write_map(cmp, 1);
-					cmp_write_str_ref(cmp, lip_string_ref("function"));
-					cmp_write_uinteger(cmp, (uintptr_t)value->data.reference);
-				}
-				break;
-			case LIP_VAL_PLACEHOLDER:
-				{
-					cmp_write_map(cmp, 1);
-					cmp_write_str_ref(cmp, lip_string_ref("placeholder"));
-					cmp_write_uinteger(cmp, value->data.index);
-				}
-				break;
-			default:
-				cmp_write_map(cmp, 1);
-				cmp_write_str_ref(cmp, lip_string_ref("<corrupted>"));
-				cmp_write_nil(cmp);
-				break;
-		}
+		lip_write_value(cmp, &array[i]);
 	}
 }
 
@@ -451,7 +459,35 @@ lip_dbg_write_stack_frame(
 				lip_write_value_array(cmp, fp->closure->env_len, fp->closure->environment);
 
 				cmp_write_str_ref(cmp, lip_string_ref("constants"));
-				lip_write_value_array(cmp, fn->num_constants, layout.constants);
+				cmp_write_array(cmp, fn->num_constants);
+				for(uint16_t i = 0; i < fn->num_constants; ++i)
+				{
+					switch(layout.constants[i].type)
+					{
+						case LIP_VAL_NUMBER:
+							cmp_write_double(cmp, layout.constants[i].data.number);
+							break;
+						case LIP_VAL_STRING:
+						case LIP_VAL_SYMBOL:
+							{
+								lip_value_t value = {
+									.type = layout.constants[i].type,
+									.data = {
+										.reference = lip_function_resource(
+											fn, layout.constants[i].data.index
+										)
+									}
+								};
+								lip_write_value(cmp, &value);
+							}
+							break;
+						default:
+							cmp_write_map(cmp, 1);
+							cmp_write_str_ref(cmp, lip_string_ref("<corrupted>"));
+							cmp_write_nil(cmp);
+							break;
+					}
+				}
 
 				cmp_write_str_ref(cmp, lip_string_ref("arity"));
 				cmp_write_uinteger(cmp, fn->num_args);
@@ -942,7 +978,7 @@ lip_dbg_ws_frame(
 }
 
 static void
-lip_dbg_step(
+lip_dbg_hook(
 	lip_vm_hook_t* vtable, const lip_vm_t* vm
 )
 {
@@ -1026,7 +1062,8 @@ lip_reset_dbg_config(lip_dbg_config_t* cfg)
 {
 	*cfg = (lip_dbg_config_t){
 		.allocator = lip_default_allocator,
-		.port = 8081
+		.port = 8081,
+		.hook_step = true
 	};
 }
 
@@ -1035,7 +1072,10 @@ lip_create_debugger(lip_dbg_config_t* cfg)
 {
 	lip_dbg_t* dbg = lip_new(cfg->allocator, lip_dbg_t);
 	*dbg = (lip_dbg_t){
-		.vtable = { .step = lip_dbg_step },
+		.vtable = {
+			.step = cfg->hook_step ? lip_dbg_hook : NULL,
+			.error = lip_dbg_hook
+		},
 		.cfg = *cfg,
 		.own_fs = cfg->fs == NULL,
 		.cmd = { .type = LIP_DBG_BREAK },

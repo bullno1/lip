@@ -86,6 +86,12 @@ end:
 	*result = *vm->sp;
 	++vm->sp;
 	vm->status = status;
+
+	if(LIP_UNLIKELY(status == LIP_EXEC_ERROR && vm->hook && vm->hook->error))
+	{
+		vm->hook->error(vm->hook, vm);
+	}
+
 	return status;
 }
 

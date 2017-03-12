@@ -106,7 +106,7 @@ POSTAMBLE()
 lip_exec_status_t
 lip_vm_loop(lip_vm_t* vm)
 {
-	return vm->hook
+	return vm->hook && vm->hook->step
 		? lip_vm_loop_with_hook(vm)
 		: lip_vm_loop_without_hook(vm);
 }

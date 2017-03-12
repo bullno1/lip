@@ -17,7 +17,7 @@ repl_init_inspect_opts(cargo_t cargo, struct repl_inspect_opts_s* opts)
 	);
 	cargo_add_option(
 		cargo, 0,
-		"<inspect> --depth -d", "Print depth", "i",
+		"<inspect> --depth", "Print depth", "i",
 		&opts->print_depth
 	);
 

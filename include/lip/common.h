@@ -286,6 +286,14 @@ struct lip_vm_hook_s
 	 * @param vm The vm executing the hook.
 	 */
 	void(*step)(lip_vm_hook_t* hook, const lip_vm_t* vm);
+
+	/**
+	 * @brief Called when an error is thrown.
+	 *
+	 * @param hook The current hook.
+	 * @param vm The vm executing the hook.
+	 */
+	void(*error)(lip_vm_hook_t* hook, const lip_vm_t* vm);
 };
 
 /// Constant location value for pieces of code that do not have location information.

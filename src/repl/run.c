@@ -134,6 +134,20 @@ repl_init_run_opts(cargo_t cargo, struct repl_run_opts_s* opts)
 	);
 	cargo_add_option(
 		cargo, 0,
+		"<run> --debug-mode", "Set debugger mode: step, error (default: step)", "s",
+		&opts->debug_mode
+	);
+	cargo_add_validation(
+		cargo, 0,
+		"--debug-mode",
+		cargo_validate_choices(
+			CARGO_VALIDATE_CHOICES_CASE_SENSITIVE,
+			CARGO_STRING, 2, "step", "error"
+		)
+	);
+	cargo_set_metavar(cargo, "--debug-mode", "MODE");
+	cargo_add_option(
+		cargo, 0,
 		"<run> --execute -e", "Execute STRING", "s",
 		&opts->exec_string
 	);
@@ -143,11 +157,12 @@ repl_init_run_opts(cargo_t cargo, struct repl_run_opts_s* opts)
 void
 repl_cleanup_run_opts(struct repl_run_opts_s* opts)
 {
-	if(opts->debug)
+	if(opts->dbg)
 	{
 		lip_destroy_debugger(opts->dbg);
 	}
 
+	free(opts->debug_mode);
 	free(opts->exec_string);
 }
 
@@ -167,6 +182,11 @@ repl_run(struct repl_common_s* common, struct repl_run_opts_s* opts)
 	{
 		lip_dbg_config_t cfg;
 		lip_reset_dbg_config(&cfg);
+		if(opts->debug_mode && strcmp(opts->debug_mode, "error") == 0)
+		{
+			cfg.hook_step = false;
+		}
+
 		opts->dbg = lip_create_debugger(&cfg);
 		lip_attach_debugger(opts->dbg, vm);
 	}

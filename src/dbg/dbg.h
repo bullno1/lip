@@ -11,6 +11,7 @@ struct lip_dbg_config_s
 	lip_allocator_t* allocator;
 	lip_fs_t* fs;
 	uint16_t port;
+	bool hook_step;
 };
 
 void

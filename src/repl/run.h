@@ -9,6 +9,7 @@ struct repl_run_opts_s
 	int interactive;
 	int debug;
 	char* exec_string;
+	char* debug_mode;
 
 	lip_dbg_t* dbg;
 };
