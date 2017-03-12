@@ -15,6 +15,10 @@ export class HALApp {
 	fetch() {
 		return this.entrypoint.fetch();
 	}
+
+	parse(doc) {
+		return new HALResource(doc, this);
+	}
 }
 
 class HALResource {

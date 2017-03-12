@@ -112,9 +112,14 @@ const connectWS = (wsURL, model) => {
 	if(hasWS) { model.ws.close(); }
 
 	const ws = new WebSocket(wsURL);
+	ws.binaryType = 'arraybuffer';
 	model = pipe(assoc('ws', ws), assoc('wsURL', wsURL))(model);
 
-	ws.onmessage = () => refreshDbg(model);
+	ws.onopen = () => refreshDbg(model);
+	ws.onmessage = (event) => {
+		const dbg = halApp.parse(Msgpack.decode(new Uint8Array(event.data)));
+		model.notify$(Action.UpdateDbg(dbg));
+	}
 	ws.onerror = ws.onclose = (error) => {
 		setTimeout(() => model.notify$(Action.ConnectWS(wsURL)), 3000);
 	}

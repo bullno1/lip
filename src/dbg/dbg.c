@@ -59,6 +59,7 @@ static const struct wby_header lip_cors_headers[] = {
 	{ .name = "Access-Control-Allow-Origin", .value = "*" },
 	{ .name = "Access-Control-Allow-Methods", .value = "GET, POST, PUT, PATCH, DELETE, OPTIONS" },
 	{ .name = "Access-Control-Allow-Headers", .value = "Connection, Content-Type" },
+	{ .name = "Access-Control-Max-Age", .value = "600" },
 };
 
 static const struct wby_header lip_msgpack_headers[] = {
@@ -673,17 +674,9 @@ lip_dbg_handle_vm(lip_dbg_t* dbg, struct wby_con* conn)
 	return 0;
 }
 
-static int
-lip_dbg_handle_dbg(lip_dbg_t* dbg, struct wby_con* conn)
+static void
+lip_dbg_write_dbg(cmp_ctx_t* cmp, lip_dbg_t* dbg, struct wby_con* conn)
 {
-	if(strcmp(conn->request.method, "GET") != 0)
-	{
-		return lip_dbg_simple_response(conn, 405);
-	}
-
-	struct lip_dbg_msgpack_s msgpack;
-	cmp_ctx_t* cmp = lip_dbg_begin_msgpack(&msgpack, &dbg->msg_buf, conn);
-
 	cmp_write_map(cmp, 3);
 	{
 		cmp_write_str_ref(cmp, lip_string_ref("command"));
@@ -712,6 +705,20 @@ lip_dbg_handle_dbg(lip_dbg_t* dbg, struct wby_con* conn)
 			lip_dbg_write_vm(dbg, dbg->vm, cmp);
 		}
 	}
+}
+
+static int
+lip_dbg_handle_dbg(lip_dbg_t* dbg, struct wby_con* conn)
+{
+	if(strcmp(conn->request.method, "GET") != 0)
+	{
+		return lip_dbg_simple_response(conn, 405);
+	}
+
+	struct lip_dbg_msgpack_s msgpack;
+	cmp_ctx_t* cmp = lip_dbg_begin_msgpack(&msgpack, &dbg->msg_buf, conn);
+
+	lip_dbg_write_dbg(cmp, dbg, conn);
 
 	lip_dbg_end_msgpack(&msgpack);
 	return 0;
@@ -987,8 +994,18 @@ lip_dbg_step(
 		{
 			struct wby_con* conn = wby_find_conn(&dbg->server, (void*)*id);
 			if(conn == NULL) { continue; }
-			wby_frame_begin(conn, WBY_WSOP_TEXT_FRAME);
-			wby_write(conn, "break", sizeof("break") - 1);
+
+			wby_frame_begin(conn, WBY_WSOP_BINARY_FRAME);
+
+			lip_array_clear(dbg->msg_buf);
+			struct lip_dbg_msgpack_s msgpack ={
+				.conn = conn,
+				.msg_buf = &dbg->msg_buf,
+			};
+			cmp_init(&msgpack.cmp, &msgpack, lip_dbg_msgpack_read, lip_dbg_msgpack_write);
+			lip_dbg_write_dbg(&msgpack.cmp, dbg, conn);
+			wby_write(conn, dbg->msg_buf, lip_array_len(dbg->msg_buf));
+
 			wby_frame_end(conn);
 		}
 	}
