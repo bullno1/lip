@@ -37,16 +37,6 @@ const halApp = new HALApp({
 	}
 });
 
-export const Action = Union({
-	UpdateDbg: [Object],
-	ConnectWS: [String],
-	SourceView: [CodeView.Action],
-	BytecodeView: [CodeView.Action],
-	Toolbar: [Toolbar.Action],
-	CallStackView: [CallStackView.Action],
-	DisplayStackFrame: [Object]
-});
-
 export const init = () => ({
 	dbg: null,
 	ws: null,
@@ -57,6 +47,16 @@ export const init = () => ({
 	bytecodeView: nested(CodeView, Action.BytecodeView),
 	toolbar: nested(Toolbar, Action.Toolbar),
 	callStackView: nested(CallStackView, Action.CallStackView)
+});
+
+export const Action = Union({
+	UpdateDbg: [Object],
+	ConnectWS: [String],
+	SourceView: [CodeView.Action],
+	BytecodeView: [CodeView.Action],
+	Toolbar: [Toolbar.Action],
+	CallStackView: [CallStackView.Action],
+	DisplayStackFrame: [Object]
 });
 
 const refreshSource = (model) => {
