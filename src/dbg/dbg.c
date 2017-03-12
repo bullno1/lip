@@ -350,7 +350,9 @@ lip_dbg_write_stack_frame(
 		lip_function_layout_t function_layout;
 		lip_function_layout(fp->closure->function.lip, &function_layout);
 		filename = lip_string_ref_from_string(function_layout.source_name);
-		location = function_layout.locations[LIP_MAX(0, fp->pc - function_layout.instructions) + 1];
+		uint16_t location_index =
+			LIP_MAX(0, fp->pc - function_layout.instructions) + (index == 0 ? 1 : 0);
+		location = function_layout.locations[location_index];
 	}
 
 	lip_string_ref_t function_name;

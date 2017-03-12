@@ -165,17 +165,16 @@ export const update = Action.caseOn({
 	OperandStackView: updateNested(lensProp('operandStackView')),
 	LocalView: updateNested(lensProp('localView')),
 	ClosureView: updateNested(lensProp('closureView')),
-	DisplayStackFrame: (stackFrame, model) =>
-		pipe(
+	DisplayStackFrame: (stackFrame, model) => {
+		const instructionIndex = stackFrame.pc + (model.activeStackLevel == 0 ? 1 : 0);
+		const loc = { line: instructionIndex, column: 0 };
+		return pipe(
 			updateNested(
 				lensProp('bytecodeView'),
 				CodeView.Action.ViewCode(
 					formatBytecode(stackFrame.function.bytecode),
 					'',
-					{
-						start: { line: stackFrame.pc + 1, column: 0 },
-						end: { line: stackFrame.pc + 1, column: 0 }
-					}
+					{ start: loc, end: loc }
 				)
 			),
 			updateNested(
@@ -190,7 +189,8 @@ export const update = Action.caseOn({
 				lensProp('closureView'),
 				ValueListView.Action.SetValueList(stackFrame.function.env)
 			)
-		)(model),
+		)(model);
+	},
 	ConnectWS: connectWS
 });
 
