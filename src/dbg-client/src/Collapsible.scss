@@ -1,0 +1,26 @@
+.collapsible {
+	.collapsible-heading {
+		user-select: none;
+		cursor: pointer;
+
+		&:before {
+			content: "\25bc";
+			display: inline-block;
+			width: 25px;
+			text-align: left;
+		}
+	}
+
+	&.collapsed {
+		.collapsible-heading:before {
+			position: relative;
+			content: "\25b8";
+			top: -1px;
+			left: 4px;
+		}
+
+		.collapsible-body {
+			display: none;
+		}
+	}
+}

@@ -1,40 +1,41 @@
 import h from 'snabbdom/h';
 import assoc from 'ramda/src/assoc';
-import evolve from 'ramda/src/evolve';
+import lensProp from 'ramda/src/lensProp';
 import forwardTo from 'flyd/module/forwardto';
 import Union from 'union-type';
-import * as CollapsibleList from 'CollapsibleList';
+import * as Collapsible from 'Collapsible';
 
 export const init = () => ({
 	callStack: [],
 	activeStackLevel: 0,
-	collapsibleList: CollapsibleList.init()
+	collapsible: Collapsible.init()
 });
 
 export const Action = Union({
 	SetCallStack: [Array],
 	SetActiveStackLevel: [Number],
-	CollapsibleList: [CollapsibleList.Action]
+	Collapsible: [Collapsible.Action]
 });
 
 export const update = Action.caseOn({
 	SetCallStack: assoc('callStack'),
 	SetActiveStackLevel: assoc('activeStackLevel'),
-	CollapsibleList: (action, model) =>
-		evolve({collapsibleList: CollapsibleList.update(action) }, model)
+	Collapsible: Collapsible.updateNested(lensProp('collapsible'))
 });
 
 export const render = (model, actions$) =>
-	CollapsibleList.render(
-		model.collapsibleList, forwardTo(actions$, Action.CollapsibleList),
+	Collapsible.render(
+		model.collapsible, forwardTo(actions$, Action.Collapsible),
 		"Call Stack",
-		model.callStack.map((entry, index) =>
-			h("a.pure-menu-link", {
-				props: { href: '#' },
-				on: { click: [actions$, Action.SetActiveStackLevel(index)] }
-			}, [
-				entry.filename
-			])
-		),
-		model.activeStackLevel
+		h("div.pure-menu",
+			h("ul.pure-menu-list", model.callStack.map((entry, index) =>
+				h("li.pure-menu-item",
+					{ class: { "pure-menu-selected": index === model.activeStackLevel } },
+					h("a.pure-menu-link", {
+						props: { href: '#' },
+						on: { click: [actions$, Action.SetActiveStackLevel(index)] }
+					}, entry.filename)
+				)
+			))
+		)
 	);
