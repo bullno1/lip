@@ -67,6 +67,7 @@ static const struct wby_header lip_msgpack_headers[] = {
 	{ .name = "Access-Control-Allow-Origin", .value = "*" },
 	{ .name = "Access-Control-Allow-Methods", .value = "GET, POST, PUT, PATCH, DELETE, OPTIONS" },
 	{ .name = "Access-Control-Allow-Headers", .value = "Connection, Content-Type" },
+	{ .name = "Access-Control-Max-Age", .value = "600" },
 };
 
 struct lip_dbg_msgpack_s
