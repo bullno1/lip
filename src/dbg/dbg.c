@@ -56,13 +56,17 @@ struct lip_dbg_s
 };
 
 static const struct wby_header lip_cors_headers[] = {
-	{ .name = "Access-Control-Allow-Origin", .value = "*" }
+	{ .name = "Access-Control-Allow-Origin", .value = "*" },
+	{ .name = "Access-Control-Allow-Methods", .value = "GET, POST, PUT, PATCH, DELETE, OPTIONS" },
+	{ .name = "Access-Control-Allow-Headers", .value = "Connection, Content-Type" },
 };
 
 static const struct wby_header lip_msgpack_headers[] = {
 	{ .name = "Content-Type", .value = "application/hal+msgpack" },
 	{ .name = "Cache-Control", .value = "no-cache" },
-	{ .name = "Access-Control-Allow-Origin", .value = "*" }
+	{ .name = "Access-Control-Allow-Origin", .value = "*" },
+	{ .name = "Access-Control-Allow-Methods", .value = "GET, POST, PUT, PATCH, DELETE, OPTIONS" },
+	{ .name = "Access-Control-Allow-Headers", .value = "Connection, Content-Type" },
 };
 
 struct lip_dbg_msgpack_s
@@ -824,6 +828,11 @@ lip_dbg_send_static(
 static int
 lip_dbg_dispatch(struct wby_con* conn, void* userdata)
 {
+	if(strcmp(conn->request.method, "OPTIONS") == 0)
+	{
+		return lip_dbg_simple_response(conn, 200);
+	}
+
 	lip_dbg_t* dbg = userdata;
 	const char* uri = conn->request.uri;
 
