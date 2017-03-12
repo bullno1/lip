@@ -50,7 +50,8 @@ struct lip_dbg_s
 	lip_vm_t* vm;
 	lip_array(char) char_buf;
 	lip_array(char) msg_buf;
-	struct wby_con* ws_conns;
+	lip_array(uintptr_t) ws_ids;
+	uintptr_t next_ws_id;
 	void* server_mem;
 };
 
@@ -887,26 +888,24 @@ static void
 lip_dbg_ws_connected(struct wby_con* conn, void* userdata)
 {
 	lip_dbg_t* dbg = userdata;
-	conn->user_data = dbg->ws_conns;
-	dbg->ws_conns = conn;
+	uintptr_t id = dbg->next_ws_id++;
+	conn->user_data = (void*)id;
+	lip_array_push(dbg->ws_ids, id);
 }
 
 static void
 lip_dbg_ws_closed(struct wby_con* conn, void* userdata)
 {
 	lip_dbg_t* dbg = userdata;
-	struct wby_con** connp = &dbg->ws_conns;
-	struct wby_con* itr;
-	for(itr = dbg->ws_conns; itr != NULL; itr = itr->user_data)
+	lip_array_foreach(uintptr_t, itr, dbg->ws_ids)
 	{
-		if(itr == conn)
+		if(*itr == (uintptr_t)conn->user_data)
 		{
-			*connp = itr->user_data;
+			lip_array_quick_remove(dbg->ws_ids, itr - dbg->ws_ids);
 			break;
 		}
-
-		connp = (struct wby_con**)&itr->user_data;
 	}
+	conn->user_data = NULL;
 }
 
 static int
@@ -974,15 +973,13 @@ lip_dbg_step(
 	// Broadcast break status over WebSocket
 	if(dbg->cmd.type == LIP_DBG_BREAK)
 	{
-		for(
-			struct wby_con* ws_conn = dbg->ws_conns;
-			ws_conn != NULL;
-			ws_conn = ws_conn->user_data
-		)
+		lip_array_foreach(uintptr_t, id, dbg->ws_ids)
 		{
-			wby_frame_begin(ws_conn, WBY_WSOP_TEXT_FRAME);
-			wby_write(ws_conn, "break", sizeof("break") - 1);
-			wby_frame_end(ws_conn);
+			struct wby_con* conn = wby_find_conn(&dbg->server, (void*)*id);
+			if(conn == NULL) { continue; }
+			wby_frame_begin(conn, WBY_WSOP_TEXT_FRAME);
+			wby_write(conn, "break", sizeof("break") - 1);
+			wby_frame_end(conn);
 		}
 	}
 
@@ -1012,6 +1009,8 @@ lip_create_debugger(lip_dbg_config_t* cfg)
 		.cmd = { .type = LIP_DBG_BREAK },
 		.char_buf = lip_array_create(cfg->allocator, char, 64),
 		.msg_buf = lip_array_create(cfg->allocator, char, 1024),
+		.ws_ids = lip_array_create(cfg->allocator, uintptr_t, 1),
+		.next_ws_id = 1
 	};
 
 	if(dbg->own_fs)
@@ -1049,6 +1048,7 @@ lip_destroy_debugger(lip_dbg_t* dbg)
 		lip_destroy_native_fs(dbg->cfg.fs);
 	}
 
+	lip_array_destroy(dbg->ws_ids);
 	lip_array_destroy(dbg->msg_buf);
 	lip_array_destroy(dbg->char_buf);
 	lip_free(dbg->cfg.allocator, dbg->server_mem);

@@ -311,6 +311,8 @@ WBY_API void wby_update(struct wby_server*, int block);
 /* updates the server by being called frequenctly (at least once a frame) */
 WBY_API void wby_stop(struct wby_server*);
 /* stops and shutdown the server */
+WBY_API struct wby_con* wby_find_conn(struct wby_server*, void *user_data);
+/* returns the first connection with matching user_data pointer or NULL */
 WBY_API int wby_response_begin(struct wby_con*, int status_code, int content_length,
                                     const struct wby_header headers[], int header_count);
 /*  this function begins a response
@@ -1036,6 +1038,8 @@ WBY_INTERN void
 wby_connection_reset(struct wby_connection *conn, wby_size request_buffer_size,
     wby_size io_buffer_size)
 {
+    if(!(conn->flags & WBY_CON_FLAG_WEBSOCKET))
+        conn->public_data.user_data = NULL;
     conn->header_buf.used = 0;
     conn->header_buf.max = request_buffer_size;
     conn->io_buf.used = 0;
@@ -1045,7 +1049,6 @@ wby_connection_reset(struct wby_connection *conn, wby_size request_buffer_size,
     conn->continue_data_left = 0;
     conn->body_bytes_read = 0;
     conn->state = WBY_CON_STATE_REQUEST;
-    conn->public_data.user_data = NULL;
     conn->blocking_count = 0;
 }
 
@@ -1233,6 +1236,15 @@ wby_con_is_websocket_request(struct wby_con* conn)
     if (strstr(hdr, "Upgrade") == NULL) return 0;
     if ((hdr = wby_find_header(conn, "Upgrade")) == NULL) return 0;
     if (strcasecmp(hdr, "websocket")) return 0;
+    return 1;
+}
+
+WBY_INTERN int
+wby_con_is_keepalive(struct wby_con* conn)
+{
+    const char *hdr;
+    if ((hdr = wby_find_header(conn, "Connection")) == NULL) return 0;
+    if (strstr(hdr, "keep-alive") == NULL) return 0;
     return 1;
 }
 
@@ -1517,8 +1529,7 @@ wby_response_end(struct wby_con *conn)
     /* Flush buffers */
     wby_connection_push(conn_priv, "", 0);
 
-    /* Close connection when Content-Length is zero that maybe HTTP/1.0. */
-    if (conn->request.content_length == 0 && !wby_con_is_websocket_request(conn))
+    if (!wby_con_is_keepalive(conn) && !wby_con_is_websocket_request(conn))
         wby_connection_close(conn_priv);
 }
 
@@ -1657,6 +1668,18 @@ wby_stop(struct wby_server *srv)
     wby_socket_close(WBY_SOCK(srv->socket));
     for (i = 0; i < srv->con_count; ++i)
         wby_socket_close(WBY_SOCK(srv->con[i].socket));
+}
+
+WBY_API struct wby_con*
+wby_find_conn(struct wby_server *srv, void *user_data)
+{
+    wby_size i;
+    for (i = 0; i < srv->con_count; ++i) {
+        if(srv->con[i].public_data.user_data == user_data) {
+            return &srv->con[i].public_data;
+        }
+    }
+    return NULL;
 }
 
 WBY_INTERN int
