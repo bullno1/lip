@@ -42,6 +42,7 @@ static lip_function(print)
 
 static lip_function(throw)
 {
+	lip_bind_track_native_location(vm);
 	lip_bind_args((string, msg));
 	*result = msg;
 	return LIP_EXEC_ERROR;
