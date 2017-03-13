@@ -335,6 +335,7 @@ lip_dbg_write_stack_frame(
 	lip_loc_range_t location;
 
 	bool is_native = lip_stack_frame_is_native(fp);
+	bool pc_offset = (index == 0 && dbg->vm->status == LIP_EXEC_OK) ? 1 : 0;
 
 	if(is_native)
 	{
@@ -359,7 +360,7 @@ lip_dbg_write_stack_frame(
 		lip_function_layout(fp->closure->function.lip, &function_layout);
 		filename = lip_string_ref_from_string(function_layout.source_name);
 		uint16_t location_index =
-			LIP_MAX(0, fp->pc - function_layout.instructions) + (index == 0 ? 1 : 0);
+			LIP_MAX(0, fp->pc - function_layout.instructions) + pc_offset;
 		location = function_layout.locations[location_index];
 	}
 
@@ -564,7 +565,7 @@ lip_dbg_write_stack_frame(
 			}
 
 			cmp_write_str_ref(cmp, lip_string_ref("pc"));
-			cmp_write_uint(cmp, fp->pc - layout.instructions);
+			cmp_write_uint(cmp, fp->pc - layout.instructions + pc_offset);
 		}
 	}
 }

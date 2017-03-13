@@ -166,8 +166,7 @@ export const update = Action.caseOn({
 	LocalView: updateNested(lensProp('localView')),
 	ClosureView: updateNested(lensProp('closureView')),
 	DisplayStackFrame: (stackFrame, model) => {
-		const instructionIndex = stackFrame.pc + (model.activeStackLevel == 0 ? 1 : 0);
-		const loc = { line: instructionIndex, column: 0 };
+		const loc = { line: stackFrame.pc, column: 0 };
 		return pipe(
 			updateNested(
 				lensProp('bytecodeView'),
