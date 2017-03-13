@@ -1240,15 +1240,6 @@ wby_con_is_websocket_request(struct wby_con* conn)
 }
 
 WBY_INTERN int
-wby_con_is_keepalive(struct wby_con* conn)
-{
-    const char *hdr;
-    if ((hdr = wby_find_header(conn, "Connection")) == NULL) return 0;
-    if (strstr(hdr, "keep-alive") == NULL) return 0;
-    return 1;
-}
-
-WBY_INTERN int
 wby_scan_websocket_frame(struct wby_frame *frame, const struct wby_buffer *buf)
 {
     wby_byte flags = 0;
@@ -1528,9 +1519,6 @@ wby_response_end(struct wby_con *conn)
     }
     /* Flush buffers */
     wby_connection_push(conn_priv, "", 0);
-
-    if (!wby_con_is_keepalive(conn) && !wby_con_is_websocket_request(conn))
-        wby_connection_close(conn_priv);
 }
 
 /* ---------------------------------------------------------------
