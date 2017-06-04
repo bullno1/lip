@@ -479,6 +479,7 @@ lip_format_parse_error(const lip_error_t* error)
 						return lip_string_ref("Malformed string");
 				}
 			}
+			break;
 		case LIP_PARSE_UNEXPECTED_TOKEN:
 			return lip_string_ref("Unexpected token");
 		case LIP_PARSE_UNTERMINATED_LIST:
