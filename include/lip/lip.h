@@ -11,29 +11,6 @@
 #include "common.h"
 #include <stdarg.h>
 
-/** @enum lip_userdata_scope_t
- * @brief Userdata scope.
- *
- * @see lip_set_userdata
- * @see lip_get_userdata
- *
- * @var LIP_SCOPE_RUNTIME
- * Userdata is attached to runtime.
- *
- * @var LIP_SCOPE_CONTEXT
- * Userdata is attached to context.
- *
- * @var LIP_SCOPE_VM
- * Userdata is attached to vm.
- */
-
-#define LIP_USERDATA_SCOPE(F) \
-	F(LIP_SCOPE_RUNTIME) \
-	F(LIP_SCOPE_CONTEXT) \
-	F(LIP_SCOPE_VM)
-
-LIP_ENUM(lip_userdata_scope_t, LIP_USERDATA_SCOPE)
-
 typedef struct lip_runtime_config_s lip_runtime_config_t;
 
 /**
@@ -513,33 +490,6 @@ lip_repl(
  */
 LIP_API lip_vm_t*
 lip_get_default_vm(lip_context_t* ctx);
-
-/**
- * @brief Get userdata.
- *
- * @param vm A vm.
- * @param scope Where to get userdata.
- * @param key An unique pointer for the userdata.
- *
- * @return The value previously stored with ::lip_set_userdata using the same `key` and `scope` or `NULL`.
- */
-LIP_API void*
-lip_get_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, const void* key);
-
-/**
- * @brief Set userdata.
- *
- * @param vm A vm.
- * @param scope Where to attach userdata.
- * @param key An unique pointer for the userdata.
- * @param value Pointer to userdata.
- *
- * @return The value previously stored with ::lip_set_userdata using the same `key` and `scope` or `NULL`.
- */
-LIP_API void*
-lip_set_userdata(
-	lip_vm_t* vm, lip_userdata_scope_t scope, const void* key, void* value
-);
 
 /// Load builtin functions.
 LIP_API void

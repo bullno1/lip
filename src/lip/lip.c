@@ -57,7 +57,6 @@ static void
 lip_do_destroy_vm(lip_context_t* ctx, lip_vm_t* vm)
 {
 	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
-	if(rt->userdata) { kh_destroy(lip_userdata, rt->userdata); }
 	lip_arena_allocator_destroy(rt->allocator);
 	lip_free(ctx->allocator, vm);
 }
@@ -75,7 +74,7 @@ lip_do_destroy_context(lip_context_t* ctx)
 	lip_array_destroy(ctx->string_buff);
 	kh_destroy(lip_symtab, ctx->loading_symtab);
 	kh_destroy(lip_string_ref_set, ctx->loading_modules);
-	kh_destroy(lip_userdata, ctx->new_exported_functions);
+	kh_destroy(lip_ptr_map, ctx->new_exported_functions);
 	kh_destroy(lip_ptr_set, ctx->new_script_functions);
 	kh_destroy(lip_ptr_set, ctx->vms);
 	kh_destroy(lip_ptr_set, ctx->scripts);
@@ -84,7 +83,6 @@ lip_do_destroy_context(lip_context_t* ctx)
 	lip_array_destroy(ctx->error_records);
 	lip_arena_allocator_destroy(ctx->temp_pool);
 	lip_arena_allocator_destroy(ctx->module_pool);
-	if(ctx->userdata) { kh_destroy(lip_userdata, ctx->userdata); }
 	lip_free(ctx->allocator, ctx);
 }
 
@@ -101,7 +99,6 @@ lip_destroy_runtime(lip_runtime_t* runtime)
 	lip_rwlock_destroy(&runtime->rt_lock);
 	kh_destroy(lip_symtab, runtime->symtab);
 	kh_destroy(lip_ptr_set, runtime->contexts);
-	if(runtime->userdata) { kh_destroy(lip_userdata, runtime->userdata); }
 	if(runtime->own_fs) { lip_destroy_native_fs(runtime->cfg.fs); }
 	lip_free(runtime->cfg.allocator, runtime);
 }
@@ -176,7 +173,7 @@ lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator)
 		.vms = kh_init(lip_ptr_set, allocator),
 		.loading_symtab = kh_init(lip_symtab, allocator),
 		.loading_modules = kh_init(lip_string_ref_set, allocator),
-		.new_exported_functions = kh_init(lip_userdata, allocator),
+		.new_exported_functions = kh_init(lip_ptr_map, allocator),
 		.new_script_functions = kh_init(lip_ptr_set, allocator),
 		.string_buff = lip_array_create(allocator, char, 512),
 		.panic_handler = lip_default_panic_handler
@@ -497,81 +494,4 @@ lip_get_default_vm(lip_context_t* ctx)
 	}
 
 	return ctx->default_vm;
-}
-
-static void*
-lip_retrieve_userdata(khash_t(lip_userdata)* table, const void* key)
-{
-	if(table == NULL) { return NULL; }
-
-	khiter_t itr = kh_get(lip_userdata, table, key);
-	return itr == kh_end(table) ? NULL : kh_val(table, itr);
-}
-
-static void*
-lip_store_userdata(
-	khash_t(lip_userdata)** tablep,
-	lip_allocator_t* allocator,
-	const void* key,
-	void* value
-)
-{
-	if(*tablep == NULL)
-	{
-		*tablep = kh_init(lip_userdata, allocator);
-	}
-
-	int ret;
-	khiter_t itr = kh_put(lip_userdata, *tablep, key, &ret);
-
-	void* old_value = ret == 0 ? kh_val(*tablep, itr) : NULL;
-	kh_val(*tablep, itr) = value;
-	return old_value;
-}
-
-void*
-lip_get_userdata(lip_vm_t* vm, lip_userdata_scope_t scope, const void* key)
-{
-	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
-	switch(scope)
-	{
-		case LIP_SCOPE_VM:
-			return lip_retrieve_userdata(rt->userdata, key);
-		case LIP_SCOPE_CONTEXT:
-			return lip_retrieve_userdata(rt->ctx->userdata, key);
-		case LIP_SCOPE_RUNTIME:
-			lip_ctx_begin_rt_read(rt->ctx);
-			void* ret = lip_retrieve_userdata(rt->ctx->runtime->userdata, key);
-			lip_ctx_end_rt_read(rt->ctx);
-			return ret;
-		default:
-			return NULL;
-	}
-}
-
-void*
-lip_set_userdata(
-	lip_vm_t* vm, lip_userdata_scope_t scope, const void* key, void* value
-)
-{
-	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
-	switch(scope)
-	{
-		case LIP_SCOPE_VM:
-			return lip_store_userdata(&rt->userdata, rt->ctx->allocator, key, value);
-		case LIP_SCOPE_CONTEXT:
-			return lip_store_userdata(
-				&rt->ctx->userdata, rt->ctx->allocator, key, value
-			);
-		case LIP_SCOPE_RUNTIME:
-			lip_ctx_begin_rt_write(rt->ctx);
-			void* ret = lip_store_userdata(
-				&rt->ctx->runtime->userdata, rt->ctx->runtime->cfg.allocator,
-				key, value
-			);
-			lip_ctx_end_rt_write(rt->ctx);
-			return ret;
-		default:
-			return NULL;
-	}
 }

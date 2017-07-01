@@ -2,17 +2,16 @@
 #include "runtime_helper.h"
 #include <lip/bind.h>
 
-static const char test_key = 0;
-
 typedef struct lip_test_context_s
 {
 	int count;
 } lip_test_context_t;
 
+static lip_test_context_t test_ctx = { 0 };
+
 static lip_function(count_load)
 {
-	lip_test_context_t* test_ctx = lip_get_userdata(vm, LIP_SCOPE_RUNTIME, &test_key);
-	++test_ctx->count;
+	++test_ctx.count;
 	lip_return(lip_make_nil(vm));
 }
 
@@ -29,10 +28,7 @@ basic(const MunitParameter params[], void* fixture_)
 	lip_declare_function(module, lip_string_ref("count-load"), count_load);
 	lip_end_module(ctx2, module);
 
-	lip_test_context_t test_context = {
-		.count = 0
-	};
-	lip_set_userdata(lip_get_default_vm(ctx2), LIP_SCOPE_RUNTIME, &test_key, &test_context);
+	test_ctx = (lip_test_context_t){ 0 };
 
 	{
 		lip_context_t* ctx = lip_create_context(fixture->runtime, NULL);
@@ -56,7 +52,7 @@ basic(const MunitParameter params[], void* fixture_)
 		lip_assert_num_result("(test.mod3/test-fun2 4)", 3, true);
 		lip_destroy_context(ctx);
 	}
-	munit_assert_int(1, ==, test_context.count);
+	munit_assert_int(1, ==, test_ctx.count);
 
 	return MUNIT_OK;
 }
@@ -74,10 +70,7 @@ local_function(const MunitParameter params[], void* fixture_)
 	lip_declare_function(module, lip_string_ref("count-load"), count_load);
 	lip_end_module(ctx2, module);
 
-	lip_test_context_t test_context = {
-		.count = 0
-	};
-	lip_set_userdata(lip_get_default_vm(ctx2), LIP_SCOPE_RUNTIME, &test_key, &test_context);
+	test_ctx = (lip_test_context_t){ 0 };
 
 	{
 		lip_context_t* ctx = lip_create_context(fixture->runtime, NULL);
@@ -92,7 +85,7 @@ local_function(const MunitParameter params[], void* fixture_)
 		lip_assert_num_result("(mod4/a -2)", -4, true);
 		lip_destroy_context(ctx);
 
-		munit_assert_int(1, ==, test_context.count);
+		munit_assert_int(1, ==, test_ctx.count);
 	}
 
 	{

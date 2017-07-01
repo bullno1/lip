@@ -171,7 +171,7 @@ lip_commit_module_locked(lip_context_t* ctx, lip_string_ref_t name, khash_t(lip_
 		int ret;
 		if(!value.value->is_native)
 		{
-			khiter_t itr = kh_put(lip_userdata,
+			khiter_t itr = kh_put(lip_ptr_map,
 				ctx->new_exported_functions, value.value->function.lip, &ret
 			);
 			kh_val(ctx->new_exported_functions, itr) = target_module;
@@ -352,7 +352,7 @@ lip_ctx_begin_load(lip_context_t* ctx)
 		lip_arena_allocator_reset(ctx->module_pool);
 		kh_clear(lip_symtab, ctx->loading_symtab);
 		kh_clear(lip_string_ref_set, ctx->loading_modules);
-		kh_clear(lip_userdata, ctx->new_exported_functions);
+		kh_clear(lip_ptr_map, ctx->new_exported_functions);
 		kh_clear(lip_ptr_set, ctx->new_script_functions);
 		ctx->last_vm = NULL;
 		ctx->load_aborted = false;

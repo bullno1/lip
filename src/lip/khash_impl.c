@@ -49,7 +49,7 @@ __KHASH_IMPL(
 )
 
 __KHASH_IMPL(
-	lip_userdata,
+	lip_ptr_map,
 	,
 	const void*,
 	void*,
