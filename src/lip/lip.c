@@ -354,8 +354,7 @@ lip_do_print_error(lip_out_t* out, const lip_context_error_t* err, bool first)
 		}
 	}
 
-	if(err->parent) { lip_do_print_error(out, err->parent, false);
-	}
+	if(err->parent) { lip_do_print_error(out, err->parent, false); }
 }
 
 void

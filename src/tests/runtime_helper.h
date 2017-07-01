@@ -95,7 +95,7 @@ struct lip_fixture_s
 	lip_vm_t* vm;
 };
 
-static void
+LIP_MAYBE_UNUSED static void
 step(lip_vm_hook_t* vtable, const lip_vm_t* vm)
 {
 	test_hook_t* hook = LIP_CONTAINER_OF(vtable, test_hook_t, vtable);
@@ -106,7 +106,7 @@ step(lip_vm_hook_t* vtable, const lip_vm_t* vm)
 	}
 }
 
-static void
+LIP_MAYBE_UNUSED static void
 teardown(void* fixture_)
 {
 	lip_fixture_t* fixture = fixture_;
@@ -116,7 +116,7 @@ teardown(void* fixture_)
 	lip_free(lip_default_allocator, fixture);
 }
 
-static void*
+LIP_MAYBE_UNUSED static void*
 setup(const MunitParameter params[], void* data)
 {
 	(void)params;

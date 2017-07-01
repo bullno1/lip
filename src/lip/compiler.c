@@ -463,7 +463,7 @@ lip_compile_lambda(lip_compiler_t* compiler, const lip_ast_t* ast)
 	function->num_args = lip_array_len(ast->data.lambda.arguments);
 	function->is_vararg = ast->data.lambda.is_vararg;
 
-	// Compiler closure capture
+	// Compile closure capture
 	lip_asm_index_t function_index =
 		lip_asm_new_function(&compiler->current_scope->lasm, function);
 	lip_operand_t operand =
