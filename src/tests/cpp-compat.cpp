@@ -45,5 +45,7 @@ extern "C" void test_cpp()
 	munit_assert_uint(LIP_VAL_NUMBER, ==, result.type);
 	munit_assert_double_equal(42.5, result.data.number, 2);
 
+	lip_destroy_vm(ctx, vm);
+	lip_destroy_context(ctx);
 	lip_destroy_runtime(runtime);
 }

@@ -44,7 +44,6 @@ lip_create_runtime(const lip_runtime_config_t* cfg)
 	*runtime = (lip_runtime_t){
 		.cfg = *cfg,
 		.own_fs = own_fs,
-		.contexts = kh_init(lip_ptr_set, cfg->allocator),
 		.symtab = kh_init(lip_symtab, cfg->allocator),
 	};
 	runtime->cfg.fs = fs;
@@ -53,52 +52,13 @@ lip_create_runtime(const lip_runtime_config_t* cfg)
 	return runtime;
 }
 
-static void
-lip_do_destroy_vm(lip_context_t* ctx, lip_vm_t* vm)
-{
-	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
-	lip_arena_allocator_destroy(rt->allocator);
-	lip_free(ctx->allocator, vm);
-}
-
-static void
-lip_do_destroy_context(lip_context_t* ctx)
-{
-	kh_foreach(itr, ctx->vms)
-	{
-		lip_do_destroy_vm(ctx, kh_key(ctx->vms, itr));
-	}
-
-	lip_unload_all_scripts(ctx);
-
-	lip_array_destroy(ctx->string_buff);
-	kh_destroy(lip_symtab, ctx->loading_symtab);
-	kh_destroy(lip_string_ref_set, ctx->loading_modules);
-	kh_destroy(lip_ptr_map, ctx->new_exported_functions);
-	kh_destroy(lip_ptr_set, ctx->new_script_functions);
-	kh_destroy(lip_ptr_set, ctx->vms);
-	kh_destroy(lip_ptr_set, ctx->scripts);
-	lip_compiler_cleanup(&ctx->compiler);
-	lip_parser_cleanup(&ctx->parser);
-	lip_array_destroy(ctx->error_records);
-	lip_arena_allocator_destroy(ctx->temp_pool);
-	lip_arena_allocator_destroy(ctx->module_pool);
-	lip_free(ctx->allocator, ctx);
-}
-
 void
 lip_destroy_runtime(lip_runtime_t* runtime)
 {
-	kh_foreach(itr, runtime->contexts)
-	{
-		lip_do_destroy_context(kh_key(runtime->contexts, itr));
-	}
-
 	lip_destroy_all_modules(runtime);
 
 	lip_rwlock_destroy(&runtime->rt_lock);
 	kh_destroy(lip_symtab, runtime->symtab);
-	kh_destroy(lip_ptr_set, runtime->contexts);
 	if(runtime->own_fs) { lip_destroy_native_fs(runtime->cfg.fs); }
 	lip_free(runtime->cfg.allocator, runtime);
 }
@@ -169,8 +129,6 @@ lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator)
 		.temp_pool = lip_arena_allocator_create(allocator, 2048, false),
 		.module_pool = lip_arena_allocator_create(allocator, 2048, true),
 		.error_records = lip_array_create(allocator, lip_error_record_t, 1),
-		.scripts = kh_init(lip_ptr_set, allocator),
-		.vms = kh_init(lip_ptr_set, allocator),
 		.loading_symtab = kh_init(lip_symtab, allocator),
 		.loading_modules = kh_init(lip_string_ref_set, allocator),
 		.new_exported_functions = kh_init(lip_ptr_map, allocator),
@@ -180,9 +138,6 @@ lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator)
 	};
 	lip_parser_init(&ctx->parser, allocator);
 	lip_compiler_init(&ctx->compiler, allocator);
-
-	int tmp;
-	kh_put(lip_ptr_set, runtime->contexts, ctx, &tmp);
 
 	return ctx;
 }
@@ -198,12 +153,19 @@ lip_set_panic_handler(lip_context_t* ctx, lip_panic_fn_t panic_handler)
 void
 lip_destroy_context(lip_context_t* ctx)
 {
-	khiter_t itr = kh_get(lip_ptr_set, ctx->runtime->contexts, ctx);
-	if(itr != kh_end(ctx->runtime->contexts))
-	{
-		kh_del(lip_ptr_set, ctx->runtime->contexts, itr);
-		lip_do_destroy_context(ctx);
-	}
+	if(ctx->default_vm) { lip_destroy_vm(ctx, ctx->default_vm); }
+
+	lip_array_destroy(ctx->string_buff);
+	kh_destroy(lip_symtab, ctx->loading_symtab);
+	kh_destroy(lip_string_ref_set, ctx->loading_modules);
+	kh_destroy(lip_ptr_map, ctx->new_exported_functions);
+	kh_destroy(lip_ptr_set, ctx->new_script_functions);
+	lip_compiler_cleanup(&ctx->compiler);
+	lip_parser_cleanup(&ctx->parser);
+	lip_array_destroy(ctx->error_records);
+	lip_arena_allocator_destroy(ctx->temp_pool);
+	lip_arena_allocator_destroy(ctx->module_pool);
+	lip_free(ctx->allocator, ctx);
 }
 
 const lip_context_error_t*
@@ -434,9 +396,6 @@ lip_create_vm(lip_context_t* ctx, const lip_vm_config_t* config)
 	};
 	lip_vm_init(vm, config, &rt->vtable, vm_mem);
 
-	int tmp;
-	kh_put(lip_ptr_set, ctx->vms, vm, &tmp);
-
 	return vm;
 }
 
@@ -451,12 +410,9 @@ lip_reset_vm(lip_vm_t* vm)
 void
 lip_destroy_vm(lip_context_t* ctx, lip_vm_t* vm)
 {
-	khiter_t itr = kh_get(lip_ptr_set, ctx->vms, vm);
-	if(itr != kh_end(ctx->vms))
-	{
-		kh_del(lip_ptr_set, ctx->vms, itr);
-		lip_do_destroy_vm(ctx, vm);
-	}
+	lip_runtime_link_t* rt = LIP_CONTAINER_OF(vm->rt, lip_runtime_link_t, vtable);
+	lip_arena_allocator_destroy(rt->allocator);
+	lip_free(ctx->allocator, vm);
 }
 
 lip_string_ref_t

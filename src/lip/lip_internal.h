@@ -46,7 +46,6 @@ struct lip_module_context_s
 struct lip_runtime_s
 {
 	lip_runtime_config_t cfg;
-	khash_t(lip_ptr_set)* contexts;
 	khash_t(lip_symtab)* symtab;
 	lip_rwlock_t rt_lock;
 	bool own_fs;
@@ -70,8 +69,6 @@ struct lip_context_s
 	lip_context_error_t error;
 	lip_parser_t parser;
 	lip_compiler_t compiler;
-	khash_t(lip_ptr_set)* scripts;
-	khash_t(lip_ptr_set)* vms;
 	lip_array(char) string_buff;
 	lip_vm_t* default_vm;
 	khash_t(lip_symtab)* loading_symtab;

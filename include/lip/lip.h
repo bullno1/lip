@@ -200,14 +200,14 @@ lip_reset_runtime_config(lip_runtime_config_t* cfg);
  *
  * @param config Configuration for this runtime.
  * @return A runtime instance.
+ *
+ * @see lip_destroy_runtime
  */
 LIP_API lip_runtime_t*
 lip_create_runtime(const lip_runtime_config_t* config);
 
 /**
  * @brief Destroy a runtime.
- *
- * All associated ::lip_context_t instances will be destroyed.
  *
  * @param runtime Runtime instance to destroy.
  */
@@ -222,7 +222,7 @@ lip_destroy_runtime(lip_runtime_t* runtime);
  *    Pass `NULL` to use the runtime's allocator.
  *    The allocator will have to be thread-safe if it is shared between contexts in different threads.
  *
- * @remarks A context can be destroyed by ::lip_destroy_context or ::lip_destroy_runtime on the corresponding runtime.
+ * @see lip_destroy_context
  *
  * @return A context instance.
  */
@@ -231,8 +231,6 @@ lip_create_context(lip_runtime_t* runtime, lip_allocator_t* allocator);
 
 /**
  * @brief Destroy a context.
- *
- * All associated ::lip_vm_s, ::lip_script_t instances will be destroyed.
  *
  * @param ctx The context to destroy.
  */
@@ -337,8 +335,7 @@ lip_declare_function(
  * @param ctx The context that this vm will belong to.
  * @param config Configuration for the vm. Pass `NULL` to use default values.
  *
- * @remarks A vm can be destroyed by ::lip_destroy_vm or ::lip_destroy_context on the corresponding context.
- *
+ * @see lip_destroy_vm
  * @see lip_runtime_config_s
  */
 LIP_API lip_vm_t*
@@ -373,8 +370,7 @@ lip_lookup_symbol(lip_context_t* ctx, lip_string_ref_t symbol, lip_value_t* resu
  *
  * @return The script instance or `NULL` if an error happened.
  *
- * @remarks A script can be unloaded using ::lip_unload_script or ::lip_destroy_context on the corresponding context.
- *
+ * @see lip_unload_script
  * @see lip_get_error
  * @see lip_runtime_config_s::fs
  */
@@ -482,8 +478,7 @@ lip_repl(
  * @brief Retrieve the default VM of a context.
  *
  * The default VM is used whenever a context needs to implicitly execute code
- * e.g: macro expansion, module loading... It can be retrieved for debugging
- * or getting/setting userdata without creating a VM.
+ * e.g: macro expansion, module loading... It can be retrieved for debugging.
  *
  * @param ctx A context.
  * @return The default VM of the given context.

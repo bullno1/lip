@@ -115,7 +115,11 @@ quit:
 	repl_cleanup_inspect_opts(&inspect_opts);
 	repl_cleanup_compile_opts(&compile_opts);
 	repl_cleanup_run_opts(&run_opts);
-	if(common.runtime) { lip_destroy_runtime(common.runtime); }
+	if(common.runtime)
+	{
+		lip_destroy_context(common.context);
+		lip_destroy_runtime(common.runtime);
+	}
 
 	return exit_code;
 }

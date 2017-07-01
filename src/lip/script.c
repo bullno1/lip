@@ -276,8 +276,6 @@ lip_load_script(
 			.closure = closure,
 			.linked = link
 		};
-		int ret;
-		kh_put(lip_ptr_set, ctx->scripts, script, &ret);
 	}
 
 end:
@@ -290,15 +288,6 @@ end:
 	}
 
 	return script;
-}
-
-static void
-lip_do_unload_script(lip_context_t* ctx, lip_script_t* script)
-{
-	lip_closure_t* closure = script->closure;
-	lip_free(ctx->allocator, closure->function.lip);
-	lip_free(ctx->allocator, closure);
-	lip_free(ctx->allocator, script);
 }
 
 LIP_API bool
@@ -345,12 +334,9 @@ lip_unload_script(lip_context_t* ctx, lip_script_t* script)
 		kh_del(lip_ptr_set, ctx->new_script_functions, itr);
 	}
 
-	itr = kh_get(lip_ptr_set, ctx->scripts, script);
-	if(itr != kh_end(ctx->scripts))
-	{
-		kh_del(lip_ptr_set, ctx->scripts, itr);
-		lip_do_unload_script(ctx, script);
-	}
+	lip_free(ctx->allocator, closure->function.lip);
+	lip_free(ctx->allocator, closure);
+	lip_free(ctx->allocator, script);
 }
 
 lip_exec_status_t
@@ -380,13 +366,4 @@ lip_exec_status_t
 	rt->ctx->last_result = *result;
 	rt->ctx->last_vm = vm;
 	return status;
-}
-
-void
-lip_unload_all_scripts(lip_context_t* ctx)
-{
-	kh_foreach(itr, ctx->scripts)
-	{
-		lip_do_unload_script(ctx, kh_key(ctx->scripts, itr));
-	}
 }

@@ -28,6 +28,7 @@
 		if(status != LIP_EXEC_OK) { lip_print_error(lip_stderr(), ctx); } \
 		lip_assert_enum(lip_exec_status_t, expected_status, ==, status); \
 		assert_fn(lip_pp_nth(1, (__VA_ARGS__), 0), result); \
+		lip_unload_script(ctx, script); \
 	} while(0)
 
 #define lip_assert_num_result(code, ...) \

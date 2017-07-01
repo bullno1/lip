@@ -163,18 +163,22 @@ repl_compile(struct repl_common_s* common, struct repl_compile_opts_s* opts)
 		return EXIT_FAILURE;
 	}
 
+	int ret = 0;
 	if(!opts->standalone)
 	{
 		bool result = lip_dump_script(
 			common->context, script, lip_string_ref(opts->output_filename), NULL
 		);
 		if(!result) { lip_print_error(lip_stderr(), common->context); }
-		return result ? EXIT_SUCCESS : EXIT_FAILURE;
+		ret = result ? EXIT_SUCCESS : EXIT_FAILURE;
 	}
 	else
 	{
-		return repl_compile_standalone(script, common, opts);
+		ret = repl_compile_standalone(script, common, opts);
 	}
+
+	lip_unload_script(common->context, script);
+	return ret;
 }
 
 static lip_in_t*
@@ -291,6 +295,9 @@ repl_compiled_script_entry(mz_zip_archive* archive, int argc, char* argv[])
 	lip_load_builtins(context);
 
 	bool status = repl_run_script(context, vm, lip_string_ref("main.lipc"), NULL);
+
+	lip_destroy_vm(context, vm);
+	lip_destroy_context(context);
 	lip_destroy_runtime(runtime);
 	return status ? EXIT_SUCCESS : EXIT_FAILURE;
 }

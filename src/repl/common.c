@@ -17,13 +17,9 @@ repl_run_script(
 	}
 
 	lip_value_t result;
-	if(lip_exec_script(vm, script, &result) != LIP_EXEC_OK)
-	{
-		lip_print_error(lip_stderr(), ctx);
-		return false;
-	}
-	else
-	{
-		return true;
-	}
+	bool success = lip_exec_script(vm, script, &result) == LIP_EXEC_OK;
+	if(!success) { lip_print_error(lip_stderr(), ctx); }
+	lip_unload_script(ctx, script);
+
+	return success;
 }

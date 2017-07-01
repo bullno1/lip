@@ -640,6 +640,7 @@ fs(const MunitParameter params[], void* fixture_)
 	lip_value_t result;
 	lip_assert_enum(lip_exec_status_t, LIP_EXEC_OK, ==, lip_exec_script(vm, script, &result));
 	lip_assert_num(2.0, result);
+	lip_unload_script(ctx, script);
 
 	script = lip_load_script(ctx, lip_string_ref("not_there.lip"), NULL, false);
 	munit_assert_null(script);
@@ -662,12 +663,14 @@ bytecode(const MunitParameter params[], void* fixture_)
 	munit_assert_true(
 		lip_dump_script(ctx, script, lip_string_ref("bin/test_fs.lipc"), NULL)
 	);
+	lip_unload_script(ctx, script);
 
 	lip_script_t* bin_script = lip_load_script(ctx, lip_string_ref("bin/test_fs.lipc"), NULL, false);
 	munit_assert_not_null(bin_script);
 	lip_value_t result;
 	lip_assert_enum(lip_exec_status_t, LIP_EXEC_OK, ==, lip_exec_script(vm, bin_script, &result));
 	lip_assert_num(2.0, result);
+	lip_unload_script(ctx, bin_script);
 
 	return MUNIT_OK;
 }

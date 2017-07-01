@@ -3,6 +3,7 @@
 #include <lip/vm.h>
 #include <lip/asm.h>
 #include <lip/memory.h>
+#include "utils.h"
 #include "prim_ops.h"
 
 #if !defined(LIP_NO_COMPUTED_GOTO) && (defined(__GNUC__) || defined(__GNUG__) || defined(__clang__))
