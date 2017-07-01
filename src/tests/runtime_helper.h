@@ -18,7 +18,7 @@
 		lip_set_vm_hook(vm, &hook.vtable); \
 		struct lip_isstream_s sstream; \
 		lip_in_t* input = lip_make_isstream(lip_string_ref(code), &sstream); \
-		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input, lip_pp_nth(2, (__VA_ARGS__), false)); \
+		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input); \
 		if(script == NULL) { lip_print_error(lip_stderr(), ctx); } \
 		munit_assert_not_null(script); \
 		lip_print_script(100, 0, lip_null, script); \
@@ -59,7 +59,7 @@
 	do { \
 		struct lip_isstream_s sstream; \
 		lip_in_t* input = lip_make_isstream(lip_string_ref(code), &sstream); \
-		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input, false); \
+		lip_script_t* script = lip_load_script(ctx, lip_string_ref(SOURCE_NAME), input); \
 		munit_assert_null(script); \
 		const lip_context_error_t* error = lip_get_error(ctx); \
 		lip_assert_string_ref_equal(lip_string_ref("Syntax error"), error->message); \

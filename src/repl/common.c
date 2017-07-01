@@ -9,7 +9,7 @@ repl_run_script(
 	lip_in_t* input
 )
 {
-	lip_script_t* script = lip_load_script(ctx, filename, input, true);
+	lip_script_t* script = lip_load_script(ctx, filename, input);
 	if(!script)
 	{
 		lip_print_error(lip_stderr(), ctx);

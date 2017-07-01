@@ -363,10 +363,6 @@ lip_lookup_symbol(lip_context_t* ctx, lip_string_ref_t symbol, lip_value_t* resu
  * @param ctx A context.
  * @param filename Filename.
  * @param input Input stream or `NULL` to read from the filesystem.
- * @param link Should the script be linked.
- *   A linked script means all dependent modules will be loaded and symbols will be resolved.
- *   Normally, this parameter should be true, unless the script is only loaded for introspection
- *   purposes or to be dumped using ::lip_dump_script.
  *
  * @return The script instance or `NULL` if an error happened.
  *
@@ -378,8 +374,7 @@ LIP_API lip_script_t*
 lip_load_script(
 	lip_context_t* ctx,
 	lip_string_ref_t filename,
-	lip_in_t* input,
-	bool link
+	lip_in_t* input
 );
 
 /**

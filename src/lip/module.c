@@ -831,7 +831,7 @@ lip_load_module(lip_context_t* ctx, lip_string_ref_t name)
 		returnVal(false);
 	}
 
-	script = lip_load_script(ctx, filename, file, false);
+	script = lip_load_script(ctx, filename, file);
 	if(script == NULL) { returnVal(false); }
 
 	// Ignore all local or builtin references and let the dynamic linker deals

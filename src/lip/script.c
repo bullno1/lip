@@ -233,8 +233,7 @@ lip_script_t*
 lip_load_script(
 	lip_context_t* ctx,
 	lip_string_ref_t filename,
-	lip_in_t* input,
-	bool link
+	lip_in_t* input
 )
 {
 	bool own_input = input == NULL;
@@ -257,13 +256,6 @@ lip_load_script(
 	lip_ctx_begin_load(ctx);
 	if(fn)
 	{
-		if(link && !lip_link_function(ctx, fn))
-		{
-			lip_free(ctx->allocator, fn);
-			script = NULL;
-			goto end;
-		}
-
 		lip_closure_t* closure = lip_new(ctx->allocator, lip_closure_t);
 		*closure = (lip_closure_t){
 			.function = { .lip = fn },
@@ -272,13 +264,9 @@ lip_load_script(
 		};
 
 		script = lip_new(ctx->allocator, lip_script_t);
-		*script = (lip_script_t){
-			.closure = closure,
-			.linked = link
-		};
+		*script = (lip_script_t){ .closure = closure, .linked = false };
 	}
 
-end:
 	lip_ctx_end_load(ctx);
 
 	if(own_input)
