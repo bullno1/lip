@@ -1193,7 +1193,7 @@ class Logger(object):
     def log(self, level, format, *params):
         if level <= self.level:
             msg = format.format(*params)
-            print("{0}{1}".format(self.indent, msg))
+            print(u"{0}{1}".format(self.indent, msg))
             sys.stdout.flush()
 
 class LogLevel(object):
