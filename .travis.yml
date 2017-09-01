@@ -12,9 +12,11 @@ addons:
       - clang-3.8
       - ninja-build
       - doxygen
+      - nodejs
 env:
   global:
     - WITH_COVERAGE=1
+    - WITH_DBG_EMBED_RESOURCES=1
     - WITH_LTO=0
     - WITH_UBSAN=1
     - WITH_ASAN=1
