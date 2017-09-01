@@ -15,7 +15,7 @@ import pickle
 ROOT_FILE_NAME="Makefile.nu"
 
 def main(*args):
-    env, args = parse_args(args[1:], os.environ)
+    env, args = parse_args(args[1:], os.environ.copy())
     return dispatch_cmd("numake", args, env)
 
 def parse_args(args, env):
@@ -138,13 +138,13 @@ class Commands(object):
                 if node_type == FileTypes.SOURCE:
                     if not os.path.exists(node.absolute):
                         context.logger.info(
-                            "Removing non-existent source file: {0}",
+                            u"Removing non-existent source file: {0}",
                             node.get_friendly(context)
                         )
                         garbage_nodes.append(node_name)
                 elif not context.find_rule(node):
                     context.logger.info(
-                        "Removing target with no rules: {0}",
+                        u"Removing target with no rules: {0}",
                         node.get_friendly(context)
                     )
                     garbage_nodes.append(node_name)
@@ -256,21 +256,19 @@ class Context(object):
         return self
 
     def __exit__(self, type, value, stacktrace):
-        self.close()
-
-    def close(self):
         if self.agent:
             self._query_agent("stop")
+            self.agent.join()
         if self._rpc_sock:
             self._rpc_sock.close()
 
     def numake(self, file):
-        self.logger.info("numake {0}", file.get_friendly(self))
+        self.logger.info(u"numake {0}", file.get_friendly(self))
         db = self.db
 
         if db.visited(file):
             self.logger.debug(
-                " {0} was visited before",
+                u" {0} was visited before",
                 file.get_friendly(self)
             )
             return db.get_checksum(file)
@@ -287,8 +285,8 @@ class Context(object):
             return self._handle_target(file)
 
     def rebuild(self, target, rule, match):
-        self.logger.info("rebuild {0}", target.get_friendly(self))
-        self.logger.debug(" Begin rebuild {0}", target.get_friendly(self))
+        self.logger.info(u"rebuild {0}", target.get_friendly(self))
+        self.logger.debug(u" Begin rebuild {0}", target.get_friendly(self))
 
         # It is necessary to record that we are trying to build this target.
         # This is because the build may fail and the target may be erroneously
@@ -322,7 +320,7 @@ class Context(object):
         cascaded_env.update(build_vars)
         self._query_agent("put_env", self.instance_id, cascaded_env)
 
-        self.logger.debug(" Begin subprocess")
+        self.logger.debug(u" Begin subprocess")
         # -s: Read commands from stdin
         # -e: Stop execution on first error
         # -x: Trace commands
@@ -346,8 +344,10 @@ class Context(object):
         write_thread = WriteThread(rule, build_process.stdin)
         write_thread.start()
 
-        for line in build_process.stdout:
-            self.logger.info("  {0}", line.decode("utf-8").rstrip("\r\n"))
+        line = build_process.stdout.readline()
+        while line:
+            self.logger.info(u"  {0}", line.decode("utf-8").rstrip("\r\n"))
+            line = build_process.stdout.readline()
 
         write_thread.join()
         build_process.wait()
@@ -361,7 +361,7 @@ class Context(object):
                 )
             target_checksum = checksum(target)
             db.update_target(target, target_checksum)
-            self.logger.debug(" End rebuild {0}", target.get_friendly(self))
+            self.logger.debug(u" End rebuild {0}", target.get_friendly(self))
             return target_checksum
         else:
             return fail(
@@ -498,7 +498,7 @@ class Context(object):
 
         rule, match = rule_match
         self.logger.debug(
-            " Using rule {0}({1})",
+            u" Using rule {0}({1})",
             rule.pattern.get_friendly(self),
             match
         )
@@ -527,7 +527,7 @@ class Context(object):
             new_value = value or self.env.get(var, "")
             if new_value != old_value:
                 self.logger.debug(
-                    " Target's build var \"{0}\" changed",
+                    u" Target's build var \"{0}\" changed",
                     var, new_value, old_value
                 )
                 return self.rebuild(target, rule, match)
@@ -536,7 +536,7 @@ class Context(object):
             new_value = self.env.get(var)
             if new_value != old_value:
                 self.logger.debug(
-                    " Target's build var \"{0}\" changed",
+                    u" Target's build var \"{0}\" changed",
                     var, new_value, old_value
                 )
                 return self.rebuild(target, rule, match)
@@ -549,7 +549,7 @@ class Context(object):
                 # If a dependency is not present, rebuild
                 if not os.path.exists(dependency.absolute):
                     dep_context.logger.debug(
-                        "{0} is not present",
+                        u"{0} is not present",
                         dependency.get_friendly(self)
                     )
                     need_rebuild = True
@@ -558,7 +558,7 @@ class Context(object):
                 dep_changed = dep_context.numake(dependency) != checksum
                 if dep_changed and dep_type == DependencyType.REGULAR:
                     dep_context.logger.debug(
-                        "{0} changed",
+                        u"{0} changed",
                         dependency.get_friendly(self)
                     )
                     need_rebuild = True
@@ -884,10 +884,10 @@ class Rule(object):
     @staticmethod
     def parse(ctx, path, working_directory, env):
         friendly_path = path.get_friendly(ctx)
-        ctx.logger.debug(" Parsing rule file: {0}", friendly_path)
+        ctx.logger.debug(u" Parsing rule file: {0}", friendly_path)
         rule_dir = os.path.dirname(path.absolute)
         if not os.path.isfile(path.absolute):
-            return fail("File not found: {0}", friendly_path)
+            return fail(u"File not found: {0}", friendly_path)
 
         line_no = 0
         rules = []
@@ -932,7 +932,7 @@ class Rule(object):
                             )
                         )
                     ctx.logger.trace(
-                        " Parsing include file: {0}",
+                        u" Parsing include file: {0}",
                         subrule_file_path.get_friendly(ctx)
                     )
                     rules.extend(
@@ -956,7 +956,7 @@ class Rule(object):
                             )
                         )
                     ctx.logger.trace(
-                        " Parsing import file: {0}",
+                        u" Parsing import file: {0}",
                         imported_file_path.get_friendly(ctx)
                     )
                     rules.extend(
@@ -995,7 +995,7 @@ class Rule(object):
                             extra_attrs = extra_attrs
                         )
                         ctx.logger.trace(
-                            " Add rule: {0}",
+                            u" Add rule: {0}",
                             rule_pattern.get_friendly(ctx)
                         )
                         rules.append(rule)
@@ -1053,7 +1053,7 @@ class Rule(object):
                     extra_attrs = extra_attrs
                 )
                 ctx.logger.trace(
-                    " Add rule: {0}",
+                    u" Add rule: {0}",
                     rule_pattern.get_friendly(ctx)
                 )
                 rules.append(rule)
@@ -1136,23 +1136,23 @@ class Agent(Thread):
 
     def run(self):
         self.running = True
-        self.logger.debug(" (agent@{0}) Started", self.port)
+        self.logger.debug(u" (agent@{0}) Started", self.port)
         while self.running:
             cmd, addr = self.sock.recvfrom(65535)
             cmd = pickle.loads(cmd)
             method = getattr(self, "_cmd_" + cmd[0], None)
             if method:
                 self.logger.trace(
-                    " (agent@{0}) Received command {1} from {2}",
+                    u" (agent@{0}) Received command {1} from {2}",
                     self.port, cmd, addr
                 )
                 self.sock.sendto(method(*cmd[1:]), addr)
             else:
                 self.logger.warning(
-                    " (agent@{0}) Received invalid command {1} from {2}",
+                    u" (agent@{0}) Received invalid command {1} from {2}",
                     self.port, cmd, addr
                 )
-        self.logger.debug(" (agent@{0}) Stopped", self.port)
+        self.logger.debug(u" (agent@{0}) Stopped", self.port)
 
     def _cmd_get_env(self, env_id):
         return self.envs.get(env_id, None)
@@ -1193,7 +1193,11 @@ class Logger(object):
     def log(self, level, format, *params):
         if level <= self.level:
             msg = format.format(*params)
-            print(u"{0}{1}".format(self.indent, msg))
+            output = u"{0}{1}\n".format(self.indent, msg)
+            if sys.version_info.major == 2:
+                sys.stdout.write(output.encode("utf-8", "ignore"))
+            else:
+                sys.stdout.write(output)
             sys.stdout.flush()
 
 class LogLevel(object):
