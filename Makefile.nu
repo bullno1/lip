@@ -68,7 +68,7 @@ LINK_FLAGS ?= -g ${COMMON_FLAGS} ${UBSAN_LINK_FLAGS} ${ASAN_LINK_FLAGS}
 -import cpp.nu
 -include src/dbg-client
 
-all: tests bin/lip doc ! live
+all: tests doc ! live
 
 doc: ! live
 	doxygen

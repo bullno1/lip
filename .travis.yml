@@ -11,21 +11,26 @@ addons:
       - g++-5
       - clang-3.8
       - ninja-build
+      - doxygen
 env:
-  - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5 --std=c++11 -fuse-ld=gold' WITH_COVERAGE=1 WITH_THREADING=0 WITH_COMPUTED_GOTO=1 BUILD_DYNAMIC_LIB=0
-  - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5 --std=c++11 -fuse-ld=gold' WITH_COVERAGE=1 WITH_THREADING=1 WITH_COMPUTED_GOTO=1 BUILD_DYNAMIC_LIB=0
-  - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5 --std=c++11 -fuse-ld=gold' WITH_COVERAGE=1 WITH_THREADING=0 WITH_COMPUTED_GOTO=1 BUILD_DYNAMIC_LIB=1
-  - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5 --std=c++11 -fuse-ld=gold' WITH_COVERAGE=1 WITH_THREADING=1 WITH_COMPUTED_GOTO=1 BUILD_DYNAMIC_LIB=1
-  - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5 --std=c++11 -fuse-ld=gold' WITH_COVERAGE=1 WITH_THREADING=1 WITH_COMPUTED_GOTO=0 BUILD_DYNAMIC_LIB=1
-  - COMPILER=clang CC='clang-3.8 -Wno-error=unused-command-line-argument' CXX='clang++-3.8 --std=c++11 -Wno-error=unused-command-line-argument' WITH_COVERAGE=0 WITH_THREADING=0 WITH_COMPUTED_GOTO=1 BUILD_DYNAMIC_LIB=0
-  - COMPILER=clang CC='clang-3.8 -Wno-error=unused-command-line-argument' CXX='clang++-3.8 --std=c++11 -Wno-error=unused-command-line-argument' WITH_COVERAGE=0 WITH_THREADING=1 WITH_COMPUTED_GOTO=1 BUILD_DYNAMIC_LIB=0
-  - COMPILER=clang CC='clang-3.8 -Wno-error=unused-command-line-argument' CXX='clang++-3.8 --std=c++11 -Wno-error=unused-command-line-argument' WITH_COVERAGE=0 WITH_THREADING=0 WITH_COMPUTED_GOTO=1 BUILD_DYNAMIC_LIB=1
-  - COMPILER=clang CC='clang-3.8 -Wno-error=unused-command-line-argument' CXX='clang++-3.8 --std=c++11 -Wno-error=unused-command-line-argument' WITH_COVERAGE=0 WITH_THREADING=1 WITH_COMPUTED_GOTO=1 BUILD_DYNAMIC_LIB=1
-  - COMPILER=clang CC='clang-3.8 -Wno-error=unused-command-line-argument' CXX='clang++-3.8 --std=c++11 -Wno-error=unused-command-line-argument' WITH_COVERAGE=0 WITH_THREADING=1 WITH_COMPUTED_GOTO=0 BUILD_DYNAMIC_LIB=1
+  global:
+    - WITH_COVERAGE=1
+    - WITH_LTO=0
+    - WITH_UBSAN=1
+    - WITH_ASAN=1
+  matrix:
+    - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5 --std=c++11 -fuse-ld=gold' WITH_THREADING=0 WITH_COMPUTED_GOTO=1 BUILD_DYNAMIC_LIB=0
+    - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5 --std=c++11 -fuse-ld=gold' WITH_THREADING=0 WITH_COMPUTED_GOTO=0 BUILD_DYNAMIC_LIB=0
+    - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5 --std=c++11 -fuse-ld=gold' WITH_THREADING=1 WITH_COMPUTED_GOTO=0 BUILD_DYNAMIC_LIB=1
+    - COMPILER=gcc CC='gcc-5 -fuse-ld=gold' CXX='g++-5 --std=c++11 -fuse-ld=gold' WITH_THREADING=1 WITH_COMPUTED_GOTO=1 BUILD_DYNAMIC_LIB=1
+    - COMPILER=clang CC='clang-3.8 -Wno-error=unused-command-line-argument' CXX='clang++-3.8 --std=c++11 -Wno-error=unused-command-line-argument' WITH_COMPUTED_GOTO=1 BUILD_DYNAMIC_LIB=0
+    - COMPILER=clang CC='clang-3.8 -Wno-error=unused-command-line-argument' CXX='clang++-3.8 --std=c++11 -Wno-error=unused-command-line-argument' WITH_COMPUTED_GOTO=1 BUILD_DYNAMIC_LIB=1
+    - COMPILER=clang CC='clang-3.8 -Wno-error=unused-command-line-argument' CXX='clang++-3.8 --std=c++11 -Wno-error=unused-command-line-argument' WITH_COMPUTED_GOTO=0 BUILD_DYNAMIC_LIB=0
+    - COMPILER=clang CC='clang-3.8 -Wno-error=unused-command-line-argument' CXX='clang++-3.8 --std=c++11 -Wno-error=unused-command-line-argument' WITH_COMPUTED_GOTO=0 BUILD_DYNAMIC_LIB=1
 install:
   - pip install --user cpp-coveralls
 script:
-  - ./numake tests WITH_LTO=0 WITH_UBSAN=1 WITH_ASAN=1
+  - ./numake
 after_success:
   - if [ "$COMPILER" = "gcc" ]; then coveralls --root . --build-root . --exclude .build/*/src/tests --exclude .build/*/src/lip/vendor --exclude .build/*/src/lip/khash_impl.c ; fi
 sudo: required
