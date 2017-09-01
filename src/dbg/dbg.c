@@ -1002,7 +1002,7 @@ lip_dbg_hook(
 		has_loc = memcmp(&location, &LIP_LOC_NOWHERE, sizeof(location)) != 0;
 	}
 
-	bool can_break;
+	bool can_break = false;
 	switch(dbg->cmd.type)
 	{
 		case LIP_DBG_BREAK:
