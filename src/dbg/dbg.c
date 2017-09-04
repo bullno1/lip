@@ -1,12 +1,12 @@
-#include "dbg.h"
+#include <lip/dbg.h>
 #include <inttypes.h>
-#include <lip/memory.h>
-#include <lip/io.h>
-#include <lip/vm.h>
-#include <lip/array.h>
-#include <lip/print.h>
-#include <lip/asm.h>
-#include <cmp.h>
+#include <lip/core/memory.h>
+#include <lip/core/io.h>
+#include <lip/core/vm.h>
+#include <lip/core/array.h>
+#include <lip/core/print.h>
+#include <lip/core/asm.h>
+#include <cmp/cmp.h>
 
 #if LIP_DBG_EMBED_RESOURCES == 1
 #	include <index.html.h>
@@ -43,7 +43,6 @@ struct lip_dbg_s
 {
 	lip_vm_hook_t vtable;
 	lip_dbg_config_t cfg;
-	bool own_fs;
 	struct wby_server server;
 	struct lip_dbg_cmd_s cmd;
 	lip_context_t* ctx;
@@ -1058,16 +1057,6 @@ lip_dbg_hook(
 	}
 }
 
-void
-lip_reset_dbg_config(lip_dbg_config_t* cfg)
-{
-	*cfg = (lip_dbg_config_t){
-		.allocator = lip_default_allocator,
-		.port = 8081,
-		.hook_step = true
-	};
-}
-
 lip_dbg_t*
 lip_create_debugger(lip_dbg_config_t* cfg)
 {
@@ -1078,18 +1067,12 @@ lip_create_debugger(lip_dbg_config_t* cfg)
 			.error = lip_dbg_hook
 		},
 		.cfg = *cfg,
-		.own_fs = cfg->fs == NULL,
 		.cmd = { .type = LIP_DBG_BREAK },
 		.char_buf = lip_array_create(cfg->allocator, char, 64),
 		.msg_buf = lip_array_create(cfg->allocator, char, 1024),
 		.ws_ids = lip_array_create(cfg->allocator, uintptr_t, 1),
 		.next_ws_id = 1
 	};
-
-	if(dbg->own_fs)
-	{
-		dbg->cfg.fs = lip_create_native_fs(cfg->allocator);
-	}
 
 	struct wby_config wby_config = {
 		.address = "127.0.0.1",
@@ -1116,11 +1099,6 @@ void
 lip_destroy_debugger(lip_dbg_t* dbg)
 {
 	wby_stop(&dbg->server);
-	if(dbg->own_fs)
-	{
-		lip_destroy_native_fs(dbg->cfg.fs);
-	}
-
 	lip_array_destroy(dbg->ws_ids);
 	lip_array_destroy(dbg->msg_buf);
 	lip_array_destroy(dbg->char_buf);

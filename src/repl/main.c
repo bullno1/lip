@@ -1,125 +1,299 @@
 #include <stdlib.h>
-#include <string.h>
-#include <lip/config.h>
-#include <lip/lip.h>
-#include <lip/io.h>
-#include <cargo.h>
-#include "common.h"
-#include "run.h"
-#include "compile.h"
-#include "inspect.h"
+#include <lip/core.h>
+#include <lip/core/memory.h>
+#include <lip/core/print.h>
+#include <lip/std/runtime.h>
+#include <lip/std/io.h>
+#include <lip/std/lib.h>
+#include <lip/dbg.h>
+#include <linenoise/linenoise.h>
+#include <linenoise/encodings/utf8.h>
+#ifdef _WIN32
+#include <io.h>
+#define isatty _isatty
+#define fileno _fileno
+#else
+#include <unistd.h>
+#endif
+
+#define OPTPARSE_IMPLEMENTATION
+#define OPTPARSE_API static
+#include <optparse/optparse.h>
+#include "../cli.h"
 
 #define quit(code) exit_code = code; goto quit;
+
+typedef struct repl_context_s repl_context_t;
+
+struct repl_context_s
+{
+	lip_repl_handler_t vtable;
+	lip_context_t* ctx;
+	lip_vm_t* vm;
+	char* line_buff;
+	size_t read_pos;
+	size_t buff_len;
+};
+
+const struct optparse_long opts[] = {
+	{ "help", 'h', OPTPARSE_NONE },
+	{ "version", 'v', OPTPARSE_NONE },
+	{ "interactive", 'i', OPTPARSE_NONE },
+	{ "debug", 'd', OPTPARSE_OPTIONAL },
+	{ "execute", 'e', OPTPARSE_REQUIRED },
+	{ 0 }
+};
+
+const char* help[] = {
+	NULL, "Print this message",
+	NULL, "Show version information",
+	NULL, "Enter interactive mode after executing `script`",
+	"off|step|error", "Enable debugger (default: 'step')",
+	"string", "Execute `string`",
+};
+
+static void
+show_usage()
+{
+	fprintf(stderr, "Usage: lip [options] [--] [script]\n");
+	fprintf(stderr, "Available options:\n");
+	show_options(opts, help);
+}
+
+static size_t
+repl_read(lip_repl_handler_t* vtable, void* buff, size_t size)
+{
+	struct repl_context_s* repl = LIP_CONTAINER_OF(vtable, struct repl_context_s, vtable);
+
+	if(repl->read_pos >= repl->buff_len)
+	{
+		char* line;
+		for(;;)
+		{
+			line = linenoise("lip> ");
+
+			if(line == 0)
+			{
+				return 0;
+			}
+			else if(line[0] == '\0')
+			{
+				free(line);
+			}
+			else
+			{
+				break;
+			}
+		}
+
+		linenoiseHistoryAdd(line);
+
+		size_t line_length = strlen(line);
+		if(line_length + 1 > repl->buff_len)
+		{
+			repl->line_buff = realloc(repl->line_buff, line_length + 1);
+		}
+		memcpy(repl->line_buff, line, line_length);
+		repl->line_buff[line_length] = '\n';
+		repl->read_pos = 0;
+		repl->buff_len = line_length + 1;
+		free(line);
+	}
+
+	size_t num_bytes_to_read = LIP_MIN(repl->buff_len - repl->read_pos, size);
+	memcpy(buff, &repl->line_buff[repl->read_pos], num_bytes_to_read);
+	repl->read_pos += num_bytes_to_read;
+	return num_bytes_to_read;
+}
+
+static void
+repl_print(lip_repl_handler_t* vtable, lip_exec_status_t status, lip_value_t result)
+{
+	repl_context_t* repl = LIP_CONTAINER_OF(vtable, repl_context_t, vtable);
+	switch(status)
+	{
+	case LIP_EXEC_OK:
+		if(result.type != LIP_VAL_NIL)
+		{
+			lip_print_value(5, 0, lip_stdout(), result);
+		}
+		break;
+	case LIP_EXEC_ERROR:
+		lip_print_error(lip_stderr(), repl->ctx);
+		break;
+	}
+}
+
+bool
+repl_run_script(
+	lip_context_t* ctx,
+	lip_vm_t* vm,
+	lip_string_ref_t filename,
+	lip_in_t* input
+)
+{
+	lip_script_t* script = lip_load_script(ctx, filename, input);
+	if(!script)
+	{
+		lip_print_error(lip_stderr(), ctx);
+		return false;
+	}
+
+	lip_value_t result;
+	bool success = lip_exec_script(vm, script, &result) == LIP_EXEC_OK;
+	if(!success) { lip_print_error(lip_stderr(), ctx); }
+	lip_unload_script(ctx, script);
+
+	return success;
+}
 
 int
 main(int argc, char* argv[])
 {
-	int exit_code = EXIT_FAILURE;
-	cargo_t cargo;
-	if(cargo_init(&cargo, 0, argv[0]))
+	(void)argc;
+	int exit_code = EXIT_SUCCESS;
+
+	const char* debug_mode = "off";
+	bool interactive = false;
+	const char* exec_string = NULL;
+	const char* script_filename = NULL;
+
+	lip_runtime_config_t* config = NULL;
+	lip_runtime_t* runtime = NULL;
+	lip_context_t* ctx = NULL;
+	lip_vm_t* vm = NULL;
+	lip_dbg_t* dbg = NULL;
+
+    int option;
+    struct optparse options;
+    optparse_init(&options, argv);
+
+    while((option = optparse_long(&options, opts, NULL)) != -1)
 	{
-		return EXIT_FAILURE;
+		switch(option)
+		{
+			case 'h':
+				show_usage();
+				quit(EXIT_SUCCESS);
+				break;
+			case 'v':
+				printf("lip %s\n", LIP_VERSION);
+				quit(EXIT_SUCCESS);
+				break;
+			case '?':
+				fprintf(stderr, "lip: %s\n", options.errmsg);
+				quit(EXIT_FAILURE);
+				break;
+			case 'i':
+				interactive = true;
+				break;
+			case 'd':
+				debug_mode = options.optarg ? options.optarg : "step";
+				break;
+			case 'e':
+				exec_string = options.optarg;
+				break;
+		}
 	}
 
-	int show_version = false;
-	struct repl_common_s common = {
-		.argc = argc,
-		.argv = argv
+	script_filename = optparse_arg(&options);
+
+	config = lip_create_std_runtime_config(NULL);
+	runtime = lip_create_runtime(config);
+	ctx = lip_create_context(runtime, NULL);
+	vm = lip_create_vm(ctx, NULL);
+	lip_load_stdlib(ctx);
+
+	lip_dbg_config_t dbg_conf = {
+		.allocator = config->allocator,
+		.fs = config->fs,
+		.port = 8081
 	};
-	struct repl_run_opts_s run_opts;
-	struct repl_compile_opts_s compile_opts;
-	struct repl_inspect_opts_s inspect_opts;
 
-	lip_reset_runtime_config(&common.cfg);
-
-	cargo_add_option(
-		cargo, 0,
-		"--version -v", "Show version information", "b",
-		&show_version
-	);
-	cargo_add_mutex_group(cargo, 0, "mode", "Operation mode", NULL);
-
-	repl_init_run_opts(cargo, &run_opts);
-	repl_init_compile_opts(cargo, &compile_opts);
-	repl_init_inspect_opts(cargo, &inspect_opts);
-
-	cargo_add_option(
-		cargo, CARGO_OPT_NOT_REQUIRED | CARGO_OPT_STOP,
-		"script", "Script file to compile/execute/inspect", "s",
-		&common.script_filename
-	);
-	cargo_set_metavar(cargo, "script", "script");
-
-	cargo_parse_result_t parse_result = cargo_parse(cargo, 0, 1, argc, argv);
-	cargo_destroy(&cargo);
-	switch(parse_result)
+	if(strcmp(debug_mode, "step") == 0)
 	{
-		case CARGO_PARSE_OK:
-			break;
-		case CARGO_PARSE_SHOW_HELP:
-			quit(EXIT_SUCCESS);
-		default:
-			quit(EXIT_FAILURE);
+		dbg_conf.hook_step = true;
 	}
-
-	if(show_version)
+	else if(strcmp(debug_mode, "error") == 0)
 	{
-		lip_printf(
-			lip_stdout(),
-			"lip %s [threading-api:%s]\n"
-			"\n"
-			"Compiler: %s\n"
-			"Linker: %s\n"
-			"Compile flags: %s\n"
-			"Link flags: %s\n"
-			"\n",
-			LIP_VERSION, LIP_THREADING_API,
-			LIP_COMPILER, LIP_LINKER,
-			LIP_COMPILE_FLAGS, LIP_LINK_FLAGS
-		);
+		dbg_conf.hook_step = false;
 	}
-
-	int num_modes = 0;
-	if(repl_run_mode_activated(&run_opts)) { ++num_modes; }
-	if(repl_compile_mode_activated(&compile_opts)) { ++num_modes; }
-	if(repl_inspect_mode_activated(&inspect_opts)) { ++num_modes; }
-
-	if(num_modes > 1)
+	else if(strcmp(debug_mode, "off"))
 	{
-		lip_printf(
-			lip_stderr(), "Cannot operate in multiple modes at the same time"
-		);
+		fprintf(stderr, "lip: Invalid debug mode: '%s'\n", debug_mode);
+		show_usage();
 		quit(EXIT_FAILURE);
 	}
 
-	if(show_version && num_modes == 0) { quit(EXIT_SUCCESS); }
-
-	common.runtime = lip_create_runtime(&common.cfg);
-	common.context = lip_create_context(common.runtime, NULL);
-
-	if(repl_compile_mode_activated(&compile_opts))
+	if(strcmp(debug_mode, "off"))
 	{
-		quit(repl_compile(&common, &compile_opts));
+		dbg = lip_create_debugger(&dbg_conf);
+		lip_attach_debugger(dbg, vm);
 	}
-	else if(repl_inspect_mode_activated(&inspect_opts))
+
+	if(exec_string)
 	{
-		quit(repl_inspect(&common, &inspect_opts));
+		lip_string_ref_t cmdline_str_ref = lip_string_ref(exec_string);
+		struct lip_isstream_s sstream;
+
+		lip_in_t* input = lip_make_isstream(cmdline_str_ref, &sstream);
+		if(!repl_run_script(ctx, vm, lip_string_ref("<cmdline>"), input))
+		{
+			quit(EXIT_FAILURE);
+		}
+	}
+
+	if(exec_string && !(interactive || script_filename))
+	{
+		quit(EXIT_SUCCESS);
+	}
+
+	if(script_filename)
+	{
+		if(!repl_run_script(
+			ctx, vm, lip_string_ref(script_filename), NULL
+		))
+		{
+			quit(EXIT_FAILURE);
+		}
+	}
+
+	if(script_filename && !interactive)
+	{
+		quit(EXIT_SUCCESS);
+	}
+
+	if(isatty(fileno(stdin)) || interactive)
+	{
+		linenoiseSetMultiLine(1);
+		linenoiseSetEncodingFunctions(
+			linenoiseUtf8PrevCharLen,
+			linenoiseUtf8NextCharLen,
+			linenoiseUtf8ReadCode
+		);
+
+		struct repl_context_s repl_context = {
+			.read_pos = 1,
+			.ctx = ctx,
+			.vm = vm,
+			.vtable = { .read = repl_read, .print = repl_print }
+		};
+		lip_repl(vm, lip_string_ref("<stdin>"), &repl_context.vtable);
+		free(repl_context.line_buff);
 	}
 	else
 	{
-		quit(repl_run(&common, &run_opts));
+		bool status = repl_run_script(
+			ctx, vm, lip_string_ref("<stdin>"), lip_stdin()
+		);
+		exit_code = status ? EXIT_SUCCESS : EXIT_FAILURE;
 	}
 
 quit:
-	free(common.script_filename);
-	repl_cleanup_inspect_opts(&inspect_opts);
-	repl_cleanup_compile_opts(&compile_opts);
-	repl_cleanup_run_opts(&run_opts);
-	if(common.runtime)
-	{
-		lip_destroy_context(common.context);
-		lip_destroy_runtime(common.runtime);
-	}
-
+	if(config) { lip_destroy_std_runtime_config(config); }
+	if(vm) { lip_destroy_vm(ctx, vm); }
+	if(ctx) { lip_destroy_context(ctx); }
+	if(runtime) { lip_destroy_runtime(runtime); }
+	if(dbg) { lip_destroy_debugger(dbg); }
 	return exit_code;
 }

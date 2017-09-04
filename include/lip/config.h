@@ -5,10 +5,12 @@
 #	include "gen/config.h"
 #else
 #	define LIP_VERSION "0.1"
-#	define LIP_COMPILE_FLAGS ""
-#	define LIP_LINK_FLAGS ""
-#	define LIP_COMPILER ""
-#	define LIP_LINKER ""
+#endif
+
+#ifdef __cplusplus
+#	define LIP_LINKAGE extern "C"
+#else
+#	define LIP_LINKAGE extern
 #endif
 
 #if defined(LIP_SINGLE_THREADED)

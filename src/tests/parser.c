@@ -1,8 +1,8 @@
-#include <lip/parser.h>
-#include <lip/lexer.h>
-#include <lip/memory.h>
-#include <lip/io.h>
-#include <lip/array.h>
+#include <lip/core/parser.h>
+#include <lip/core/lexer.h>
+#include <lip/core/memory.h>
+#include <lip/core/io.h>
+#include <lip/core/array.h>
 #include "munit.h"
 #include "test_helpers.h"
 

@@ -1,10 +1,10 @@
-#include <lip/lip.h>
-#include <lip/vm.h>
-#include <lip/asm.h>
-#include <lip/memory.h>
-#include <lip/print.h>
-#include <lip/io.h>
-#include <lip/arena_allocator.h>
+#include <lip/core.h>
+#include <lip/core/vm.h>
+#include <lip/core/asm.h>
+#include <lip/core/memory.h>
+#include <lip/core/print.h>
+#include <lip/core/io.h>
+#include <lip/core/arena_allocator.h>
 #include "munit.h"
 #include "test_helpers.h"
 
@@ -60,7 +60,7 @@ lip_vm_destroy(lip_allocator_t* allocator, lip_vm_t* vm)
 
 static MunitResult
 fibonacci(const MunitParameter params[], void* fixture)
-{
+{f
 	(void)params;
 	(void)fixture;
 
@@ -293,22 +293,16 @@ static MunitTest tests[] = {
 	{
 		.name = "/fibonacci",
 		.test = fibonacci,
-		.setup = NULL,
-		.tear_down = NULL
 	},
 	{
 		.name = "/error",
 		.test = error,
-		.setup = NULL,
-		.tear_down = NULL
 	},
 	{
 		.name = "/call_native",
 		.test = call_native,
-		.setup = NULL,
-		.tear_down = NULL
 	},
-	{ .test = NULL }
+	{ 0 }
 };
 
 MunitSuite vm = {
